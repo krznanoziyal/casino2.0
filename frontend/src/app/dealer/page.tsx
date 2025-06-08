@@ -245,8 +245,11 @@ export default function DealerPage() {
       </motion.div>
     )
   }
-
-  const warPlayers = Object.entries(gameState.players).filter(([_, player]) => player.status === 'war')
+  
+  //THIS CODE SNIPPET CHANGE MADE SURE WAR PLAYERS ARE LISTED IN THE DROP DOWN
+  const warPlayers = gameState.war_round && gameState.war_round.players
+  ? Object.entries(gameState.war_round.players)
+  : [];
 
   return (
     <div className="min-h-screen p-6">
@@ -695,22 +698,7 @@ export default function DealerPage() {
                     </div>
                   )}
 
-                  {playerData.status === 'waiting_choice' && (
-                    <div className="mt-3 space-y-2">
-                      <button 
-                        onClick={() => sendMessage({ action: 'player_choice', player_id: playerId, choice: 'war' })}
-                        className="w-full bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg text-sm transition-colors"
-                      >
-                        ⚔️ WAR
-                      </button>
-                      <button 
-                        onClick={() => sendMessage({ action: 'player_choice', player_id: playerId, choice: 'surrender' })}
-                        className="w-full bg-gray-600 hover:bg-gray-700 text-white px-3 py-2 rounded-lg text-sm transition-colors"
-                      >
-                        🏳️ SURRENDER
-                      </button>
-                    </div>
-                  )}
+                  {playerData.status === 'waiting_choice' }
                 </motion.div>
               ))}
 
@@ -758,10 +746,12 @@ export default function DealerPage() {
       `}</style>
       <style jsx global>{`
         body {
-          background: radial-gradient(circle, #144d14, #000000);
+          background: radial-gradient(circle,rgb(78, 197, 78),rgb(14, 14, 14));
           color: #fff;
         }
       `}</style>
     </div>
   )
 }
+
+
