@@ -1,0 +1,37 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background-attachment: fixed;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-white text-black rounded-lg shadow-lg border-2 border-gray-300 font-bold text-center relative overflow-hidden;
+  }
+
+  .card-back {
+    @apply bg-gradient-to-br from-blue-900 to-red-900 border-2 border-yellow-400;
+    background-image: repeating-linear-gradient(45deg,
+        transparent,
+        transparent 10px,
+        rgba(255, 255, 255, 0.1) 10px,
+        rgba(255, 255, 255, 0.1) 20px);
+  }
+
+  .dealer-button {
+    @apply bg-gradient-to-r from-casino-gold to-yellow-500 text-black px-6 py-3 rounded-lg font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 border-2 border-yellow-600;
+  }
+
+  .danger-button {
+    @apply bg-gradient-to-r from-red-600 to-red-700 text-white px-4 py-2 rounded-lg font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200;
+  }
+
+  .success-button {
+    @apply bg-gradient-to-r from-green-600 to-green-700 text-white px-4 py-2 rounded-lg font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200;
+  }
+}
