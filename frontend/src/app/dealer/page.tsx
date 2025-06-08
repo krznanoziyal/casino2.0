@@ -267,6 +267,51 @@ export default function DealerPage() {
         </div>
       </div> */}
 
+
+      {/* Player Management + Connection Status */}
+      <div className="relative">
+        {/* Connection Status in top right */}
+        <div className="absolute top-4 right-4 z-10">
+          <div className={`px-4 py-2 rounded-full flex items-center gap-2 ${connected ? 'bg-green-500/20 border border-green-500 text-green-400' : 'bg-red-500/20 border border-red-500 text-red-400'}`}>
+        <div className={`w-3 h-3 rounded-full ${connected ? 'bg-green-400' : 'bg-red-400'} animate-pulse`}></div>
+        {connected ? 'Connected' : 'Disconnected'}
+          </div>
+        </div>
+        <div className="bg-black/40 backdrop-blur-sm border border-casino-gold rounded-xl p-6 mb-6">
+          <h2 className="text-xl font-bold text-casino-gold mb-4">Player Management</h2>
+          <div className="flex gap-4 justify-center">
+        {Array.from({ length: 6 }, (_, i) => i + 1).map((seatNumber) => {
+          const playerId = seatNumber.toString();
+          const isActive = gameState.players[playerId] !== undefined;
+          return (
+            <button
+          key={seatNumber}
+          onClick={() => {
+            if (isActive) {
+              sendMessage({ action: "remove_player", player_id: playerId });
+              addNotification(`Seat ${seatNumber} deactivated`);
+            } else {
+              sendMessage({ action: "add_player", player_id: playerId });
+              addNotification(`Seat ${seatNumber} activated`);
+            }
+          }}
+          className={`flex flex-col items-center justify-center border-2 rounded-xl p-4 transition-all duration-200 ${
+            isActive 
+              ? "bg-green-800 border-green-400 shadow-lg shadow-green-400/20"
+              : "bg-gray-800 border-gray-600 hover:border-gray-400"
+          }`}
+            >
+          <div className="text-4xl mb-2">
+            {isActive ? "🟢" : "⚫"}
+          </div>
+          <div className="text-lg font-bold text-white">Seat {seatNumber}</div>
+            </button>
+          );
+        })}
+          </div>
+        </div>
+      </div>
+
       {/* Notifications */}
       <AnimatePresence>
         {notifications.map((notification, index) => (
@@ -343,7 +388,7 @@ export default function DealerPage() {
           </div>
 
           {/* Player Management */}
-          <div className="bg-black/40 backdrop-blur-sm border border-casino-gold rounded-xl p-6 mb-6">
+          {/* <div className="bg-black/40 backdrop-blur-sm border border-casino-gold rounded-xl p-6 mb-6">
             <h2 className="text-xl font-bold text-casino-gold mb-4">Player Management</h2>
             <div className="grid grid-cols-3 gap-4">
               {Array.from({ length: 6 }, (_, i) => i + 1).map((seatNumber) => {
@@ -375,7 +420,7 @@ export default function DealerPage() {
                 );
               })}
             </div>
-          </div>
+          </div> */}
 
           {/* Settings */}
           {/* <div className="bg-black/40 backdrop-blur-sm border border-casino-gold rounded-xl p-6">
@@ -683,16 +728,16 @@ export default function DealerPage() {
 
       <style jsx>{`
         .card {
-          background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-          border: 2px solid #333;
+          background: linear-gradient(135deg, #2c4b2e 0%, #1d3323 100%);
+          border: 2px solid #d4af37;
           border-radius: 8px;
-          box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+          box-shadow: 0 4px 8px rgba(0, 0, 0, 0.8);
         }
         
         .card-back {
-          background: linear-gradient(135deg, #1a365d 0%, #2d3748 50%, #1a365d 100%);
+          background: linear-gradient(135deg, #0b1e0b 0%, #0a150a 100%);
           border: 2px solid #d4af37;
-          box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+          box-shadow: 0 4px 8px rgba(0, 0, 0, 0.8);
         }
         
         .dealer-button {
@@ -709,6 +754,12 @@ export default function DealerPage() {
         
         .animate-spin-slow {
           animation: spin 3s linear infinite;
+        }
+      `}</style>
+      <style jsx global>{`
+        body {
+          background: radial-gradient(circle, #144d14, #000000);
+          color: #fff;
         }
       `}</style>
     </div>
