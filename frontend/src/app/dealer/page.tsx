@@ -542,7 +542,7 @@ export default function DealerPage() {
                   )}
                 </div>
                 {/* Only show dealer card assignment input in live mode if round is active OR round is not active (before cards dealt) */}
-                {gameState.game_mode === 'live' && (!gameState.round_active || gameState.round_active) && (
+                {gameState.game_mode === 'live' && (gameState.round_active || !gameState.dealer_card) && (
                   <div className="mt-4">
                     <input 
                       type="text" 
@@ -796,7 +796,7 @@ export default function DealerPage() {
                       </div>
                     )}
 
-                    {gameState.game_mode === 'live' && (gameState.round_active || !playerData.card) && (
+                    {gameState.game_mode === 'live' && (gameState.round_active || !playerData.card) && (!gameState.war_round || gameState.war_round_active || !gameState.war_round.original_cards) && !playerData.result && (
                       <div className="mt-3 space-y-2">
                         <input 
                           type="text" 
