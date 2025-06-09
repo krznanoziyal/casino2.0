@@ -208,6 +208,25 @@ export default function DisplayPage() {
         }))
         addNotification(`Card manually assigned to player ${data.player_id}`)
         break
+      case 'war_card_assigned':
+        setGameState(prev => ({
+          ...prev,
+          war_round: {
+            dealer_card: data.target === 'dealer'
+              ? data.card
+              : prev.war_round?.dealer_card ?? null,
+            players: {
+              ...((prev.war_round && prev.war_round.players) || {}),
+              ...(data.target === 'player' && data.player_id
+                ? { [data.player_id]: data.card }
+                : {})
+            }
+          }
+        }));
+        addNotification(
+          `War card ${data.card} assigned to ${data.target === 'dealer' ? 'Dealer' : 'Player ' + data.player_id}`
+        );
+        break;
     }
   }
 

@@ -7,13 +7,13 @@ import random
 import time
 
 # MongoDB setup
-MONGO_URI = "mongodb://localhost:27017"
-DB_NAME = "casino_war_db"
-COLLECTION_NAME = "game_results"
+# MONGO_URI = "mongodb://localhost:27017"
+# DB_NAME = "casino_war_db"
+# COLLECTION_NAME = "game_results"
 
-client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_URI)
-db = client[DB_NAME]
-results_collection = db[COLLECTION_NAME]
+# client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_URI)
+# db = client[DB_NAME]
+# results_collection = db[COLLECTION_NAME]
 
 connected_clients = set()
 dealer_clients = set()
@@ -37,7 +37,7 @@ game_state = {
     "table_number": 1,
     "min_bet": 10,
     "max_bet": 1000,
-    "player_results": {},  # {player_id: last_result} for display screen
+    "player_results": {},  # {player_id: last_result} for display screen    
     "auto_task": None,  # For automatic mode task
     "auto_round_delay": 5,  # Seconds between automatic rounds
     "auto_choice_delay": 3,  # Seconds to wait for player choices before auto-surrender
@@ -393,34 +393,30 @@ async def start_war_round(war_players):
     })
     
 async def handle_assign_war_card(target, card, player_id=None):
-    if not game_state.get("war_round_active"):
-        await broadcast_to_dealers({
-            "action": "error",
-            "message": "No war round active"
-        })
+    # Only allow if war round is active
+    if not game_state.get("war_round_active") or not game_state.get("war_round"):
         return
 
+    # Assign the card to the correct target in war_round
     if target == "dealer":
         game_state["war_round"]["dealer_card"] = card
+        # Broadcast to all clients that dealer's war card is assigned
         await broadcast_to_all({
-            "action": "dealer_war_card_set",
-            "card": card,
-            "message": "Dealer war card manually set"
+            "action": "war_card_assigned",
+            "target": "dealer",
+            "card": card
         })
-    elif target == "player":
-        if not player_id or player_id not in game_state["war_round"]["players"]:
-            await broadcast_to_dealers({
-                "action": "error",
-                "message": f"Player {player_id} is not in war round."
+    elif target == "player" and player_id:
+        if player_id in game_state["war_round"]["players"]:
+            game_state["war_round"]["players"][player_id] = card
+            # Broadcast to all clients that player's war card is assigned
+            await broadcast_to_all({
+                "action": "war_card_assigned",
+                "target": "player",
+                "card": card,
+                "player_id": player_id
             })
-            return
-        game_state["war_round"]["players"][player_id] = card
-        await broadcast_to_all({
-            "action": "player_war_card_set",
-            "player_id": player_id,
-            "card": card,
-            "message": f"War card manually assigned to player {player_id}"
-        })
+    # Optionally: you could trigger war round evaluation here if all cards are assigned
 
 async def evaluate_war_round():
     war = game_state.get("war_round", {})
@@ -462,20 +458,20 @@ async def complete_round():
     game_state["round_active"] = False
     
     # Save results to database
-    for player_id, player_data in game_state["players"].items():
-        if player_data["result"]:
-            result_record = {
-                "round_number": game_state["round_number"],
-                "player_id": player_id,
-                "player_card": player_data["card"],
-                "war_card": player_data.get("war_card"),
-                "dealer_card": game_state["dealer_card"],
-                "result": player_data["result"],
-                "timestamp": datetime.utcnow(),
-                "table_number": game_state["table_number"],
-                "game_mode": game_state["game_mode"]
-            }
-            await results_collection.insert_one(result_record)
+    # for player_id, player_data in game_state["players"].items():
+    #     if player_data["result"]:
+    #         result_record = {
+    #             "round_number": game_state["round_number"],
+    #             "player_id": player_id,
+    #             "player_card": player_data["card"],
+    #             "war_card": player_data.get("war_card"),
+    #             "dealer_card": game_state["dealer_card"],
+    #             "result": player_data["result"],
+    #             "timestamp": datetime.utcnow(),
+    #             "table_number": game_state["table_number"],
+    #             "game_mode": game_state["game_mode"]
+    #         }
+    #         await results_collection.insert_one(result_record)
     
     await broadcast_to_all({
         "action": "round_completed",
@@ -554,7 +550,12 @@ async def handle_reset_game():
         "players": {},
         "round_active": False,
         "round_number": 0,
-        "player_results": {}
+        "player_results": {},
+        "war_round_active": False,     # Reset war round flag
+        "war_round": {                 # Reset war round state
+            "dealer_card": None,
+            "players": {}
+        }
     })
     
     await broadcast_to_all({
@@ -723,25 +724,22 @@ async def broadcast_to_player(player_id, message):
         except websockets.ConnectionClosed:
             del player_clients[player_id]
 
-async def delete_recent_result():
-    """Deletes the most recent game result from MongoDB."""
-    last_result = await results_collection.find_one(sort=[("timestamp", -1)])
-    if last_result:
-        result = await results_collection.delete_one({"_id": last_result["_id"]})
-        if result.deleted_count > 0:
-            await broadcast_to_dealers({
-                "action": "result_deleted",
-                "deleted_result": last_result
-            })
+# async def delete_recent_result():
+#     """Deletes the most recent game result from MongoDB."""
+#     # last_result = await results_collection.find_one(sort=[("timestamp", -1)])
+#     # if last_result:
+#     #     result = await results_collection.delete_one({"_id": last_result["_id"]})
+#     #     if result.deleted_count > 0:
+#     #         pass
 
-async def delete_all_results():
-    """Deletes all game results from MongoDB."""
-    result = await results_collection.delete_many({})
-    if result.deleted_count > 0:
-        await broadcast_to_dealers({
-            "action": "all_results_deleted",
-            "deleted_count": result.deleted_count
-        })
+# async def delete_all_results():
+#     """Deletes all game results from MongoDB."""
+#     # result = await results_collection.delete_many({})
+#     # if result.deleted_count > 0:
+#     #     await broadcast_to_dealers({
+#     #         "action": "all_results_deleted",
+#     #         "deleted_count": result.deleted_count
+#     #     })
 
 async def main():
     """Starts the WebSocket server."""

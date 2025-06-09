@@ -205,6 +205,24 @@ export default function DealerPage() {
         }))
         addNotification(`Card manually assigned to player ${data.player_id}`)
         break
+        case 'war_card_assigned':
+          setGameState(prev => ({
+            ...prev,
+            war_round: {
+              // If the message indicates the dealer's war card, update that; otherwise keep what was there
+              dealer_card: data.target === 'dealer' ? data.card : (prev.war_round?.dealer_card ?? null),
+              players: {
+                ...prev.war_round?.players,
+                // For player assignments use data.player_id (if provided)
+                ...(data.target === 'player' && data.player_id ? { [data.player_id]: data.card } : {})
+              }
+            }
+          }));
+          addNotification(
+            `War card ${data.card} assigned to ${data.target === 'dealer' ? 'Dealer' : 'Player ' + data.player_id}`
+          
+          );
+        break;
       default:
         if (data.message) {
           addNotification(data.message)
@@ -508,8 +526,16 @@ export default function DealerPage() {
                   <button 
                     onClick={() => {
                       if (manualCard) {
-                        sendMessage({ action: 'manual_deal_card', target: 'dealer', card: manualCard })
-                        setManualCard('')
+                        const cardPattern = /^(10|[2-9]|[JQKA])[HDSC]$/;
+                        if (!cardPattern.test(manualCard)) {
+                          setNotifications(prev => [
+                          ...prev.slice(-4),
+                          "Invalid card. Please enter a valid card using ranks (2-10, J, Q, K, A) and suits (H, D, S, C)."
+                          ]);
+                          return;
+                        }
+                        sendMessage({ action: 'manual_deal_card', target: 'dealer', card: manualCard });
+                        setManualCard('');
                       }
                     }}
                     className="success-button"
@@ -596,16 +622,29 @@ export default function DealerPage() {
                       />
                       <button 
                         onClick={() => {
-                          if (warCardValue && (warCardTarget === 'dealer' || warPlayerId)) {
-                            sendMessage({ 
-                              action: 'assign_war_card', 
-                              target: warCardTarget, 
-                              card: warCardValue,
-                              player_id: warCardTarget === 'player' ? warPlayerId : undefined
-                            })
-                            setWarCardValue('')
-                            setWarPlayerId('')
+                          if (!warCardValue || (warCardTarget === 'player' && !warPlayerId)) {
+                            setNotifications(prev => [
+                              ...prev.slice(-4),
+                              "Please enter a card value and select a player if target is Player."
+                            ]);
+                            return;
                           }
+                          const cardPattern = /^(10|[2-9]|[JQKA])[HDSC]$/;
+                          if (!cardPattern.test(warCardValue)) {
+                            setNotifications(prev => [
+                              ...prev.slice(-4),
+                              "Invalid card. Please enter a valid card using ranks (2-10, J, Q, K, A) and suits (H, D, S, C)."
+                            ]);
+                            return;
+                          }
+                          sendMessage({ 
+                            action: 'assign_war_card', 
+                            target: warCardTarget, 
+                            card: warCardValue,
+                            player_id: warCardTarget === 'player' ? warPlayerId : undefined
+                          });
+                          setWarCardValue('');
+                          setWarPlayerId('');
                         }}
                         className="success-button"
                       >
