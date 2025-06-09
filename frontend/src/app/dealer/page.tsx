@@ -18,6 +18,10 @@ interface GameState {
   war_round?: {
     dealer_card: string | null
     players: Record<string, string | null>
+    original_cards?: {
+      dealer_card: string | null
+      players: Record<string, string | null>
+    }
   }
 }
 
@@ -144,20 +148,32 @@ export default function DealerPage() {
         }
         break
       case 'war_round_started':
-        setGameState(prev => ({ 
-          ...prev, 
+        setGameState(prev => ({
+          ...prev,
           war_round_active: true,
-          war_round: data.war_round
+          war_round: {
+            ...data.war_round,
+            // Save the original cards for display
+            original_cards: {
+              dealer_card: prev.dealer_card,
+              players: Object.fromEntries(
+                ((data.players || []) as string[]).map((pid: string) => [pid, prev.players[pid]?.card || null])
+              )
+            }
+          }
         }))
         addNotification(`War round started for: ${data.players.join(', ')}`)
         break
       case 'war_round_evaluated':
-        setGameState(prev => ({ 
-          ...prev, 
+        setGameState(prev => ({
+          ...prev,
           war_round_active: false,
           war_round: {
+            ...prev.war_round,
             dealer_card: null,
             players: {},
+            // Keep original_cards for display
+            original_cards: prev.war_round?.original_cards
           },
           players: { ...prev.players, ...data.players },
           player_results: data.player_results
@@ -503,48 +519,96 @@ export default function DealerPage() {
             </div>
 
             {/* Dealer Section */}
-            <div className="text-center mb-8">
-              <h3 className="text-xl font-bold text-casino-gold mb-4">Dealer</h3>
-              <div className="flex justify-center">
-                {gameState.dealer_card ? (
-                  renderCard(gameState.dealer_card, 'large')
-                ) : (
-                  <div className="w-20 h-28 card-back rounded-lg flex items-center justify-center">
-                    <span className="text-white text-2xl">🎴</span>
+            {(!gameState.war_round_active || !gameState.war_round?.original_cards) ? (
+              <div className="text-center mb-8">
+                <h3 className="text-xl font-bold text-casino-gold mb-4">Dealer</h3>
+                <div className="flex flex-col items-center justify-center">
+                  {/* After war round, show both original and war card stacked */}
+                  {(!gameState.war_round_active && gameState.war_round?.original_cards?.dealer_card) ? (
+                    <div className="flex flex-col items-center gap-1">
+                      {renderCard(gameState.war_round.original_cards.dealer_card, 'large')}
+                      {gameState.war_round?.dealer_card && (
+                        <div className="mt-1">{renderCard(gameState.war_round.dealer_card, 'large')}</div>
+                      )}
+                    </div>
+                  ) :
+                  // Normal round: show only the original card
+                  gameState.dealer_card ? (
+                    renderCard(gameState.dealer_card, 'large')
+                  ) : (
+                    <div className="w-20 h-28 card-back rounded-lg flex items-center justify-center">
+                      <span className="text-white text-2xl">🎴</span>
+                    </div>
+                  )}
+                </div>
+                {/* Only show dealer card assignment input in live mode if round is active OR round is not active (before cards dealt) */}
+                {gameState.game_mode === 'live' && (!gameState.round_active || gameState.round_active) && (
+                  <div className="mt-4">
+                    <input 
+                      type="text" 
+                      placeholder="Manual card (e.g., AS, KH)"
+                      value={manualCard}
+                      onChange={(e) => setManualCard(e.target.value.toUpperCase())}
+                      className="bg-black border border-casino-gold rounded-lg px-3 py-2 text-white mr-2"
+                    />
+                    <button 
+                      onClick={() => {
+                        if (manualCard) {
+                          const cardPattern = /^(10|[2-9]|[JQKA])[HDSC]$/;
+                          if (!cardPattern.test(manualCard)) {
+                            setNotifications(prev => [
+                              ...prev.slice(-4),
+                              "Invalid card. Please enter a valid card using ranks (2-10, J, Q, K, A) and suits (H, D, S, C)."
+                            ]);
+                            return;
+                          }
+                          sendMessage({ action: 'manual_deal_card', target: 'dealer', card: manualCard });
+                          setManualCard('');
+                        }
+                      }}
+                      className="success-button"
+                    >
+                      Set Dealer Card
+                    </button>
                   </div>
                 )}
               </div>
-              {gameState.game_mode === 'live' && (
-                <div className="mt-4">
-                  <input 
-                    type="text" 
-                    placeholder="Manual card (e.g., AS, KH)"
-                    value={manualCard}
-                    onChange={(e) => setManualCard(e.target.value.toUpperCase())}
-                    className="bg-black border border-casino-gold rounded-lg px-3 py-2 text-white mr-2"
-                  />
-                  <button 
-                    onClick={() => {
-                      if (manualCard) {
-                        const cardPattern = /^(10|[2-9]|[JQKA])[HDSC]$/;
-                        if (!cardPattern.test(manualCard)) {
-                          setNotifications(prev => [
-                          ...prev.slice(-4),
-                          "Invalid card. Please enter a valid card using ranks (2-10, J, Q, K, A) and suits (H, D, S, C)."
-                          ]);
-                          return;
+            ) : (
+              // If war round is active, still show the dealer card assignment input in live mode ONLY if round is active
+              gameState.game_mode === 'live' && gameState.round_active && (
+                <div className="text-center mb-8">
+                  <h3 className="text-xl font-bold text-casino-gold mb-4">Dealer</h3>
+                  <div className="mt-4">
+                    <input 
+                      type="text" 
+                      placeholder="Manual card (e.g., AS, KH)"
+                      value={manualCard}
+                      onChange={(e) => setManualCard(e.target.value.toUpperCase())}
+                      className="bg-black border border-casino-gold rounded-lg px-3 py-2 text-white mr-2"
+                    />
+                    <button 
+                      onClick={() => {
+                        if (manualCard) {
+                          const cardPattern = /^(10|[2-9]|[JQKA])[HDSC]$/;
+                          if (!cardPattern.test(manualCard)) {
+                            setNotifications(prev => [
+                              ...prev.slice(-4),
+                              "Invalid card. Please enter a valid card using ranks (2-10, J, Q, K, A) and suits (H, D, S, C)."
+                            ]);
+                            return;
+                          }
+                          sendMessage({ action: 'manual_deal_card', target: 'dealer', card: manualCard });
+                          setManualCard('');
                         }
-                        sendMessage({ action: 'manual_deal_card', target: 'dealer', card: manualCard });
-                        setManualCard('');
-                      }
-                    }}
-                    className="success-button"
-                  >
-                    Set Dealer Card
-                  </button>
+                      }}
+                      className="success-button"
+                    >
+                      Set Dealer Card
+                    </button>
+                  </div>
                 </div>
-              )}
-            </div>
+              )
+            )}
 
             {/* War Round Section */}
             {gameState.war_round_active && (
@@ -663,92 +727,122 @@ export default function DealerPage() {
               </div>
             )}
 
-            {/* Players Section */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {Object.entries(gameState.players).map(([playerId, playerData]) => (
-                <motion.div
-                  key={playerId}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="bg-black/30 border border-casino-gold/50 rounded-xl p-4"
-                >
-                  <div className="flex justify-between items-center mb-3">
-                    <h4 className="font-bold text-casino-gold">{playerId}</h4>
-                    <div className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                      playerData.status === 'active' ? 'bg-green-500/20 text-green-400' :
-                      playerData.status === 'war' ? 'bg-red-500/20 text-red-400' :
-                      playerData.status === 'waiting_choice' ? 'bg-yellow-500/20 text-yellow-400' :
-                      'bg-gray-500/20 text-gray-400'
-                    }`}>
-                      {playerData.status.replace('_', ' ').toUpperCase()}
-                    </div>
+            {/* Original Cards Section */}
+            {gameState.war_round_active && gameState.war_round?.original_cards && (
+              <div className="bg-yellow-900/20 border-2 border-yellow-500 rounded-xl p-4 mb-4">
+                <h4 className="text-lg font-semibold text-yellow-400 mb-2 text-center">Original Cards That Caused the Tie</h4>
+                <div className="flex flex-wrap justify-center gap-8">
+                  <div className="text-center">
+                    <div className="text-yellow-400 font-bold mb-1">Dealer</div>
+                    {renderCard(gameState.war_round.original_cards.dealer_card, 'large')}
                   </div>
-                  
-                  <div className="flex justify-center mb-3">
-                    {playerData.card ? (
-                      renderCard(playerData.card, 'medium')
-                    ) : (
-                      <div className="w-16 h-22 card-back rounded-lg flex items-center justify-center">
-                        <span className="text-white">🎴</span>
+                  {Object.entries(gameState.war_round.original_cards.players).map(([pid, card]) => (
+                    <div key={pid} className="text-center">
+                      <div className="text-yellow-400 font-bold mb-1">Player {pid}</div>
+                      {renderCard(card, 'large')}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Players Section */}
+            {(!gameState.war_round_active || !gameState.war_round?.original_cards) ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {Object.entries(gameState.players).map(([playerId, playerData]) => (
+                  <motion.div
+                    key={playerId}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-black/30 border border-casino-gold/50 rounded-xl p-4"
+                  >
+                    <div className="flex justify-between items-center mb-3">
+                      <h4 className="font-bold text-casino-gold">{playerId}</h4>
+                      <div className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                        playerData.status === 'active' ? 'bg-green-500/20 text-green-400' :
+                        playerData.status === 'war' ? 'bg-red-500/20 text-red-400' :
+                        playerData.status === 'waiting_choice' ? 'bg-yellow-500/20 text-yellow-400' :
+                        'bg-gray-500/20 text-gray-400'
+                      }`}>
+                        {playerData.status.replace('_', ' ').toUpperCase()}
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-center mb-3 gap-1">
+                      {/* After war round, show both original and war card stacked */}
+                      {(!gameState.war_round_active && gameState.war_round?.original_cards?.players?.[playerId]) ? (
+                        <div className="flex flex-col items-center gap-1">
+                          {renderCard(gameState.war_round.original_cards.players[playerId], 'medium')}
+                          {playerData.war_card && (
+                            <div className="mt-1">{renderCard(playerData.war_card, 'medium')}</div>
+                          )}
+                        </div>
+                      ) :
+                      // Normal round: show only the original card
+                      playerData.card ? (
+                        renderCard(playerData.card, 'medium')
+                      ) : (
+                        <div className="w-16 h-22 card-back rounded-lg flex items-center justify-center">
+                          <span className="text-white">🎴</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {playerData.war_card && (
+                      <div className="text-center mb-3">
+                        <div className="text-xs text-red-400 mb-1">War Card</div>
+                        <div className="flex justify-center">
+                          {renderCard(playerData.war_card, 'small')}
+                        </div>
                       </div>
                     )}
-                  </div>
 
-                  {playerData.war_card && (
-                    <div className="text-center mb-3">
-                      <div className="text-xs text-red-400 mb-1">War Card</div>
-                      <div className="flex justify-center">
-                        {renderCard(playerData.war_card, 'small')}
-                      </div>
-                    </div>
-                  )}
-
-                  {gameState.game_mode === 'live' && !playerData.card && (
-                    <div className="mt-3 space-y-2">
-                      <input 
-                        type="text" 
-                        placeholder="Card (e.g., AS, KH)"
-                        className="w-full bg-black border border-casino-gold rounded px-2 py-1 text-white text-sm"
-                        onKeyPress={(e) => {
-                          if (e.key === 'Enter') {
-                            const card = (e.target as HTMLInputElement).value.toUpperCase()
-                            if (card) {
-                              sendMessage({ 
-                                action: 'manual_deal_card', 
-                                target: 'player', 
-                                card: card,
-                                player_id: playerId 
-                              });
-                              (e.target as HTMLInputElement).value = ''
+                    {gameState.game_mode === 'live' && (gameState.round_active || !playerData.card) && (
+                      <div className="mt-3 space-y-2">
+                        <input 
+                          type="text" 
+                          placeholder="Card (e.g., AS, KH)"
+                          className="w-full bg-black border border-casino-gold rounded px-2 py-1 text-white text-sm"
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter') {
+                              const card = (e.target as HTMLInputElement).value.toUpperCase()
+                              if (card) {
+                                sendMessage({ 
+                                  action: 'manual_deal_card', 
+                                  target: 'player', 
+                                  card: card,
+                                  player_id: playerId 
+                                });
+                                (e.target as HTMLInputElement).value = ''
+                              }
                             }
-                          }
-                        }}
-                      />
-                    </div>
-                  )}
+                          }}
+                        />
+                      </div>
+                    )}
 
-                  {playerData.result && (
-                    <div className={`text-center mt-3 px-2 py-1 rounded-full text-sm font-semibold ${
-                      playerData.result === 'win' ? 'bg-green-500/20 text-green-400' :
-                      playerData.result === 'lose' ? 'bg-red-500/20 text-red-400' :
-                      'bg-yellow-500/20 text-yellow-400'
-                    }`}>
-                      {playerData.result.toUpperCase()}
-                    </div>
-                  )}
+                    {playerData.result && (
+                      <div className={`text-center mt-3 px-2 py-1 rounded-full text-sm font-semibold ${
+                        playerData.result === 'win' ? 'bg-green-500/20 text-green-400' :
+                        playerData.result === 'lose' ? 'bg-red-500/20 text-red-400' :
+                        'bg-yellow-500/20 text-yellow-400'
+                      }`}>
+                        {playerData.result.toUpperCase()}
+                      </div>
+                    )}
 
-                  {playerData.status === 'waiting_choice' }
-                </motion.div>
-              ))}
+                    {playerData.status === 'waiting_choice' }
+                  </motion.div>
+                ))}
 
-              {Object.keys(gameState.players).length === 0 && (
-                <div className="col-span-full text-center py-12 text-gray-400">
-                  <div className="text-6xl mb-4">🎲</div>
-                  <p className="text-xl">No players at the table</p>
-                  <p className="text-sm">Add players to start the game</p>
-                </div>
-              )}
-            </div>
+                {Object.keys(gameState.players).length === 0 && (
+                  <div className="col-span-full text-center py-12 text-gray-400">
+                    <div className="text-6xl mb-4">🎲</div>
+                    <p className="text-xl">No players at the table</p>
+                    <p className="text-sm">Add players to start the game</p>
+                  </div>
+                )}
+              </div>
+            ) : null}
           </div>
         </div>
       </div>
