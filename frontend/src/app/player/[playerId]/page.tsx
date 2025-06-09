@@ -156,11 +156,16 @@ export default function PlayerPage() {
         setGameState(prev => ({ 
           ...prev, 
           war_round_active: false,
-          war_round: {
-            dealer_card: null,
-            players: {},
+          players: { 
+            ...prev.players, 
+            ...Object.keys(data.players).reduce((acc, playerId) => {
+              acc[playerId] = {
+                ...prev.players[playerId], // Keep original card
+                ...data.players[playerId]  // Update with new data
+              }
+              return acc
+            }, {} as Record<string, PlayerData>)
           },
-          players: { ...prev.players, ...data.players },
           player_results: data.player_results
         }))
         addNotification('War round completed')
@@ -280,8 +285,23 @@ export default function PlayerPage() {
     )
   }
 
+  const renderCardBack = (size: 'small' | 'medium' | 'large' = 'medium') => {
+    const sizeClasses = {
+      small: 'w-16 h-22 text-sm',
+      medium: 'w-20 h-28 text-base',
+      large: 'w-24 h-36 text-lg'
+    }
+    
+    return (
+      <div className={`bg-blue-900 rounded-lg flex items-center justify-center border-2 border-blue-700 ${sizeClasses[size]}`}>
+        <span className="text-white text-3xl">🎴</span>
+      </div>
+    )
+  }
+
   const playerData = gameState.players[playerId]
   const isInWar = gameState.war_round_active && gameState.war_round?.players[playerId] !== undefined
+  const hasWarData = gameState.war_round && (gameState.war_round.dealer_card || gameState.war_round.players[playerId])
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-green-900 to-gray-900 p-4">
@@ -366,77 +386,70 @@ export default function PlayerPage() {
             {/* Dealer Section */}
             <div className="text-center mb-8">
               <h3 className="text-xl font-bold text-yellow-500 mb-4">Dealer</h3>
-              <div className="flex justify-center">
-                {gameState.dealer_card ? (
-                  renderCard(gameState.dealer_card, 'large')
-                ) : (
-                  <div className="w-24 h-36 bg-blue-900 rounded-lg flex items-center justify-center border-2 border-blue-700">
-                    <span className="text-white text-3xl">🎴</span>
+              <div className="flex flex-col items-center gap-4">
+                {/* Original Dealer Card */}
+                <div className="flex flex-col items-center">
+                  <span className="text-gray-400 text-sm mb-2">Original Card</span>
+                  {gameState.dealer_card ? (
+                    renderCard(gameState.dealer_card, 'large')
+                  ) : (
+                    renderCardBack('large')
+                  )}
+                </div>
+                
+                {/* Dealer War Card - Only show if war data exists */}
+                {hasWarData && (
+                  <div className="flex flex-col items-center">
+                    <span className="text-red-400 text-sm mb-2">War Card</span>
+                    {gameState.war_round?.dealer_card ? (
+                      renderCard(gameState.war_round.dealer_card, 'large')
+                    ) : (
+                      renderCardBack('large')
+                    )}
                   </div>
                 )}
               </div>
             </div>
 
-            {/* War Round Section */}
-            {isInWar && (
+            {/* War Round Active Section */}
+            {gameState.war_round_active && !gameState.war_round?.dealer_card && !gameState.war_round?.players[playerId] && (
               <div className="bg-red-900/30 border-2 border-red-500 rounded-xl p-6 mb-8">
-                <h3 className="text-xl font-bold text-red-400 mb-4 text-center">⚔️ WAR ROUND ⚔️</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="text-center">
-                    <h4 className="text-lg font-semibold text-red-400 mb-2">Dealer War Card</h4>
-                    <div className="flex justify-center">
-                      {gameState.war_round?.dealer_card ? (
-                        renderCard(gameState.war_round.dealer_card, 'medium')
-                      ) : (
-                        <div className="w-20 h-28 bg-blue-900 rounded-lg flex items-center justify-center border-2 border-blue-700">
-                          <span className="text-white">🎴</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="text-center">
-                    <h4 className="text-lg font-semibold text-red-400 mb-2">Your War Card</h4>
-                    <div className="flex justify-center">
-                      {gameState.war_round?.players[playerId] ? (
-                        renderCard(gameState.war_round.players[playerId], 'medium')
-                      ) : (
-                        <div className="w-20 h-28 bg-blue-900 rounded-lg flex items-center justify-center border-2 border-blue-700">
-                          <span className="text-white">🎴</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
+                <h3 className="text-xl font-bold text-red-400 mb-4 text-center">⚔️ WAR ROUND ACTIVE ⚔️</h3>
+                <p className="text-center text-red-300">War cards are being dealt...</p>
               </div>
             )}
 
             {/* Player Section */}
             <div className="text-center">
               <h3 className="text-xl font-bold text-yellow-500 mb-4">Your Cards</h3>
-              
               {playerData ? (
                 <div className="space-y-6">
-                  {/* Main Card */}
-                  <div className="flex justify-center">
-                    {playerData.card ? (
-                      renderCard(playerData.card, 'large')
-                    ) : (
-                      <div className="w-24 h-36 bg-blue-900 rounded-lg flex items-center justify-center border-2 border-blue-700">
-                        <span className="text-white text-3xl">🎴</span>
+                  <div className="flex flex-col items-center gap-4">
+                    {/* Original Player Card */}
+                    <div className="flex flex-col items-center">
+                      <span className="text-gray-400 text-sm mb-2">Original Card</span>
+                      {playerData.card ? (
+                        renderCard(playerData.card, 'large')
+                      ) : (
+                        renderCardBack('large')
+                      )}
+                    </div>
+                    
+                    {/* Player War Card - Show if player has war card OR war data exists for this player */}
+                    {(playerData.war_card || (hasWarData && gameState.war_round?.players[playerId])) && (
+                      <div className="flex flex-col items-center">
+                        <span className="text-red-400 text-sm mb-2">War Card</span>
+                        {playerData.war_card ? (
+                          renderCard(playerData.war_card, 'large')
+                        ) : gameState.war_round?.players[playerId] ? (
+                          renderCard(gameState.war_round.players[playerId], 'large')
+                        ) : (
+                          renderCardBack('large')
+                        )}
                       </div>
                     )}
                   </div>
-
-                  {/* War Card */}
-                  {playerData.war_card && (
-                    <div>
-                      <div className="text-red-400 font-semibold mb-2">War Card</div>
-                      <div className="flex justify-center">
-                        {renderCard(playerData.war_card, 'medium')}
-                      </div>
-                    </div>
-                  )}
-
+                  
                   {/* Status */}
                   <div className={`inline-block px-4 py-2 rounded-full text-lg font-bold ${
                     playerData.status === 'active' ? 'bg-green-500/20 text-green-400' :

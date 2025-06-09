@@ -239,6 +239,22 @@ export default function DealerPage() {
           
           );
         break;
+      case 'player_choice_made':
+        setGameState(prev => ({ 
+          ...prev, 
+          players: {
+            ...prev.players,
+            [data.player_id]: {
+              ...prev.players[data.player_id],
+              status: data.choice === 'surrender' ? 'surrender' : prev.players[data.player_id].status
+            }
+          },
+          player_results: data.player_results
+        }))
+        if (data.player_id) {
+          addNotification(`Choice made: ${data.choice.toUpperCase()}`)
+        }
+        break
       default:
         if (data.message) {
           addNotification(data.message)
@@ -284,6 +300,9 @@ export default function DealerPage() {
   const warPlayers = gameState.war_round && gameState.war_round.players
   ? Object.entries(gameState.war_round.players)
   : [];
+
+  // Card validation regex for all manual assignments
+  const validCardPattern = /^(10|[2-9]|[JQKA])[SHDC]$/;
 
   return (
     <div className="min-h-screen p-6">
@@ -554,11 +573,10 @@ export default function DealerPage() {
                     <button 
                       onClick={() => {
                         if (manualCard) {
-                          const cardPattern = /^(10|[2-9]|[JQKA])[HDSC]$/;
-                          if (!cardPattern.test(manualCard)) {
+                          if (!validCardPattern.test(manualCard)) {
                             setNotifications(prev => [
                               ...prev.slice(-4),
-                              "Invalid card. Please enter a valid card using ranks (2-10, J, Q, K, A) and suits (H, D, S, C)."
+                              "Invalid card. Please enter a valid card using ranks (2-10, J, Q, K, A) and suits (S, H, D, C)."
                             ]);
                             return;
                           }
@@ -589,11 +607,10 @@ export default function DealerPage() {
                     <button 
                       onClick={() => {
                         if (manualCard) {
-                          const cardPattern = /^(10|[2-9]|[JQKA])[HDSC]$/;
-                          if (!cardPattern.test(manualCard)) {
+                          if (!validCardPattern.test(manualCard)) {
                             setNotifications(prev => [
                               ...prev.slice(-4),
-                              "Invalid card. Please enter a valid card using ranks (2-10, J, Q, K, A) and suits (H, D, S, C)."
+                              "Invalid card. Please enter a valid card using ranks (2-10, J, Q, K, A) and suits (S, H, D, C)."
                             ]);
                             return;
                           }
@@ -693,11 +710,10 @@ export default function DealerPage() {
                             ]);
                             return;
                           }
-                          const cardPattern = /^(10|[2-9]|[JQKA])[HDSC]$/;
-                          if (!cardPattern.test(warCardValue)) {
+                          if (!validCardPattern.test(warCardValue)) {
                             setNotifications(prev => [
                               ...prev.slice(-4),
-                              "Invalid card. Please enter a valid card using ranks (2-10, J, Q, K, A) and suits (H, D, S, C)."
+                              "Invalid card. Please enter a valid card using ranks (2-10, J, Q, K, A) and suits (S, H, D, C)."
                             ]);
                             return;
                           }
@@ -762,9 +778,10 @@ export default function DealerPage() {
                         playerData.status === 'active' ? 'bg-green-500/20 text-green-400' :
                         playerData.status === 'war' ? 'bg-red-500/20 text-red-400' :
                         playerData.status === 'waiting_choice' ? 'bg-yellow-500/20 text-yellow-400' :
+                        playerData.status === 'surrender' ? 'bg-gray-500/20 text-gray-400' :
                         'bg-gray-500/20 text-gray-400'
                       }`}>
-                        {playerData.status.replace('_', ' ').toUpperCase()}
+                        {playerData.status === 'surrender' ? 'SURRENDER' : playerData.status.replace('_', ' ').toUpperCase()}
                       </div>
                     </div>
                     <div className="flex flex-col items-center mb-3 gap-1">
@@ -796,7 +813,7 @@ export default function DealerPage() {
                       </div>
                     )}
 
-                    {gameState.game_mode === 'live' && (gameState.round_active || !playerData.card) && (!gameState.war_round || gameState.war_round_active || !gameState.war_round.original_cards) && !playerData.result && (
+                    {gameState.game_mode === 'live' && (gameState.round_active || !playerData.card) && (!gameState.war_round || gameState.war_round_active || !gameState.war_round.original_cards) && (
                       <div className="mt-3 space-y-2">
                         <input 
                           type="text" 
@@ -804,8 +821,15 @@ export default function DealerPage() {
                           className="w-full bg-black border border-casino-gold rounded px-2 py-1 text-white text-sm"
                           onKeyPress={(e) => {
                             if (e.key === 'Enter') {
-                              const card = (e.target as HTMLInputElement).value.toUpperCase()
+                              const card = (e.target as HTMLInputElement).value.toUpperCase();
                               if (card) {
+                                if (!validCardPattern.test(card)) {
+                                  setNotifications(prev => [
+                                    ...prev.slice(-4),
+                                    "Invalid card. Please enter a valid card using ranks (2-10, J, Q, K, A) and suits (S, H, D, C)."
+                                  ]);
+                                  return;
+                                }
                                 sendMessage({ 
                                   action: 'manual_deal_card', 
                                   target: 'player', 
@@ -824,9 +848,12 @@ export default function DealerPage() {
                       <div className={`text-center mt-3 px-2 py-1 rounded-full text-sm font-semibold ${
                         playerData.result === 'win' ? 'bg-green-500/20 text-green-400' :
                         playerData.result === 'lose' ? 'bg-red-500/20 text-red-400' :
+                        playerData.result === 'surrender' ? 'bg-gray-500/20 text-gray-400' :
                         'bg-yellow-500/20 text-yellow-400'
                       }`}>
-                        {playerData.result.toUpperCase()}
+                        {playerData.result === 'surrender'
+                          ? 'SURRENDER'
+                          : playerData.result.toUpperCase()}
                       </div>
                     )}
 

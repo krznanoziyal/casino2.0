@@ -7,13 +7,13 @@ import random
 import time
 
 # MongoDB setup
-# MONGO_URI = "mongodb://localhost:27017"
-# DB_NAME = "casino_war_db"
-# COLLECTION_NAME = "game_results"
+MONGO_URI = "mongodb://localhost:27017"
+DB_NAME = "casino_war_db"
+COLLECTION_NAME = "game_results"
 
-# client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_URI)
-# db = client[DB_NAME]
-# results_collection = db[COLLECTION_NAME]
+client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_URI)
+db = client[DB_NAME] 
+results_collection = db[COLLECTION_NAME]
 
 connected_clients = set()
 dealer_clients = set()
@@ -457,21 +457,26 @@ async def complete_round():
     """Completes the current round and saves results."""
     game_state["round_active"] = False
     
-    # Save results to database
-    # for player_id, player_data in game_state["players"].items():
-    #     if player_data["result"]:
-    #         result_record = {
-    #             "round_number": game_state["round_number"],
-    #             "player_id": player_id,
-    #             "player_card": player_data["card"],
-    #             "war_card": player_data.get("war_card"),
-    #             "dealer_card": game_state["dealer_card"],
-    #             "result": player_data["result"],
-    #             "timestamp": datetime.utcnow(),
-    #             "table_number": game_state["table_number"],
-    #             "game_mode": game_state["game_mode"]
-    #         }
-    #         await results_collection.insert_one(result_record)
+    # Save results to MONGODB
+    for player_id, player_data in game_state["players"].items():
+        if player_data["result"]:
+            result_record = {
+                "round_number": game_state["round_number"],
+                "player_id": player_id,
+                "player_card": player_data["card"],
+                "war_card": player_data.get("war_card"),
+                "dealer_card": game_state["dealer_card"],
+                "result": player_data["result"],
+                "timestamp": datetime.utcnow(),
+                "table_number": game_state["table_number"],
+                "game_mode": game_state["game_mode"]
+            }
+            try:
+                print(f"[MONGODB] Attempting to insert: {result_record}")
+                insert_result = await results_collection.insert_one(result_record)
+                print(f"[MONGODB] Inserted document with _id: {insert_result.inserted_id}")
+            except Exception as e:
+                print(f"[MONGODB ERROR] Failed to insert result for player {player_id}: {e}")
     
     await broadcast_to_all({
         "action": "round_completed",
@@ -724,23 +729,24 @@ async def broadcast_to_player(player_id, message):
         except websockets.ConnectionClosed:
             del player_clients[player_id]
 
-# async def delete_recent_result():
-#     """Deletes the most recent game result from MongoDB."""
-#     # last_result = await results_collection.find_one(sort=[("timestamp", -1)])
-#     # if last_result:
-#     #     result = await results_collection.delete_one({"_id": last_result["_id"]})
-#     #     if result.deleted_count > 0:
-#     #         pass
+# DELETE DATA FROM MONGODB
+async def delete_recent_result():
+    """Deletes the most recent game result from MongoDB."""
+    last_result = await results_collection.find_one(sort=[("timestamp", -1)])
+    if last_result:
+        result = await results_collection.delete_one({"_id": last_result["_id"]})
+        if result.deleted_count > 0:
+            pass
 
-# async def delete_all_results():
-#     """Deletes all game results from MongoDB."""
-#     # result = await results_collection.delete_many({})
-#     # if result.deleted_count > 0:
-#     #     await broadcast_to_dealers({
-#     #         "action": "all_results_deleted",
-#     #         "deleted_count": result.deleted_count
-#     #     })
-
+async def delete_all_results():
+    """Deletes all game results from MongoDB."""
+    result = await results_collection.delete_many({})
+    if result.deleted_count > 0:
+        await broadcast_to_dealers({
+            "action": "all_results_deleted",
+            "deleted_count": result.deleted_count
+        })
+# ENDS
 async def main():
     """Starts the WebSocket server."""
     async with websockets.serve(handle_connection, "localhost", 6789):
