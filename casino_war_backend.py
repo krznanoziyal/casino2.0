@@ -177,7 +177,11 @@ async def handle_connection(websocket, path=None):
                     })
                 else:
                     await evaluate_round()
-                    
+            elif data["action"] == "start_auto_round":
+                await handle_start_auto_round()
+            elif data["action"] == "clear_round":
+                await handle_clear_round()
+                
     except websockets.ConnectionClosed:
         print(f"Client disconnected: {websocket.remote_address}")
     finally:
@@ -290,10 +294,13 @@ async def deal_cards_internal():
             game_state["players"][player_id]["status"] = "active"
             game_state["players"][player_id]["result"] = None
             game_state["players"][player_id]["war_card"] = None
-    
+            # Track the card assignment order
+            game_state.setdefault("assignment_order", []).append({"player_id": player_id, "card": card, "type": "player"})
     # Deal card to dealer
     if game_state["deck"]:
         game_state["dealer_card"] = game_state["deck"].pop(0)
+        # Track the card assignment order
+        game_state["assignment_order"].append({"card": game_state["dealer_card"], "type": "dealer"})
     
     # Evaluate results
     await evaluate_round()
@@ -484,66 +491,54 @@ async def complete_round():
         "player_results": game_state["player_results"]
     })
     
-    # In automatic mode, start next round after delay
-    if game_state["game_mode"] == "automatic" and game_state["players"]:
-        await asyncio.sleep(game_state["auto_round_delay"])
-        if game_state["game_mode"] == "automatic":  # Check if mode hasn't changed
-            await deal_cards_internal()
-
-
-# AUTOMATIC MODE FUNCTIONS
-async def run_automatic_mode():
-    """Runs the game in automatic mode."""
-    try:
-        await broadcast_to_all({
-            "action": "automatic_mode_started",
-            "message": "Automatic mode started - game will run continuously"
-        })
-        
-        # Ensure deck is ready
-        if not game_state["deck"]:
-            await handle_shuffle_deck()
-        
-        # Start automatic rounds
-        while game_state["game_mode"] == "automatic":
-            if game_state["players"] and not game_state["round_active"]:
-                success = await deal_cards_internal()
-                if not success:
-                    # Reshuffle if needed
-                    await handle_shuffle_deck()
-                    await asyncio.sleep(2)
-                    continue
-            
-            await asyncio.sleep(1)  # Small delay to prevent busy loop
-            
-    except asyncio.CancelledError:
-        await broadcast_to_all({
-            "action": "automatic_mode_stopped",
-            "message": "Automatic mode stopped"
-        })
-        raise
-
-# LIVE MODE FUNCTIONS (for future hardware integration)
-async def handle_live_card_scan(card_data):
-    """Handles card scanning from live hardware."""
-    if game_state["game_mode"] != "live":
+async def handle_start_auto_round():
+    """Starts an automatic round: assigns cards to all players and evaluates the round."""
+    if game_state["game_mode"] != "automatic":
+        await broadcast_to_dealers({"action": "error", "message": "Not in automatic mode"})
         return
-    
-    # This would be called by hardware integration
-    # For now, just add the card to appropriate position
-    await broadcast_to_all({
-        "action": "live_card_scanned",
-        "card": card_data,
-        "message": "Card scanned from live hardware"
-    })
+    if game_state["round_active"]:
+        await broadcast_to_dealers({"action": "error", "message": "Round already active"})
+        return
+    if not game_state["players"]:
+        await broadcast_to_dealers({"action": "error", "message": "No players to start round"})
+        return
+    # Assign cards and evaluate
+    await deal_cards_internal()
 
-async def handle_live_mode_setup():
-    """Sets up live mode with hardware connections."""
-    # This would initialize hardware connections
-    # Serial ports, card readers, etc.
+async def handle_clear_round():
+    """Resets the round for the next auto round, keeps players but clears cards/statuses/results."""
+    if game_state["game_mode"] != "automatic":
+        await broadcast_to_dealers({"action": "error", "message": "Not in automatic mode"})
+        return
+    # Only allow if round is not active
+    if game_state["round_active"]:
+        await broadcast_to_dealers({"action": "error", "message": "Cannot start new round while round is active"})
+        return
+    # Reset all players' cards, statuses, results, war_card
+    for player in game_state["players"].values():
+        player["card"] = None
+        player["status"] = "active"
+        player["result"] = None
+        player["war_card"] = None
+    game_state["dealer_card"] = None
+    game_state["war_round_active"] = False
+    game_state["war_round"] = {"dealer_card": None, "players": {}}
+    # Do not reset round_number or remove players
     await broadcast_to_all({
-        "action": "live_mode_setup",
-        "message": "Live mode setup - hardware connections initialized"
+        "action": "game_state_update",
+        "game_state": {
+            "deck_count": len(game_state["deck"]),
+            "burned_cards_count": len(game_state["burned_cards"]),
+            "dealer_card": game_state["dealer_card"],
+            "players": game_state["players"],
+            "round_active": game_state["round_active"],
+            "round_number": game_state["round_number"],
+            "game_mode": game_state["game_mode"],
+            "table_number": game_state["table_number"],
+            "min_bet": game_state["min_bet"],
+            "max_bet": game_state["max_bet"],
+            "player_results": game_state["player_results"]
+        }
     })
 
 async def handle_reset_game():
@@ -589,37 +584,48 @@ async def handle_change_table(table_number):
     })
 
 async def handle_undo_last_card():
-    """Undoes the last dealt cards."""
-    if not game_state["round_active"]:
-        await broadcast_to_dealers({"action": "error", "message": "No active round to undo"})
+    """Undoes the last dealt card (dealer or any player), based on true assignment order."""
+    # Track assignment order in game_state
+    if "assignment_order" not in game_state:
+        game_state["assignment_order"] = []
+
+    # Find the last assignment
+    if not game_state["assignment_order"]:
+        await broadcast_to_all({
+            "action": "cards_undone",
+            "deck_count": len(game_state["deck"]),
+            "players": game_state["players"],
+            "dealer_card": game_state["dealer_card"],
+            "message": "No card to undo"
+        })
         return
-    
-    # Put cards back in deck
-    cards_to_return = []
-    
-    if game_state["dealer_card"]:
-        cards_to_return.append(game_state["dealer_card"])
+
+    last = game_state["assignment_order"].pop()
+    last_card = None
+    last_type = last["type"]
+    last_player_id = last.get("player_id")
+
+    if last_type == "dealer":
+        last_card = game_state["dealer_card"]
         game_state["dealer_card"] = None
-    
-    for player_data in game_state["players"].values():
-        if player_data["card"]:
-            cards_to_return.append(player_data["card"])
-            player_data["card"] = None
-        if player_data.get("war_card"):
-            cards_to_return.append(player_data["war_card"])
-            player_data["war_card"] = None
-        player_data["result"] = None
-        player_data["status"] = "active"
-    
-    # Put cards back at the beginning of deck
-    game_state["deck"] = cards_to_return + game_state["deck"]
-    game_state["round_active"] = False
-    
+    elif last_type == "player" and last_player_id:
+        player = game_state["players"].get(last_player_id)
+        if player and player.get("card"):
+            last_card = player["card"]
+            player["card"] = None
+            player["status"] = "active"
+            player["result"] = None
+            player["war_card"] = None
+
+    if last_card:
+        game_state["deck"].insert(0, last_card)
+
     await broadcast_to_all({
         "action": "cards_undone",
         "deck_count": len(game_state["deck"]),
         "players": game_state["players"],
-        "dealer_card": None
+        "dealer_card": game_state["dealer_card"],
+        "message": f"Last card ({last_card}) unassigned from {'dealer' if last_type == 'dealer' else 'player ' + str(last_player_id) if last_player_id else ''} and put back to deck" if last_card else "No card to undo"
     })
 
 async def handle_add_card_manual(card):
@@ -642,8 +648,8 @@ async def handle_set_game_mode(mode):
         game_state['auto_task'] = None
     
     # Start automatic mode if selected
-    if mode == "automatic":
-        game_state['auto_task'] = asyncio.create_task(run_automatic_mode())
+    # if mode == "automatic":
+        # game_state['auto_task'] = asyncio.create_task(run_automatic_mode())
     
     await broadcast_to_all({
         "action": "game_mode_changed",
@@ -655,38 +661,17 @@ async def handle_manual_deal_card(target, card, player_id=None):
     if game_state["game_mode"] != "live":
         await broadcast_to_dealers({"action": "error", "message": "Manual card assignment allowed only in live mode"})
         return
+    if "assignment_order" not in game_state:
+        game_state["assignment_order"] = []
     if target == "dealer":
         game_state["dealer_card"] = card
+        game_state["assignment_order"].append({"card": card, "type": "dealer"})
         await broadcast_to_all({
             "action": "dealer_card_set",
             "card": card,
             "message": "Dealer card manually set",
             "game_state": game_state
-            
         })
-    #     # If any players already have a card, trigger result evaluation.
-    #     if any(player.get("card") for player in game_state["players"].values()):
-    #         await evaluate_round()
-    # elif target == "player":
-    #     if not player_id or player_id not in game_state["players"]:
-    #         await broadcast_to_dealers({
-    #             "action": "error",
-    #             "message": f"Player {player_id} not found."
-    #         })
-    #         return
-    #     game_state["players"][player_id]["card"] = card
-    #     game_state["players"][player_id]["status"] = "active"
-    #     await broadcast_to_all({
-    #         "action": "player_card_set",
-    #         "player_id": player_id,
-    #         "card": card,
-    #         "message": f"Card manually assigned to player {player_id}"
-    #     })
-    #     # If the dealer already has a card, trigger result evaluation.
-    #     if game_state["dealer_card"]:
-    #         await evaluate_round()
-
-    # SIMILAR TO THE ABOVE COMMENTED CODE BUT REMOVED THE AUTOMATIC RESULT EVALUATION
     elif target == "player":
         if not player_id or player_id not in game_state["players"]:
             await broadcast_to_dealers({
@@ -696,13 +681,13 @@ async def handle_manual_deal_card(target, card, player_id=None):
             return
         game_state["players"][player_id]["card"] = card
         game_state["players"][player_id]["status"] = "active"
+        game_state["assignment_order"].append({"player_id": player_id, "card": card, "type": "player"})
         await broadcast_to_all({
             "action": "player_card_set",
             "player_id": player_id,
             "card": card,
             "message": f"Card manually assigned to player {player_id}",
             "game_state": game_state
-            
         })
 
 async def broadcast_to_all(message):

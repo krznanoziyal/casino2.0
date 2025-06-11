@@ -255,6 +255,15 @@ export default function DealerPage() {
           addNotification(`Choice made: ${data.choice.toUpperCase()}`)
         }
         break
+      case 'cards_undone':
+        setGameState(prev => ({
+          ...prev,
+          deck_count: data.deck_count,
+          dealer_card: data.dealer_card,
+          players: data.players
+        }))
+        if (data.message) addNotification(data.message)
+        break
       default:
         if (data.message) {
           addNotification(data.message)
@@ -423,13 +432,49 @@ export default function DealerPage() {
               🎴 Deal Cards
             </button>
 
+            {/* AUTOMATIC MODE: START and NEW ROUND BUTTONS */}
+            {gameState.game_mode === 'automatic' && !gameState.round_active && Object.keys(gameState.players).length > 0 && (
+              <div className="flex flex-col gap-2 mb-4">
+                <button
+                  className="success-button w-full"
+                  onClick={() => {
+                    // Start round: assign cards and evaluate
+                    sendMessage({ action: 'start_auto_round' });
+                  }}
+                >
+                  ▶️ START
+                </button>
+                {/* Show NEW ROUND if previous round completed and players exist */}
+                {Object.values(gameState.players).some(p => p.card || p.status !== 'active') && (
+                  <button
+                    className="dealer-button w-full"
+                    onClick={() => {
+                      sendMessage({ action: 'clear_round' });
+                    }}
+                  >
+                    🔄 CLEAR
+                  </button>
+                )}
+              </div>
+            )}
+
             {gameState.game_mode === 'live' && (
-              <button 
-                onClick={() => sendMessage({ action: 'evaluate_round' })} 
-                className="success-button w-full mb-4"
-              >
-                ⚖️ Evaluate Round
-              </button>
+              <>
+                <button 
+                  onClick={() => sendMessage({ action: 'evaluate_round' })} 
+                  className="success-button w-full mb-2"
+                >
+                  ⚖️ Evaluate Round
+                </button>
+                <button
+                  className="dealer-button w-full mb-4"
+                  onClick={() => {
+                    sendMessage({ action: 'clear_round' });
+                  }}
+                >
+                  🔄 CLEAR
+                </button>
+              </>
             )}
 
             {/* Utility Controls */}

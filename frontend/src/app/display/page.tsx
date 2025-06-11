@@ -227,6 +227,15 @@ export default function DisplayPage() {
           `War card ${data.card} assigned to ${data.target === 'dealer' ? 'Dealer' : 'Player ' + data.player_id}`
         );
         break;
+      case 'cards_undone':
+        setGameState(prev => ({
+          ...prev,
+          deck_count: data.deck_count,
+          dealer_card: data.dealer_card,
+          players: data.players
+        }))
+        if (data.message) addNotification(data.message)
+        break
     }
   }
 
