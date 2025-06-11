@@ -309,11 +309,9 @@ async def deal_cards_internal():
 async def evaluate_round():
     """Evaluates the round results and handles ties."""
     tie_players = []
-    
     for player_id, player_data in game_state["players"].items():
         player_card = player_data["card"]
         result = compare_cards(player_card, game_state["dealer_card"])
-        
         if result == "tie":
             tie_players.append(player_id)
             player_data["status"] = "waiting_choice"  # Waiting for war/surrender choice
@@ -321,8 +319,6 @@ async def evaluate_round():
             player_data["result"] = result
             player_data["status"] = "finished"
             game_state["player_results"][player_id] = result
-    
-    # Broadcast round results
     await broadcast_to_all({
         "action": "round_dealt",
         "round_number": game_state["round_number"],
@@ -332,16 +328,7 @@ async def evaluate_round():
         "deck_count": len(game_state["deck"]),
         "player_results": game_state["player_results"]
     })
-    
-    # Handle automatic mode choices for ties
-    if game_state["game_mode"] == "automatic" and tie_players:
-        # Wait a bit for manual choices, then auto-surrender remaining ties
-        await asyncio.sleep(game_state["auto_choice_delay"])
-        for player_id in tie_players:
-            if (player_id in game_state["players"] and 
-                game_state["players"][player_id]["status"] == "waiting_choice"):
-                await handle_player_choice(player_id, "surrender")
-    
+    # In automatic mode, do NOT auto-surrender ties. Wait for manual choice.
     # If no ties, round is complete
     if not tie_players:
         await complete_round()
@@ -358,7 +345,6 @@ async def handle_player_choice(player_id, choice):
         player["status"] = "finished"
         game_state["player_results"][player_id] = "surrender"
     elif choice == "war":
-        # Mark the player for war round and clear their card.
         player["status"] = "war"
         player["card"] = None  
         # Do not assign a war card now; wait for dealer to assign during war round.
@@ -371,13 +357,11 @@ async def handle_player_choice(player_id, choice):
         "player_results": game_state["player_results"],
         "deck_count": len(game_state["deck"])
     })
-    
-    # Check if everyone who is not in war has finished.
+    # In all modes, as soon as all non-war players have finished, proceed automatically
     all_non_war_finished = all(
         p["status"] != "waiting_choice" for p in game_state["players"].values() if p["status"] != "war"
     )
     if all_non_war_finished:
-        # If any players chose war, start the war round.
         war_players = [pid for pid, p in game_state["players"].items() if p["status"] == "war"]
         if war_players:
             await start_war_round(war_players)
@@ -663,6 +647,9 @@ async def handle_manual_deal_card(target, card, player_id=None):
         return
     if "assignment_order" not in game_state:
         game_state["assignment_order"] = []
+    # Remove the card from the deck if present
+    if card in game_state["deck"]:
+        game_state["deck"].remove(card)
     if target == "dealer":
         game_state["dealer_card"] = card
         game_state["assignment_order"].append({"card": card, "type": "dealer"})

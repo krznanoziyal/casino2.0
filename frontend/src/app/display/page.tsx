@@ -190,7 +190,8 @@ export default function DisplayPage() {
       case 'dealer_card_set':
         setGameState(prev => ({ 
           ...prev, 
-          dealer_card: data.card 
+          dealer_card: data.card,
+          deck_count: typeof data.game_state?.deck_count === 'number' ? data.game_state.deck_count : (typeof data.deck_count === 'number' ? data.deck_count : prev.deck_count)
         }))
         addNotification(`Dealer card manually set to ${data.card}`)
         break
@@ -204,7 +205,8 @@ export default function DisplayPage() {
               card: data.card, 
               status: 'active' 
             } 
-          } 
+          },
+          deck_count: typeof data.game_state?.deck_count === 'number' ? data.game_state.deck_count : (typeof data.deck_count === 'number' ? data.deck_count : prev.deck_count)
         }))
         addNotification(`Card manually assigned to player ${data.player_id}`)
         break

@@ -203,7 +203,8 @@ export default function DealerPage() {
       case 'dealer_card_set':
         setGameState(prev => ({ 
           ...prev, 
-          dealer_card: data.card 
+          dealer_card: data.card,
+          deck_count: typeof data.game_state?.deck_count === 'number' ? data.game_state.deck_count : (typeof data.deck_count === 'number' ? data.deck_count : prev.deck_count)
         }))
         addNotification(`Dealer card manually set to ${data.card}`)
         break
@@ -217,7 +218,8 @@ export default function DealerPage() {
               card: data.card, 
               status: 'active' 
             } 
-          } 
+          },
+          deck_count: typeof data.game_state?.deck_count === 'number' ? data.game_state.deck_count : (typeof data.deck_count === 'number' ? data.deck_count : prev.deck_count)
         }))
         addNotification(`Card manually assigned to player ${data.player_id}`)
         break
@@ -452,7 +454,7 @@ export default function DealerPage() {
                       sendMessage({ action: 'clear_round' });
                     }}
                   >
-                    🔄 CLEAR
+                    🔄 RESET
                   </button>
                 )}
               </div>
@@ -472,7 +474,7 @@ export default function DealerPage() {
                     sendMessage({ action: 'clear_round' });
                   }}
                 >
-                  🔄 CLEAR
+                  🔄 RESET
                 </button>
               </>
             )}
@@ -483,7 +485,7 @@ export default function DealerPage() {
                 ↩️ Undo Last Deal
               </button>
               <button onClick={() => sendMessage({ action: 'reset_game' })} className="danger-button w-full">
-                🔄 Reset Game
+                🔄 NEW GAME
               </button>
             </div>
           </div>
