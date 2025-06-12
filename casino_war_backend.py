@@ -783,6 +783,14 @@ if __name__ == "__main__":
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
     asyncio.run(main())
 
+# def extract_card_value(input_string):
+#     """
+#     Extract the card value from the input string formatted like:
+#     [Manual Burn Cards]<Card:{data}>
+#     """
+#     match = re.search(r"<Card:(.*?)>", input_string)
+#     return match.group(1) if match else None
+
 # async def read_from_serial():
 #     """Continuously reads card values from the casino shoe reader and adds them to the game."""
 #     while True:

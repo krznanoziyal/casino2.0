@@ -1,6 +1,13 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { FaBars, FaTimes } from 'react-icons/fa'
+
+// Use FaBars and FaTimes as JSX components with .default if needed
+// @ts-ignore
+const FaBarsIcon = (FaBars as any).default || FaBars;
+// @ts-ignore
+const FaTimesIcon = (FaTimes as any).default || FaTimes;
 
 interface GameState {
   deck_count: number
@@ -57,6 +64,7 @@ export default function DealerPage() {
   const [warCardTarget, setWarCardTarget] = useState<'dealer' | 'player'>('dealer')
   const [warCardValue, setWarCardValue] = useState('')
   const [warPlayerId, setWarPlayerId] = useState('')
+  const [menuOpen, setMenuOpen] = useState(false)
   
   const wsRef = useRef<WebSocket | null>(null)
 
@@ -317,23 +325,132 @@ export default function DealerPage() {
 
   return (
     <div className="min-h-screen p-6">
-      {/* Header */}
-      {/* <div className="bg-black/40 backdrop-blur-sm border-2 border-casino-gold rounded-xl p-6 mb-6">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-full bg-gradient-conic from-red-500 via-yellow-500 to-blue-500 animate-spin-slow border-2 border-casino-gold"></div>
-            <div>
-              <h1 className="text-3xl font-bold text-casino-gold">Dealer Interface</h1>
-              <p className="text-gray-300">Table {gameState.table_number} - {gameState.game_mode.toUpperCase()} Mode</p>
-            </div>
-          </div>
-          <div className={`px-4 py-2 rounded-full flex items-center gap-2 ${connected ? 'bg-green-500/20 border border-green-500 text-green-400' : 'bg-red-500/20 border border-red-500 text-red-400'}`}>
-            <div className={`w-3 h-3 rounded-full ${connected ? 'bg-green-400' : 'bg-red-400'} animate-pulse`}></div>
-            {connected ? 'Connected' : 'Disconnected'}
-          </div>
-        </div>
-      </div> */}
+      {/* Menu Button in top right */}
+      <div className="absolute top-4 right-4 z-20">
+        <button
+          className="bg-black/60 border border-casino-gold rounded-full p-3 hover:bg-black/80 transition"
+          onClick={() => setMenuOpen(true)}
+          aria-label="Open Game Controls Menu"
+        >
+          <FaBarsIcon className="text-casino-gold text-2xl" />
+        </button>
+      </div>
 
+      {/* Game Controls Modal */}
+      <AnimatePresence>
+        {menuOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: -40 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: -40 }}
+              className="bg-black/90 border-2 border-casino-gold rounded-2xl p-8 w-full max-w-md relative shadow-2xl"
+            >
+              <button
+                className="absolute top-4 right-4 text-casino-gold hover:text-white text-2xl"
+                onClick={() => setMenuOpen(false)}
+                aria-label="Close Menu"
+              >
+                <FaTimesIcon />
+              </button>
+              <h2 className="text-2xl font-bold text-casino-gold mb-4 text-center">Game Controls</h2>
+              
+              {/* Deck Management */}
+              <div className="space-y-3 mb-6">
+                <button onClick={() => sendMessage({ action: 'shuffle_deck' })} className="dealer-button w-full">
+                  🔄 Shuffle Deck ({gameState.deck_count} cards)
+                </button>
+                <button onClick={() => sendMessage({ action: 'burn_card' })} className="w-full bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg transition-colors">
+                  🔥 Burn Card ({gameState.burned_cards_count} burned)
+                </button>
+              </div>
+
+              {/* Game Mode */}
+              <div className="mb-6">
+                <label className="block text-casino-gold font-semibold mb-2">Game Mode</label>
+                <select 
+                  value={gameState.game_mode} 
+                  onChange={(e) => sendMessage({ action: 'set_game_mode', mode: e.target.value })}
+                  className="w-full bg-black border border-casino-gold rounded-lg px-3 py-2 text-white"
+                >
+                  <option value="manual">Manual</option>
+                  <option value="automatic">Automatic</option>
+                  <option value="live">Live</option>
+                </select>
+              </div>
+
+              {/* Deal Cards */}
+              <button 
+                onClick={() => sendMessage({ action: 'deal_cards' })} 
+                disabled={gameState.round_active || Object.keys(gameState.players).length === 0}
+                className="dealer-button w-full mb-4 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                🎴 Deal Cards
+              </button>
+
+              {/* AUTOMATIC MODE: START and NEW ROUND BUTTONS */}
+              {gameState.game_mode === 'automatic' && !gameState.round_active && Object.keys(gameState.players).length > 0 && (
+                <div className="flex flex-col gap-2 mb-4">
+                  <button
+                    className="success-button w-full"
+                    onClick={() => {
+                      // Start round: assign cards and evaluate
+                      sendMessage({ action: 'start_auto_round' });
+                    }}
+                  >
+                    ▶️ START
+                  </button>
+                  {/* Show NEW ROUND if previous round completed and players exist */}
+                  {Object.values(gameState.players).some(p => p.card || p.status !== 'active') && (
+                    <button
+                      className="dealer-button w-full"
+                      onClick={() => {
+                        sendMessage({ action: 'clear_round' });
+                      }}
+                    >
+                      🔄 RESET
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {gameState.game_mode === 'live' && (
+                <>
+                  <button 
+                    onClick={() => sendMessage({ action: 'evaluate_round' })} 
+                    className="success-button w-full mb-2"
+                  >
+                    ⚖️ Evaluate Round
+                  </button>
+                  <button
+                    className="dealer-button w-full mb-4"
+                    onClick={() => {
+                      sendMessage({ action: 'clear_round' });
+                    }}
+                  >
+                    🔄 RESET
+                  </button>
+                </>
+              )}
+
+              {/* Utility Controls */}
+              <div className="space-y-2">
+                <button onClick={() => sendMessage({ action: 'undo_last_card' })} className="danger-button w-full">
+                  ↩️ Undo Last Deal
+                </button>
+                <button onClick={() => sendMessage({ action: 'reset_game' })} className="danger-button w-full">
+                  🔄 NEW GAME
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Player Management + Connection Status */}
       <div className="relative">
@@ -396,181 +513,6 @@ export default function DealerPage() {
       </AnimatePresence>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Game Controls */}
-        <div className="lg:col-span-1">
-          <div className="bg-black/40 backdrop-blur-sm border border-casino-gold rounded-xl p-6 mb-6">
-            <h2 className="text-xl font-bold text-casino-gold mb-4">Game Controls</h2>
-            
-            {/* Deck Management */}
-            <div className="space-y-3 mb-6">
-              <button onClick={() => sendMessage({ action: 'shuffle_deck' })} className="dealer-button w-full">
-                🔄 Shuffle Deck ({gameState.deck_count} cards)
-              </button>
-              <button onClick={() => sendMessage({ action: 'burn_card' })} className="w-full bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg transition-colors">
-                🔥 Burn Card ({gameState.burned_cards_count} burned)
-              </button>
-            </div>
-
-            {/* Game Mode */}
-            <div className="mb-6">
-              <label className="block text-casino-gold font-semibold mb-2">Game Mode</label>
-              <select 
-                value={gameState.game_mode} 
-                onChange={(e) => sendMessage({ action: 'set_game_mode', mode: e.target.value })}
-                className="w-full bg-black border border-casino-gold rounded-lg px-3 py-2 text-white"
-              >
-                <option value="manual">Manual</option>
-                <option value="automatic">Automatic</option>
-                <option value="live">Live</option>
-              </select>
-            </div>
-
-            {/* Deal Cards */}
-            <button 
-              onClick={() => sendMessage({ action: 'deal_cards' })} 
-              disabled={gameState.round_active || Object.keys(gameState.players).length === 0}
-              className="dealer-button w-full mb-4 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              🎴 Deal Cards
-            </button>
-
-            {/* AUTOMATIC MODE: START and NEW ROUND BUTTONS */}
-            {gameState.game_mode === 'automatic' && !gameState.round_active && Object.keys(gameState.players).length > 0 && (
-              <div className="flex flex-col gap-2 mb-4">
-                <button
-                  className="success-button w-full"
-                  onClick={() => {
-                    // Start round: assign cards and evaluate
-                    sendMessage({ action: 'start_auto_round' });
-                  }}
-                >
-                  ▶️ START
-                </button>
-                {/* Show NEW ROUND if previous round completed and players exist */}
-                {Object.values(gameState.players).some(p => p.card || p.status !== 'active') && (
-                  <button
-                    className="dealer-button w-full"
-                    onClick={() => {
-                      sendMessage({ action: 'clear_round' });
-                    }}
-                  >
-                    🔄 RESET
-                  </button>
-                )}
-              </div>
-            )}
-
-            {gameState.game_mode === 'live' && (
-              <>
-                <button 
-                  onClick={() => sendMessage({ action: 'evaluate_round' })} 
-                  className="success-button w-full mb-2"
-                >
-                  ⚖️ Evaluate Round
-                </button>
-                <button
-                  className="dealer-button w-full mb-4"
-                  onClick={() => {
-                    sendMessage({ action: 'clear_round' });
-                  }}
-                >
-                  🔄 RESET
-                </button>
-              </>
-            )}
-
-            {/* Utility Controls */}
-            <div className="space-y-2">
-              <button onClick={() => sendMessage({ action: 'undo_last_card' })} className="danger-button w-full">
-                ↩️ Undo Last Deal
-              </button>
-              <button onClick={() => sendMessage({ action: 'reset_game' })} className="danger-button w-full">
-                🔄 NEW GAME
-              </button>
-            </div>
-          </div>
-
-          {/* Player Management */}
-          {/* <div className="bg-black/40 backdrop-blur-sm border border-casino-gold rounded-xl p-6 mb-6">
-            <h2 className="text-xl font-bold text-casino-gold mb-4">Player Management</h2>
-            <div className="grid grid-cols-3 gap-4">
-              {Array.from({ length: 6 }, (_, i) => i + 1).map((seatNumber) => {
-                const playerId = seatNumber.toString();
-                const isActive = gameState.players[playerId] !== undefined;
-                return (
-                  <button
-                    key={seatNumber}
-                    onClick={() => {
-                      if (isActive) {
-                        sendMessage({ action: "remove_player", player_id: playerId });
-                        addNotification(`Seat ${seatNumber} deactivated`);
-                      } else {
-                        sendMessage({ action: "add_player", player_id: playerId });
-                        addNotification(`Seat ${seatNumber} activated`);
-                      }
-                    }}
-                    className={`flex flex-col items-center justify-center border-2 rounded-xl p-4 transition-all duration-200 ${
-                      isActive 
-                        ? "bg-green-800 border-green-400 shadow-lg shadow-green-400/20"
-                        : "bg-gray-800 border-gray-600 hover:border-gray-400"
-                    }`}
-                  >
-                    <div className="text-4xl mb-2">
-                      {isActive ? "🟢" : "⚫"}
-                    </div>
-                    <div className="text-lg font-bold text-white">Seat {seatNumber}</div>
-                  </button>
-                );
-              })}
-            </div>
-          </div> */}
-
-          {/* Settings */}
-          {/* <div className="bg-black/40 backdrop-blur-sm border border-casino-gold rounded-xl p-6">
-            <h2 className="text-xl font-bold text-casino-gold mb-4">Table Settings</h2>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-casino-gold font-semibold mb-1">Table Number</label>
-                <div className="flex gap-2">
-                  <input 
-                    type="number" 
-                    value={tableNumber}
-                    onChange={(e) => setTableNumber(Number(e.target.value))}
-                    className="flex-1 bg-black border border-casino-gold rounded-lg px-3 py-2 text-white"
-                  />
-                  <button onClick={() => sendMessage({ action: 'change_table', table_number: tableNumber })} className="success-button">
-                    ✓
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-casino-gold font-semibold mb-1">Betting Limits</label>
-                <div className="flex gap-2 mb-2">
-                  <input 
-                    type="number" 
-                    placeholder="Min"
-                    value={minBet}
-                    onChange={(e) => setMinBet(Number(e.target.value))}
-                    className="flex-1 bg-black border border-casino-gold rounded-lg px-3 py-2 text-white"
-                  />
-                  <input 
-                    type="number" 
-                    placeholder="Max"
-                    value={maxBet}
-                    onChange={(e) => setMaxBet(Number(e.target.value))}
-                    className="flex-1 bg-black border border-casino-gold rounded-lg px-3 py-2 text-white"
-                  />
-                </div>
-                <button onClick={() => sendMessage({ action: 'change_bets', min_bet: minBet, max_bet: maxBet })} className="success-button w-full">
-                  Update Limits
-                </button>
-              </div>
-            </div>
-          </div> */}
-        </div>
-
         {/* Game Table */}
         <div className="lg:col-span-2">
           <div className="bg-black/40 backdrop-blur-sm border border-casino-gold rounded-xl p-6 mb-6">
