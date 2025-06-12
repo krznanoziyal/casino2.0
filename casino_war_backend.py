@@ -364,9 +364,66 @@ async def handle_player_choice(player_id, choice):
     if all_non_war_finished:
         war_players = [pid for pid, p in game_state["players"].items() if p["status"] == "war"]
         if war_players:
-            await start_war_round(war_players)
+            if game_state["game_mode"] == "automatic":
+                # In automatic mode, assign war cards and evaluate automatically
+                await assign_and_evaluate_war_round(war_players)
+            else:
+                await start_war_round(war_players)
         else:
             await complete_round()
+
+async def assign_and_evaluate_war_round(war_players):
+    """Automatically assign war cards to dealer and war players, then evaluate only new cards for war participants."""
+    # Assign war cards to all war players
+    for player_id in war_players:
+        if game_state["deck"]:
+            card = game_state["deck"].pop(0)
+            game_state["players"][player_id]["war_card"] = card
+    # Assign new war card to dealer
+    dealer_war_card = None
+    if game_state["deck"]:
+        dealer_war_card = game_state["deck"].pop(0)
+    # Prepare war_round structure for evaluation (only war players)
+    war_round = {
+        "dealer_card": dealer_war_card,
+        "players": {pid: game_state["players"][pid]["war_card"] for pid in war_players}
+    }
+    # Store for UI (for display purposes, keep original cards in game_state["war_round"])
+    game_state["war_round_active"] = False
+    game_state["war_round"] = {
+        "dealer_card": dealer_war_card,
+        "players": {pid: game_state["players"][pid]["war_card"] for pid in war_players},
+        "original_cards": {
+            "dealer_card": game_state["dealer_card"],
+            "players": {pid: game_state["players"][pid]["card"] for pid in game_state["players"]}
+        }
+    }
+    # Evaluate war round (only war players)
+    await evaluate_war_round_auto(war_round, war_players)
+
+async def evaluate_war_round_auto(war_round, war_players):
+    dealer_war_card = war_round["dealer_card"]
+    war_players_cards = war_round["players"]
+    # Evaluate results for players in war round (only war players)
+    for player_id, card in war_players_cards.items():
+        result = compare_cards(card, dealer_war_card)
+        # Update the player's result and mark as finished.
+        game_state["players"][player_id]["result"] = result
+        game_state["players"][player_id]["status"] = "finished"
+        game_state["players"][player_id]["war_card"] = card
+        game_state["player_results"][player_id] = result
+    # Broadcast war round evaluated (only war players updated, others remain for UI)
+    await broadcast_to_all({
+        "action": "war_round_evaluated",
+        "dealer_card": dealer_war_card,
+        "players": { pid: game_state["players"][pid] for pid in war_players },
+        "player_results": game_state["player_results"],
+        "message": "War round evaluated"
+    })
+    # Complete round if all finished
+    all_finished = all(p["status"] == "finished" for p in game_state["players"].values())
+    if all_finished:
+        await complete_round()
 
 async def start_war_round(war_players):
     # Indicate war round is active.
@@ -491,14 +548,10 @@ async def handle_start_auto_round():
 
 async def handle_clear_round():
     """Resets the round for the next auto round, keeps players but clears cards/statuses/results."""
-    if game_state["game_mode"] != "automatic":
-        await broadcast_to_dealers({"action": "error", "message": "Not in automatic mode"})
+    if game_state["game_mode"] != "automatic" and game_state["game_mode"] != "live":
+        await broadcast_to_dealers({"action": "error", "message": "Not in automatic or live mode"})
         return
-    # Only allow if round is not active
-    if game_state["round_active"]:
-        await broadcast_to_dealers({"action": "error", "message": "Cannot start new round while round is active"})
-        return
-    # Reset all players' cards, statuses, results, war_card
+    # Always allow reset, regardless of round_active or player statuses
     for player in game_state["players"].values():
         player["card"] = None
         player["status"] = "active"
@@ -507,6 +560,7 @@ async def handle_clear_round():
     game_state["dealer_card"] = None
     game_state["war_round_active"] = False
     game_state["war_round"] = {"dealer_card": None, "players": {}}
+    game_state["round_active"] = False  # Ensure round_active is always reset so START is available
     # Do not reset round_number or remove players
     await broadcast_to_all({
         "action": "game_state_update",

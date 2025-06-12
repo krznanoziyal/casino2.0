@@ -149,18 +149,26 @@ export default function DisplayPage() {
           war_round: data.war_round
         }))
         break
-      case 'war_round_evaluated':
-        setGameState(prev => ({ 
-          ...prev, 
-          war_round_active: false,
-          war_round: {
-            dealer_card: null,
-            players: {},
-          },
-          players: { ...prev.players, ...data.players },
-          player_results: data.player_results
-        }))
+      case 'war_round_evaluated': {
+        setGameState(prev => {
+          const prevOriginalCards = (prev.war_round && 'original_cards' in prev.war_round) ? prev.war_round.original_cards : undefined;
+          return {
+            ...prev, 
+            war_round_active: false,
+            war_round: {
+              dealer_card: data.dealer_card, // Show the dealer's war card
+              players: {
+                ...((prev.war_round && prev.war_round.players) || {}),
+                ...Object.fromEntries(Object.entries(data.players || {}).map(([pid, pdata]) => [pid, (pdata as PlayerData).war_card || null]))
+              },
+              ...(prevOriginalCards ? { original_cards: prevOriginalCards } : {})
+            },
+            players: { ...prev.players, ...data.players },
+            player_results: data.player_results
+          }
+        })
         break
+      }
       case 'player_added':
       case 'player_removed':
         setGameState(prev => ({ 
