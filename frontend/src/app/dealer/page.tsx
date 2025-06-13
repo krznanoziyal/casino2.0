@@ -65,6 +65,8 @@ export default function DealerPage() {
   const [warCardValue, setWarCardValue] = useState('')
   const [warPlayerId, setWarPlayerId] = useState('')
   const [menuOpen, setMenuOpen] = useState(false)
+  const [manualCardTarget, setManualCardTarget] = useState('')
+  const [manualCardSpecific, setManualCardSpecific] = useState('')
   
   const wsRef = useRef<WebSocket | null>(null)
 
@@ -443,62 +445,121 @@ export default function DealerPage() {
 
               {/* Card Assignment Panel for Manual/Live Mode */}
               {(gameState.game_mode === 'manual' || gameState.game_mode === 'live') && (
-                <div className="mb-6">
-                  <label className="block text-casino-gold font-semibold mb-2">Assign Card (Number & Suit)</label>
-                  <div className="flex flex-col gap-2">
-                    <div className="flex flex-wrap gap-2 justify-center mb-2">
-                      {["A","2","3","4","5","6","7","8","9","T","J","Q","K"].map(rank => (
-                        <button
-                          key={rank}
-                          className={`px-3 py-1 rounded border ${manualCard[0]===rank ? 'bg-casino-gold text-black' : 'bg-black text-casino-gold border-casino-gold'}`}
-                          onClick={() => setManualCard(rank + (manualCard[1]||''))}
-                        >
-                          {rank}
-                        </button>
-                      ))}
+                <>
+                  <div className="mb-6">
+                    <label className="block text-casino-gold font-semibold mb-2">Assign Card (Number & Suit)</label>
+                    <div className="flex flex-col gap-2">
+                      <div className="flex flex-wrap gap-2 justify-center mb-2">
+                        {["A","2","3","4","5","6","7","8","9","T","J","Q","K"].map(rank => (
+                          <button
+                            key={rank}
+                            className={`px-3 py-1 rounded border ${manualCard[0]===rank ? 'bg-casino-gold text-black' : 'bg-black text-casino-gold border-casino-gold'}`}
+                            onClick={() => setManualCard(rank + (manualCard[1]||''))}
+                          >
+                            {rank}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="flex flex-wrap gap-2 justify-center mb-2">
+                        {['S','H','D','C'].map(suit => (
+                          <button
+                            key={suit}
+                            className={`px-3 py-1 rounded border ${manualCard[1]===suit ? 'bg-casino-gold text-black' : 'bg-black text-casino-gold border-casino-gold'}`}
+                            onClick={() => setManualCard((manualCard[0]||'') + suit)}
+                          >
+                            {suit === 'S' ? '♠' : suit === 'H' ? '♥' : suit === 'D' ? '♦' : '♣'}
+                          </button>
+                        ))}
+                      </div>
+                      <button
+                        className="success-button w-full"
+                        disabled={manualCard.length !== 2 || allAssigned}
+                        onClick={() => {
+                          if (manualCard.length !== 2) return;
+                          // Find the next player (lowest number) without a card
+                          const playerIds = Object.keys(gameState.players).filter(pid => gameState.players[pid] && gameState.players[pid].card === null).sort((a, b) => Number(a) - Number(b));
+                          if (playerIds.length > 0) {
+                            // Assign to next player
+                            sendMessage({ action: 'manual_deal_card', target: 'player', card: manualCard, player_id: playerIds[0] });
+                            setManualCard('');
+                            addNotification(`Card ${manualCard} assigned to player ${playerIds[0]}`);
+                          } else if (!gameState.dealer_card) {
+                            // Assign to dealer if all players have cards
+                            sendMessage({ action: 'manual_deal_card', target: 'dealer', card: manualCard });
+                            setManualCard('');
+                            addNotification(`Card ${manualCard} assigned to dealer`);
+                          }
+                        }}
+                      >
+                        ➕ Add Card
+                      </button>
                     </div>
-                    <div className="flex flex-wrap gap-2 justify-center mb-2">
-                      {['S','H','D','C'].map(suit => (
-                        <button
-                          key={suit}
-                          className={`px-3 py-1 rounded border ${manualCard[1]===suit ? 'bg-casino-gold text-black' : 'bg-black text-casino-gold border-casino-gold'}`}
-                          onClick={() => setManualCard((manualCard[0]||'') + suit)}
-                        >
-                          {suit === 'S' ? '♠' : suit === 'H' ? '♥' : suit === 'D' ? '♦' : '♣'}
-                        </button>
-                      ))}
-                    </div>
-                    <button
-                      className="success-button w-full"
-                      disabled={manualCard.length !== 2 || allAssigned}
-                      onClick={() => {
-                        if (manualCard.length !== 2) return;
-                        // Find the next player (lowest number) without a card
-                        const playerIds = Object.keys(gameState.players).filter(pid => gameState.players[pid] && gameState.players[pid].card === null).sort((a, b) => Number(a) - Number(b));
-                        if (playerIds.length > 0) {
-                          // Assign to next player
-                          sendMessage({ action: 'manual_deal_card', target: 'player', card: manualCard, player_id: playerIds[0] });
-                          setManualCard('');
-                          addNotification(`Card ${manualCard} assigned to player ${playerIds[0]}`);
-                        } else if (!gameState.dealer_card) {
-                          // Assign to dealer if all players have cards
-                          sendMessage({ action: 'manual_deal_card', target: 'dealer', card: manualCard });
-                          setManualCard('');
-                          addNotification(`Card ${manualCard} assigned to dealer`);
-                        }
-                      }}
-                    >
-                      ➕ Add Card
-                    </button>
+                    {/* Disable if all players and dealer have cards */}
+                    {/* Helper for disabling the button */}
+                    {Object.values(gameState.players).every(p => p.card !== null) && gameState.dealer_card && (
+                      <div className="text-center text-sm text-gray-400 mt-2">
+                        All players and dealer have been assigned cards.
+                      </div>
+                    )}
                   </div>
-                  {/* Disable if all players and dealer have cards */}
-                  {/* Helper for disabling the button */}
-                  {Object.values(gameState.players).every(p => p.card !== null) && gameState.dealer_card && (
-                    <div className="text-center text-sm text-gray-400 mt-2">
-                      All players and dealer have been assigned cards.
+                  {/* Common Card Assignment by Dropdown (Player/Dealer) */}
+                  <div className="mb-6">
+                    <label className="block text-casino-gold font-semibold mb-2">Assign Card to Specific Player/Dealer</label>
+                    <div className="flex flex-col gap-2">
+                      <div className="flex gap-2">
+                        <select
+                          value={manualCardTarget}
+                          onChange={e => setManualCardTarget(e.target.value)}
+                          className="bg-black border border-casino-gold rounded-lg px-3 py-2 text-white flex-1"
+                        >
+                          <option value="">Select...</option>
+                          {Object.keys(gameState.players).map(pid => (
+                            <option key={pid} value={pid}>
+                              Player {pid}
+                            </option>
+                          ))}
+                          <option value="dealer">Dealer</option>
+                        </select>
+                        <input
+                          type="text"
+                          placeholder="Card (e.g., AS, KH)"
+                          value={manualCardSpecific}
+                          onChange={e => setManualCardSpecific(e.target.value.toUpperCase())}
+                          className="bg-black border border-casino-gold rounded-lg px-3 py-2 text-white flex-1"
+                        />
+                      </div>
+                      <button
+                        className="success-button w-full"
+                        disabled={
+                          !manualCardTarget ||
+                          manualCardSpecific.length !== 2 ||
+                          (manualCardTarget === 'dealer' ? !!gameState.dealer_card : !!gameState.players[manualCardTarget]?.card)
+                        }
+                        onClick={() => {
+                          if (!manualCardTarget || manualCardSpecific.length !== 2) return;
+                          if (!validCardPattern.test(manualCardSpecific)) {
+                            setNotifications(prev => [
+                              ...prev.slice(-4),
+                              "Invalid card. Please enter a valid card using ranks (2-10, J, Q, K, A) and suits (S, H, D, C)."
+                            ]);
+                            return;
+                          }
+                          if (manualCardTarget === 'dealer') {
+                            sendMessage({ action: 'manual_deal_card', target: 'dealer', card: manualCardSpecific });
+                            addNotification(`Card ${manualCardSpecific} assigned to dealer`);
+                          } else {
+                            sendMessage({ action: 'manual_deal_card', target: 'player', card: manualCardSpecific, player_id: manualCardTarget });
+                            addNotification(`Card ${manualCardSpecific} assigned to player ${manualCardTarget}`);
+                          }
+                          setManualCardSpecific('');
+                          setManualCardTarget('');
+                        }}
+                      >
+                        Assign Card
+                      </button>
                     </div>
-                  )}
-                </div>
+                  </div>
+                </>
               )}
 
               {/* Utility Controls */}
