@@ -153,11 +153,11 @@ async def handle_connection(websocket, path=None):
             elif data["action"] == "set_game_mode":
                 await handle_set_game_mode(data["mode"])
                 
-            elif data["action"] == "live_card_scanned":
-                await handle_live_card_scan(data["card"])
+            # elif data["action"] == "live_card_scanned":
+            #     await handle_live_card_scan(data["card"])
                 
-            elif data["action"] == "setup_live_mode":
-                await handle_live_mode_setup()
+            # elif data["action"] == "setup_live_mode":
+            #     await handle_live_mode_setup()
             
             elif data["action"] == "assign_war_card":
                 await handle_assign_war_card(data["target"], data["card"], data.get("player_id"))
@@ -684,29 +684,83 @@ async def handle_set_game_mode(mode):
     if hasattr(game_state, 'auto_task') and game_state['auto_task']:
         game_state['auto_task'].cancel()
         game_state['auto_task'] = None
-    
-    # Start automatic mode if selected
-    # if mode == "automatic":
-        # game_state['auto_task'] = asyncio.create_task(run_automatic_mode())
+
     
     await broadcast_to_all({
         "action": "game_mode_changed",
         "mode": mode
     })
 
+def get_next_card_assignment_target():
+    """Returns the next assignment target: (target_type, player_id or None)."""
+    # Find lowest-numbered active player without a card
+    active_players = [pid for pid, pdata in game_state["players"].items() if pdata["status"] == "active" and pdata["card"] is None]
+    if active_players:
+        # Sort numerically if possible, else lexicographically
+        try:
+            next_pid = sorted(active_players, key=lambda x: int(x))[0]
+        except Exception:
+            next_pid = sorted(active_players)[0]
+        return ("player", next_pid)
+    # If all players have cards, assign to dealer if not assigned
+    if game_state["dealer_card"] is None:
+        return ("dealer", None)
+    # All assigned
+    return (None, None)
+
+# async def handle_live_card_scan(card):
+#     """Assigns a scanned card to the next available player or dealer in order."""
+#     target, player_id = get_next_card_assignment_target()
+#     if target is None:
+#         await broadcast_to_dealers({
+#             "action": "error",
+#             "message": "All players and dealer already have cards assigned."
+#         })
+#         return
+#     # Remove card from deck if present
+#     if card in game_state["deck"]:
+#         game_state["deck"].remove(card)
+#     if target == "player":
+#         game_state["players"][player_id]["card"] = card
+#         game_state["players"][player_id]["status"] = "active"
+#         game_state.setdefault("assignment_order", []).append({"player_id": player_id, "card": card, "type": "player"})
+#         await broadcast_to_all({
+#             "action": "player_card_set",
+#             "player_id": player_id,
+#             "card": card,
+#             "message": f"Card assigned to player {player_id} via shoe scan",
+#             "game_state": game_state
+#         })
+#     elif target == "dealer":
+#         game_state["dealer_card"] = card
+#         game_state.setdefault("assignment_order", []).append({"card": card, "type": "dealer"})
+#         await broadcast_to_all({
+#             "action": "dealer_card_set",
+#             "card": card,
+#             "message": "Dealer card assigned via shoe scan",
+#             "game_state": game_state
+#         })
+
+# Update handle_manual_deal_card to use assignment order logic and prevent over-assignment
 async def handle_manual_deal_card(target, card, player_id=None):
-    """Manually assigns a card to the dealer or a specified player in live mode."""
+    """Assigns a card in live mode, enforcing assignment order and preventing over-assignment."""
     if game_state["game_mode"] != "live":
         await broadcast_to_dealers({"action": "error", "message": "Manual card assignment allowed only in live mode"})
         return
-    if "assignment_order" not in game_state:
-        game_state["assignment_order"] = []
+    next_target, next_pid = get_next_card_assignment_target()
+    # Only allow assignment to the correct next target
+    if (target == "player" and (next_target != "player" or player_id != next_pid)) or (target == "dealer" and next_target != "dealer"):
+        await broadcast_to_dealers({
+            "action": "error",
+            "message": f"Card must be assigned to the next available player (lowest number) or dealer in order. Next: {next_target} {next_pid}"
+        })
+        return
     # Remove the card from the deck if present
     if card in game_state["deck"]:
         game_state["deck"].remove(card)
     if target == "dealer":
         game_state["dealer_card"] = card
-        game_state["assignment_order"].append({"card": card, "type": "dealer"})
+        game_state.setdefault("assignment_order", []).append({"card": card, "type": "dealer"})
         await broadcast_to_all({
             "action": "dealer_card_set",
             "card": card,
@@ -722,7 +776,7 @@ async def handle_manual_deal_card(target, card, player_id=None):
             return
         game_state["players"][player_id]["card"] = card
         game_state["players"][player_id]["status"] = "active"
-        game_state["assignment_order"].append({"player_id": player_id, "card": card, "type": "player"})
+        game_state.setdefault("assignment_order", []).append({"player_id": player_id, "card": card, "type": "player"})
         await broadcast_to_all({
             "action": "player_card_set",
             "player_id": player_id,

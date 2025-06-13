@@ -323,6 +323,9 @@ export default function DealerPage() {
   // Card validation regex for all manual assignments
   const validCardPattern = /^(10|[2-9]|[JQKA])[SHDC]$/;
 
+  // Helper: are all players and dealer assigned? To prevent over-assignment
+  const allAssigned = Object.values(gameState.players).filter(p => p).every(p => p.card !== null) && !!gameState.dealer_card;
+
   return (
     <div className="min-h-screen p-6">
       {/* Menu Button in top right */}
@@ -436,6 +439,66 @@ export default function DealerPage() {
                     🔄 RESET
                   </button>
                 </>
+              )}
+
+              {/* Card Assignment Panel for Manual/Live Mode */}
+              {(gameState.game_mode === 'manual' || gameState.game_mode === 'live') && (
+                <div className="mb-6">
+                  <label className="block text-casino-gold font-semibold mb-2">Assign Card (Number & Suit)</label>
+                  <div className="flex flex-col gap-2">
+                    <div className="flex flex-wrap gap-2 justify-center mb-2">
+                      {["A","2","3","4","5","6","7","8","9","T","J","Q","K"].map(rank => (
+                        <button
+                          key={rank}
+                          className={`px-3 py-1 rounded border ${manualCard[0]===rank ? 'bg-casino-gold text-black' : 'bg-black text-casino-gold border-casino-gold'}`}
+                          onClick={() => setManualCard(rank + (manualCard[1]||''))}
+                        >
+                          {rank}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex flex-wrap gap-2 justify-center mb-2">
+                      {['S','H','D','C'].map(suit => (
+                        <button
+                          key={suit}
+                          className={`px-3 py-1 rounded border ${manualCard[1]===suit ? 'bg-casino-gold text-black' : 'bg-black text-casino-gold border-casino-gold'}`}
+                          onClick={() => setManualCard((manualCard[0]||'') + suit)}
+                        >
+                          {suit === 'S' ? '♠' : suit === 'H' ? '♥' : suit === 'D' ? '♦' : '♣'}
+                        </button>
+                      ))}
+                    </div>
+                    <button
+                      className="success-button w-full"
+                      disabled={manualCard.length !== 2 || allAssigned}
+                      onClick={() => {
+                        if (manualCard.length !== 2) return;
+                        // Find the next player (lowest number) without a card
+                        const playerIds = Object.keys(gameState.players).filter(pid => gameState.players[pid] && gameState.players[pid].card === null).sort((a, b) => Number(a) - Number(b));
+                        if (playerIds.length > 0) {
+                          // Assign to next player
+                          sendMessage({ action: 'manual_deal_card', target: 'player', card: manualCard, player_id: playerIds[0] });
+                          setManualCard('');
+                          addNotification(`Card ${manualCard} assigned to player ${playerIds[0]}`);
+                        } else if (!gameState.dealer_card) {
+                          // Assign to dealer if all players have cards
+                          sendMessage({ action: 'manual_deal_card', target: 'dealer', card: manualCard });
+                          setManualCard('');
+                          addNotification(`Card ${manualCard} assigned to dealer`);
+                        }
+                      }}
+                    >
+                      ➕ Add Card
+                    </button>
+                  </div>
+                  {/* Disable if all players and dealer have cards */}
+                  {/* Helper for disabling the button */}
+                  {Object.values(gameState.players).every(p => p.card !== null) && gameState.dealer_card && (
+                    <div className="text-center text-sm text-gray-400 mt-2">
+                      All players and dealer have been assigned cards.
+                    </div>
+                  )}
+                </div>
               )}
 
               {/* Utility Controls */}
