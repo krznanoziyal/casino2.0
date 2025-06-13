@@ -265,6 +265,18 @@ export default function PlayerPage() {
         setGameState(prev => ({ ...prev, table_number: data.table_number }));
         addNotification(`Table number updated: ${data.table_number}`);
         break;
+      case 'player_added':
+        setGameState(prev => ({ ...prev, players: data.players }));
+        if (data.player_id === playerId) {
+          addNotification('You have been added to the table!');
+        }
+        break;
+      case 'player_removed':
+        setGameState(prev => ({ ...prev, players: data.players, player_results: data.player_results }));
+        if (data.player_id === playerId) {
+          addNotification('You have been removed from the table.');
+        }
+        break;
       
       default:
         if (data.message) {
