@@ -168,12 +168,18 @@ async def handle_connection(websocket, path=None):
                 await handle_manual_deal_card(data["target"], data["card"], data.get("player_id"))
 #new handle connection for manual evalatuation
             elif data["action"] == "evaluate_round":
-                # Check that every active (added) player has a card assigned.
+                # Check that every active (added) player has a card assigned AND dealer has a card.
                 incomplete = [pid for pid, pdata in game_state["players"].items() if pdata.get("card") is None]
-                if incomplete:
+                dealer_missing = game_state["dealer_card"] is None
+                if incomplete or dealer_missing:
+                    missing_msg = ""
+                    if incomplete:
+                        missing_msg += f"Players {', '.join(incomplete)} have not been assigned a card. "
+                    if dealer_missing:
+                        missing_msg += "Dealer has not been assigned a card."
                     await broadcast_to_dealers({
                         "action": "error",
-                        "message": f"Players {', '.join(incomplete)} have not been assigned a card."
+                        "message": missing_msg.strip()
                     })
                 else:
                     await evaluate_round()
