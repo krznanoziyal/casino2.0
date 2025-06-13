@@ -257,6 +257,14 @@ export default function PlayerPage() {
         }))
         if (data.message) addNotification(data.message)
         break
+      case 'bets_changed':
+        setGameState(prev => ({ ...prev, min_bet: data.min_bet, max_bet: data.max_bet }));
+        addNotification(`Betting range updated: $${data.min_bet} - $${data.max_bet}`);
+        break;
+      case 'table_changed':
+        setGameState(prev => ({ ...prev, table_number: data.table_number }));
+        addNotification(`Table number updated: ${data.table_number}`);
+        break;
       
       default:
         if (data.message) {

@@ -517,6 +517,8 @@ async def complete_round():
                 "result": player_data["result"],
                 "timestamp": datetime.utcnow(),
                 "table_number": game_state["table_number"],
+                "min_bet": game_state["min_bet"],
+                "max_bet": game_state["max_bet"],
                 "game_mode": game_state["game_mode"]
             }
             try:

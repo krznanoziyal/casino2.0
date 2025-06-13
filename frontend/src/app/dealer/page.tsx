@@ -1,13 +1,15 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { FaBars, FaTimes } from 'react-icons/fa'
+import { FaBars, FaTimes, FaMoneyBillWave } from 'react-icons/fa'
 
-// Use FaBars and FaTimes as JSX components with .default if needed
+// Use FaBars, FaTimes, and FaMoneyBillWave as JSX components with .default if needed
 // @ts-ignore
 const FaBarsIcon = (FaBars as any).default || FaBars;
 // @ts-ignore
 const FaTimesIcon = (FaTimes as any).default || FaTimes;
+// @ts-ignore
+const FaMoneyIcon = (FaMoneyBillWave as any).default || FaMoneyBillWave;
 
 interface GameState {
   deck_count: number
@@ -67,6 +69,10 @@ export default function DealerPage() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [manualCardTarget, setManualCardTarget] = useState('')
   const [manualCardSpecific, setManualCardSpecific] = useState('')
+  const [betMenuOpen, setBetMenuOpen] = useState(false)
+  const [pendingMinBet, setPendingMinBet] = useState(gameState.min_bet)
+  const [pendingMaxBet, setPendingMaxBet] = useState(gameState.max_bet)
+  const [pendingTableNumber, setPendingTableNumber] = useState(gameState.table_number)
   
   const wsRef = useRef<WebSocket | null>(null)
 
@@ -276,6 +282,14 @@ export default function DealerPage() {
         }))
         if (data.message) addNotification(data.message)
         break
+      case 'bets_changed':
+        setGameState(prev => ({ ...prev, min_bet: data.min_bet, max_bet: data.max_bet }));
+        addNotification(`Betting range updated: $${data.min_bet} - $${data.max_bet}`);
+        break;
+      case 'table_changed':
+        setGameState(prev => ({ ...prev, table_number: data.table_number }));
+        addNotification(`Table number updated: ${data.table_number}`);
+        break;
       default:
         if (data.message) {
           addNotification(data.message)
@@ -341,6 +355,17 @@ export default function DealerPage() {
         </button>
       </div>
 
+      {/* Bet/Table Menu Button in top left */}
+      <div className="absolute top-4 left-4 z-20">
+        <button
+          className="bg-black/60 border border-casino-gold rounded-full p-3 hover:bg-black/80 transition"
+          onClick={() => setBetMenuOpen(true)}
+          aria-label="Open Bet/Table Menu"
+        >
+          <FaMoneyIcon className="text-casino-gold text-2xl" />
+        </button>
+      </div>
+
       {/* Game Controls Modal */}
       <AnimatePresence>
         {menuOpen && (
@@ -366,14 +391,16 @@ export default function DealerPage() {
               <h2 className="text-2xl font-bold text-casino-gold mb-4 text-center">Game Controls</h2>
               
               {/* Deck Management */}
-              <div className="space-y-3 mb-6">
-                <button onClick={() => sendMessage({ action: 'shuffle_deck' })} className="dealer-button w-full">
-                  🔄 Shuffle Deck ({gameState.deck_count} cards)
-                </button>
-                <button onClick={() => sendMessage({ action: 'burn_card' })} className="w-full bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg transition-colors">
-                  🔥 Burn Card ({gameState.burned_cards_count} burned)
-                </button>
-              </div>
+              {gameState.game_mode !== 'live' && (
+                <div className="space-y-3 mb-6">
+                  <button onClick={() => sendMessage({ action: 'shuffle_deck' })} className="dealer-button w-full">
+                    🔄 Shuffle Deck ({gameState.deck_count} cards)
+                  </button>
+                  <button onClick={() => sendMessage({ action: 'burn_card' })} className="w-full bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg transition-colors">
+                    🔥 Burn Card ({gameState.burned_cards_count} burned)
+                  </button>
+                </div>
+              )}
 
               {/* Game Mode */}
               <div className="mb-6">
@@ -576,6 +603,81 @@ export default function DealerPage() {
         )}
       </AnimatePresence>
 
+      {/* Bet/Table Menu Modal */}
+      <AnimatePresence>
+        {betMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: -40 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: -40 }}
+              className="bg-black/90 border-2 border-casino-gold rounded-2xl p-8 w-full max-w-xs relative shadow-2xl"
+            >
+              <button
+                className="absolute top-4 right-4 text-casino-gold hover:text-white text-2xl"
+                onClick={() => setBetMenuOpen(false)}
+                aria-label="Close Bet/Table Menu"
+              >
+                <FaTimesIcon />
+              </button>
+              <h2 className="text-xl font-bold text-casino-gold mb-4 text-center">Table & Betting</h2>
+              <div className="mb-4">
+                <label className="block text-casino-gold font-semibold mb-2">Table Number</label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={pendingTableNumber}
+                  onChange={e => setPendingTableNumber(e.target.value === '' ? 0 : Number(e.target.value.replace(/\D/g, '')))}
+                  className="w-full bg-black border border-casino-gold rounded-lg px-3 py-2 text-white appearance-none"
+                  style={{ MozAppearance: 'textfield' }}
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block text-casino-gold font-semibold mb-2">Min Bet</label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={pendingMinBet}
+                  onChange={e => setPendingMinBet(e.target.value === '' ? 0 : Number(e.target.value.replace(/\D/g, '')))}
+                  className="w-full bg-black border border-casino-gold rounded-lg px-3 py-2 text-white appearance-none"
+                  style={{ MozAppearance: 'textfield' }}
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block text-casino-gold font-semibold mb-2">Max Bet</label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={pendingMaxBet}
+                  onChange={e => setPendingMaxBet(e.target.value === '' ? 0 : Number(e.target.value.replace(/\D/g, '')))}
+                  className="w-full bg-black border border-casino-gold rounded-lg px-3 py-2 text-white appearance-none"
+                  style={{ MozAppearance: 'textfield' }}
+                />
+              </div>
+              <button
+                className="success-button w-full"
+                onClick={() => {
+                  sendMessage({ action: 'change_bets', min_bet: pendingMinBet, max_bet: pendingMaxBet })
+                  sendMessage({ action: 'change_table', table_number: pendingTableNumber })
+                  setBetMenuOpen(false)
+                  addNotification('Table and betting updated')
+                }}
+              >
+                Save
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Player Management + Connection Status */}
       <div className="relative">
         {/* Connection Status in top right */}
@@ -638,13 +740,14 @@ export default function DealerPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Game Table */}
-        <div className="lg:col-span-2">
-          <div className="bg-black/40 backdrop-blur-sm border border-casino-gold rounded-xl p-6 mb-6">
+        <div className="lg:col-span-3 col-span-full w-full">
+          <div className="bg-black/40 backdrop-blur-sm border border-casino-gold rounded-xl p-6 mb-6 w-full grow flex flex-col">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-bold text-casino-gold">
                 Round {gameState.round_number} {gameState.round_active ? '(Active)' : ''}
               </h2>
               <div className="text-right">
+                <div className="text-casino-gold font-semibold">Table: {gameState.table_number}</div>
                 <div className="text-casino-gold font-semibold">Betting: ${gameState.min_bet} - ${gameState.max_bet}</div>
                 <div className="text-gray-300 text-sm">Players: {Object.keys(gameState.players).length}/6</div>
               </div>
