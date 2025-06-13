@@ -391,16 +391,16 @@ export default function DealerPage() {
               <h2 className="text-2xl font-bold text-casino-gold mb-4 text-center">Game Controls</h2>
               
               {/* Deck Management */}
-              {gameState.game_mode !== 'live' && (
-                <div className="space-y-3 mb-6">
-                  <button onClick={() => sendMessage({ action: 'shuffle_deck' })} className="dealer-button w-full">
-                    🔄 Shuffle Deck ({gameState.deck_count} cards)
-                  </button>
+              <div className="space-y-3 mb-6">
+                <button onClick={() => sendMessage({ action: 'shuffle_deck' })} className="dealer-button w-full">
+                  🔄 Shuffle Deck ({gameState.deck_count} cards)
+                </button>
+                {gameState.game_mode !== 'live' && (
                   <button onClick={() => sendMessage({ action: 'burn_card' })} className="w-full bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg transition-colors">
                     🔥 Burn Card ({gameState.burned_cards_count} burned)
                   </button>
-                </div>
-              )}
+                )}
+              </div>
 
               {/* Game Mode */}
               <div className="mb-6">
@@ -1031,7 +1031,7 @@ export default function DealerPage() {
 
                     {gameState.game_mode === 'live' && (gameState.round_active || !playerData.card) && (!gameState.war_round || gameState.war_round_active || !gameState.war_round.original_cards) && (
                       <div className="mt-3 space-y-2">
-                        <input 
+                        {/* <input 
                           type="text" 
                           placeholder="Card (e.g., AS, KH)"
                           className="w-full bg-black border border-casino-gold rounded px-2 py-1 text-white text-sm"
@@ -1056,7 +1056,7 @@ export default function DealerPage() {
                               }
                             }
                           }}
-                        />
+                        /> */}
                       </div>
                     )}
 

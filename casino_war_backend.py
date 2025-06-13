@@ -155,9 +155,9 @@ async def handle_connection(websocket, path=None):
                 
             # elif data["action"] == "live_card_scanned":
             #     await handle_live_card_scan(data["card"])
-                
-            # elif data["action"] == "setup_live_mode":
-            #     await handle_live_mode_setup()
+
+            # elif data["action"] == "live_war_card_scanned": 
+            #     await handle_live_war_card_scan(data["card"])
             
             elif data["action"] == "assign_war_card":
                 await handle_assign_war_card(data["target"], data["card"], data.get("player_id"))
@@ -716,8 +716,34 @@ def get_next_card_assignment_target():
     # All assigned
     return (None, None)
 
+def is_card_available(card):
+    """Returns True if at least one copy of the card is left in the deck (max 6 per unique card in 312)."""
+    return card in game_state["deck"]
+
+
+
+# --- SHOE READER (LIVE MODE) CARD ASSIGNMENT ---
+
+# def get_next_war_card_assignment_target():
+#     """Returns the next war card assignment target: (target_type, player_id or None)."""
+#     war = game_state.get("war_round", {})
+#     if not war:
+#         return (None, None)
+#     # Find lowest-numbered war player without a war card
+#     war_players = [pid for pid, card in war.get("players", {}).items() if card is None]
+#     if war_players:
+#         try:
+#             next_pid = sorted(war_players, key=lambda x: int(x))[0]
+#         except Exception:
+#             next_pid = sorted(war_players)[0]
+#         return ("player", next_pid)
+#     # If all war players have cards, assign to dealer if not assigned
+#     if war.get("dealer_card") is None:
+#         return ("dealer", None)
+#     return (None, None)
+
 # async def handle_live_card_scan(card):
-#     """Assigns a scanned card to the next available player or dealer in order."""
+#     """Assigns a scanned card to the next available player or dealer in order (main round)."""
 #     target, player_id = get_next_card_assignment_target()
 #     if target is None:
 #         await broadcast_to_dealers({
@@ -725,7 +751,7 @@ def get_next_card_assignment_target():
 #             "message": "All players and dealer already have cards assigned."
 #         })
 #         return
-#     # Remove card from deck if present
+## remove card from deck if present
 #     if card in game_state["deck"]:
 #         game_state["deck"].remove(card)
 #     if target == "player":
@@ -749,23 +775,59 @@ def get_next_card_assignment_target():
 #             "game_state": game_state
 #         })
 
-# Update handle_manual_deal_card to use assignment order logic and prevent over-assignment
+# async def handle_live_war_card_scan(card):
+#     """Assigns a scanned card to the next available war player or dealer in order (war round)."""
+#     target, player_id = get_next_war_card_assignment_target()
+#     war = game_state.get("war_round", {})
+#     if target is None or not war:
+#         await broadcast_to_dealers({
+#             "action": "error",
+#             "message": "All war cards already assigned."
+#         })
+#         return
+#     if card in game_state["deck"]:
+#         game_state["deck"].remove(card)
+#     if target == "player":
+#         war["players"][player_id] = card
+#         await broadcast_to_all({
+#             "action": "war_card_assigned",
+#             "target": "player",
+#             "card": card,
+#             "player_id": player_id
+#         })
+#     elif target == "dealer":
+#         war["dealer_card"] = card
+#         await broadcast_to_all({
+#             "action": "war_card_assigned",
+#             "target": "dealer",
+#             "card": card
+#         })
+
+def assign_card_if_available(card, error_context="assignment"):
+    """Remove card from deck if available, else return False and send error."""
+    if card not in game_state["deck"]:
+        asyncio.create_task(broadcast_to_dealers({
+            "action": "error",
+            "message": f"Card {card} cannot be used for {error_context}: all 6 copies have already been assigned or burned."
+        }))
+        return False
+    game_state["deck"].remove(card)
+    return True
+
+# PATCH: handle_manual_deal_card (covers manual override and live/shoereader)
 async def handle_manual_deal_card(target, card, player_id=None):
-    """Assigns a card in live mode, enforcing assignment order and preventing over-assignment."""
     if game_state["game_mode"] != "live":
         await broadcast_to_dealers({"action": "error", "message": "Manual card assignment allowed only in live mode"})
         return
     next_target, next_pid = get_next_card_assignment_target()
-    # Only allow assignment to the correct next target
     if (target == "player" and (next_target != "player" or player_id != next_pid)) or (target == "dealer" and next_target != "dealer"):
         await broadcast_to_dealers({
             "action": "error",
             "message": f"Card must be assigned to the next available player (lowest number) or dealer in order. Next: {next_target} {next_pid}"
         })
         return
-    # Remove the card from the deck if present
-    if card in game_state["deck"]:
-        game_state["deck"].remove(card)
+    if not assign_card_if_available(card, "manual assignment"):
+        return
     if target == "dealer":
         game_state["dealer_card"] = card
         game_state.setdefault("assignment_order", []).append({"card": card, "type": "dealer"})
@@ -792,6 +854,7 @@ async def handle_manual_deal_card(target, card, player_id=None):
             "message": f"Card manually assigned to player {player_id}",
             "game_state": game_state
         })
+
 
 async def broadcast_to_all(message):
     """Broadcasts message to all connected clients."""
