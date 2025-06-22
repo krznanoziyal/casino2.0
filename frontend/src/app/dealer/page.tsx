@@ -438,7 +438,14 @@ export default function DealerPage() {
                 <label className="block text-casino-gold font-semibold mb-2">Game Mode</label>
                 <select 
                   value={gameState.game_mode} 
-                  onChange={(e) => sendMessage({ action: 'set_game_mode', mode: e.target.value })}
+                  onChange={async (e) => {
+                    const newMode = e.target.value;
+                    sendMessage({ action: 'set_game_mode', mode: newMode });
+                    // Wait a short moment to ensure backend processes mode change before reset
+                    setTimeout(() => {
+                      sendMessage({ action: 'reset_game' });
+                    }, 200);
+                  }}
                   className="w-full bg-black border border-casino-gold rounded-lg px-3 py-2 text-white"
                 >
                   <option value="manual">Manual</option>
