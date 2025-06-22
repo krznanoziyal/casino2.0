@@ -61,6 +61,9 @@ export default function DisplayPage() {
   const [roundHistory, setRoundHistory] = useState<any[]>([])
   const [currentTime, setCurrentTime] = useState(new Date())
   const [notifications, setNotifications] = useState<string[]>([]);
+  const [playerStatsFromBackend, setPlayerStatsFromBackend] = useState<Record<string, any>>({});
+  const [statsLoaded, setStatsLoaded] = useState(false);
+  const [sessionStats, setSessionStats] = useState<Record<string, any>>({});
 
   const wsRef = useRef<WebSocket | null>(null)
 
@@ -109,13 +112,37 @@ export default function DisplayPage() {
   const handleServerMessage = (data: any) => {
     switch (data.action) {
       case 'game_reset':
-        // Update the UI using the new game state from the server.
-        setGameState(data.game_state)
-        addNotification("Game has been reset")
-        break
+        setGameState(data.game_state);
+        setSessionStats({});
+        addNotification('Game has been reset');
+        break;
       case 'game_state_update':
-        setGameState(data.game_state)
-        break
+        setGameState(data.game_state);
+        if (data.stats) setSessionStats(data.stats);
+        break;
+      case 'round_completed':
+        setGameState(prev => ({
+          ...prev,
+          round_active: false,
+          player_results: data.player_results
+        }));
+        // Add to round history
+        const roundData = {
+          round_number: data.round_number,
+          results: data.player_results,
+          timestamp: new Date().toLocaleTimeString(),
+          dealer_card: gameState.dealer_card
+        };
+        setRoundHistory(prev => [roundData, ...prev.slice(0, 9)]);
+        // Update sessionStats with backend stats for live UI update
+        if (data.stats) setSessionStats(data.stats);
+        break;
+      case 'all_player_stats':
+        if (data.stats) setSessionStats(data.stats);
+        break;
+      case 'clear_all_stats':
+        setSessionStats({});
+        break;
       case 'round_dealt':
         setGameState(prev => ({ 
           ...prev, 
@@ -125,22 +152,6 @@ export default function DisplayPage() {
           deck_count: data.deck_count,
           player_results: data.player_results
         }))
-        break
-      case 'round_completed':
-        setGameState(prev => ({ 
-          ...prev, 
-          round_active: false,
-          player_results: data.player_results
-        }))
-        
-        // Add to round history
-        const roundData = {
-          round_number: data.round_number,
-          results: data.player_results,
-          timestamp: new Date().toLocaleTimeString(),
-          dealer_card: gameState.dealer_card
-        }
-        setRoundHistory(prev => [roundData, ...prev.slice(0, 9)]) // Keep last 10 rounds
         break
       case 'war_round_started':
         setGameState(prev => ({ 
@@ -246,6 +257,12 @@ export default function DisplayPage() {
         }))
         if (data.message) addNotification(data.message)
         break
+      case 'player_registered':
+        if (data.stats) {
+          setPlayerStatsFromBackend((prev) => ({ ...prev, ...data.stats }))
+          setStatsLoaded(true);
+        }
+        break
     }
   }
 
@@ -284,23 +301,11 @@ export default function DisplayPage() {
   }
 
   const getPlayerStats = () => {
-    const stats: Record<string, { wins: number; losses: number; ties: number; surrenders: number }> = {}
-    
+    // Always use sessionStats from backend
+    const stats: Record<string, { wins: number; losses: number; ties: number; surrenders: number }> = {};
     Object.keys(gameState.players).forEach(playerId => {
-      stats[playerId] = { wins: 0, losses: 0, ties: 0, surrenders: 0 }
-    })
-    
-    roundHistory.forEach(round => {
-      Object.entries(round.results).forEach(([playerId, result]) => {
-        if (stats[playerId]) {
-          if (result === 'win') stats[playerId].wins++
-          else if (result === 'lose') stats[playerId].losses++
-          else if (result === 'surrender') stats[playerId].surrenders++
-          else stats[playerId].ties++
-        }
-      })
-    })
-    
+      stats[playerId] = sessionStats[playerId] || { wins: 0, losses: 0, ties: 0, surrenders: 0 };
+    });
     return stats
   }
 
@@ -315,6 +320,20 @@ export default function DisplayPage() {
   }
 
   const playerStats = getPlayerStats()
+
+  // On mount, request all player stats from backend
+  useEffect(() => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ action: 'get_all_player_stats' }))
+    }
+  }, [connected])
+
+  // Handle clear all stats
+  const handleClearAllStats = () => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ action: 'clear_all_stats' }));
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 p-4 overflow-auto">
@@ -341,6 +360,14 @@ export default function DisplayPage() {
             <div className="text-white text-lg font-mono">
               {currentTime.toLocaleTimeString()}
             </div>
+            <button
+              className="mt-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold border border-red-800 transition"
+              onClick={handleClearAllStats}
+              disabled={!connected}
+              title="Clear all player stats (session only)"
+            >
+              Clear All Stats
+            </button>
           </div>
         </div>
       </motion.div>

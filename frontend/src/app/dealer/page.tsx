@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { FaBars, FaTimes, FaMoneyBillWave } from 'react-icons/fa'
 
@@ -126,8 +126,7 @@ export default function DealerPage() {
   }
 
   const handleServerMessage = (data: any) => {
-    switch (data.action) {
-      case 'game_state_update':
+    switch (data.action) {      case 'game_state_update':
         setGameState(data.game_state)
         break
       case 'deck_shuffled':
@@ -137,6 +136,14 @@ export default function DealerPage() {
           burned_cards_count: data.burned_cards_count 
         }))
         addNotification(`Deck shuffled - ${data.deck_count} cards remaining`)
+        break
+      case 'card_burned':
+        setGameState(prev => ({ 
+          ...prev, 
+          deck_count: data.deck_count,
+          burned_cards_count: data.burned_cards_count 
+        }))
+        addNotification(data.message || `Card ${data.burned_card} burned - ${data.deck_count} cards remaining`)
         break
       case 'player_added':
         setGameState(prev => ({ ...prev, players: data.players }))
@@ -235,52 +242,48 @@ export default function DealerPage() {
               status: 'active' 
             } 
           },
-          deck_count: typeof data.game_state?.deck_count === 'number' ? data.game_state.deck_count : (typeof data.deck_count === 'number' ? data.deck_count : prev.deck_count)
-        }))
+          deck_count: typeof data.game_state?.deck_count === 'number' ? data.game_state.deck_count : (typeof data.deck_count === 'number' ? data.deck_count : prev.deck_count)        }))
         addNotification(`Card manually assigned to player ${data.player_id}`)
         break
-        case 'war_card_assigned':
+      case 'war_card_assigned':
           setGameState(prev => ({
             ...prev,
-            war_round: {
-              // If the message indicates the dealer's war card, update that; otherwise keep what was there
+            // Always use the complete war_round from backend to ensure live state sync
+            war_round: data.war_round || {
               dealer_card: data.target === 'dealer' ? data.card : (prev.war_round?.dealer_card ?? null),
               players: {
                 ...prev.war_round?.players,
-                // For player assignments use data.player_id (if provided)
                 ...(data.target === 'player' && data.player_id ? { [data.player_id]: data.card } : {})
-              }
-            }
+              },
+              ...(prev.war_round?.original_cards ? { original_cards: prev.war_round.original_cards } : {})
+            },
+            deck_count: typeof data.deck_count === 'number' ? data.deck_count : prev.deck_count
           }));
           addNotification(
             `War card ${data.card} assigned to ${data.target === 'dealer' ? 'Dealer' : 'Player ' + data.player_id}`
-          
           );
         break;
-      case 'player_choice_made':
-        setGameState(prev => ({ 
-          ...prev, 
-          players: {
-            ...prev.players,
-            [data.player_id]: {
-              ...prev.players[data.player_id],
-              status: data.choice === 'surrender' ? 'surrender' : prev.players[data.player_id].status
-            }
-          },
-          player_results: data.player_results
-        }))
-        if (data.player_id) {
-          addNotification(`Choice made: ${data.choice.toUpperCase()}`)
-        }
-        break
       case 'cards_undone':
-        setGameState(prev => ({
-          ...prev,
-          deck_count: data.deck_count,
-          dealer_card: data.dealer_card,
-          players: data.players
-        }))
-        if (data.message) addNotification(data.message)
+        setGameState(prev => {
+          if (data.war_round) {
+            // For war round, always update the full war_round from backend and do NOT set top-level dealer_card/players
+            return {
+              ...prev,
+              deck_count: typeof data.deck_count === 'number' ? data.deck_count : prev.deck_count,
+              war_round: data.war_round
+            };
+          } else {
+            // For normal round, update top-level dealer_card and players
+            return {
+              ...prev,
+              deck_count: typeof data.deck_count === 'number' ? data.deck_count : prev.deck_count,
+              dealer_card: data.dealer_card,
+              players: data.players,
+              war_round: prev.war_round
+            };
+          }
+        });
+        if (data.message) addNotification(data.message);
         break
       case 'bets_changed':
         setGameState(prev => ({ ...prev, min_bet: data.min_bet, max_bet: data.max_bet }));
@@ -340,7 +343,20 @@ export default function DealerPage() {
   const validCardPattern = /^(10|[2-9]|[JQKA])[SHDC]$/;
 
   // Helper: are all players and dealer assigned? To prevent over-assignment
-  const allAssigned = Object.values(gameState.players).filter(p => p).every(p => p.card !== null) && !!gameState.dealer_card;
+  const allAssigned = useMemo(() => {
+    if (gameState.war_round_active) {
+      const wr = gameState.war_round;
+      if (!wr || !wr.players || typeof wr.dealer_card === 'undefined') return false;
+      const playerCardsAssigned = Object.values(wr.players).length > 0 && Object.values(wr.players).every(card => card !== null && card !== undefined);
+      const dealerCardAssigned = !!wr.dealer_card;
+      return playerCardsAssigned && dealerCardAssigned;
+    } else {
+      return (
+        Object.values(gameState.players).filter(p => p).every(p => p.card !== null) &&
+        !!gameState.dealer_card
+      );
+    }
+  }, [gameState.war_round_active, gameState.war_round?.players, gameState.war_round?.dealer_card, gameState.players, gameState.dealer_card]);
 
   return (
     <div className="min-h-screen p-6">
@@ -389,16 +405,27 @@ export default function DealerPage() {
                 <FaTimesIcon />
               </button>
               <h2 className="text-2xl font-bold text-casino-gold mb-4 text-center">Game Controls</h2>
-              
-              {/* Deck Management */}
+                {/* Deck Management */}
               <div className="space-y-3 mb-6">
-                <button onClick={() => sendMessage({ action: 'shuffle_deck' })} className="dealer-button w-full">
-                  🔄 Shuffle Deck ({gameState.deck_count} cards)
-                </button>
-                {gameState.game_mode !== 'live' && (
-                  <button onClick={() => sendMessage({ action: 'burn_card' })} className="w-full bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg transition-colors">
-                    🔥 Burn Card ({gameState.burned_cards_count} burned)
-                  </button>
+                {gameState.game_mode === 'live' ? (
+                    <div className="dealer-button w-full text-center bg-black/60 border border-casino-gold rounded-lg py-2 font-bold text-black">
+                    🃏 Deck Status: {gameState.deck_count} cards left
+                    </div>
+                ) : gameState.game_mode === 'automatic' ? (
+                  <>
+                    <button onClick={() => sendMessage({ action: 'shuffle_deck' })} className="dealer-button w-full">
+                      🔄 Shuffle Deck ({gameState.deck_count} cards)
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button onClick={() => sendMessage({ action: 'shuffle_deck' })} className="dealer-button w-full">
+                      🔄 Shuffle Deck ({gameState.deck_count} cards)
+                    </button>
+                    <button onClick={() => sendMessage({ action: 'burn_card' })} className="w-full bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg transition-colors">
+                      🔥 Burn Card ({gameState.burned_cards_count} burned)
+                    </button>
+                  </>
                 )}
               </div>
 
@@ -445,7 +472,7 @@ export default function DealerPage() {
                         sendMessage({ action: 'clear_round' });
                       }}
                     >
-                      🔄 RESET
+                      🔄 NEW GAME
                     </button>
                   )}
                 </div>
@@ -465,7 +492,7 @@ export default function DealerPage() {
                       sendMessage({ action: 'clear_round' });
                     }}
                   >
-                    🔄 RESET
+                    🔄 NEW GAME
                   </button>
                 </>
               )}
@@ -474,7 +501,9 @@ export default function DealerPage() {
               {(gameState.game_mode === 'manual' || gameState.game_mode === 'live') && (
                 <>
                   <div className="mb-6">
-                    <label className="block text-casino-gold font-semibold mb-2">Assign Card (Number & Suit)</label>
+                    <label className="block text-casino-gold font-semibold mb-2">
+                      {gameState.war_round_active ? 'Assign War Card (Number & Suit)' : 'Assign Card (Number & Suit)'}
+                    </label>
                     <div className="flex flex-col gap-2">
                       <div className="flex flex-wrap gap-2 justify-center mb-2">
                         {["A","2","3","4","5","6","7","8","9","T","J","Q","K"].map(rank => (
@@ -500,38 +529,54 @@ export default function DealerPage() {
                       </div>
                       <button
                         className="success-button w-full"
-                        disabled={manualCard.length !== 2 || allAssigned}
-                        onClick={() => {
+                        disabled={manualCard.length !== 2 || allAssigned}                        onClick={() => {
                           if (manualCard.length !== 2) return;
-                          // Find the next player (lowest number) without a card
-                          const playerIds = Object.keys(gameState.players).filter(pid => gameState.players[pid] && gameState.players[pid].card === null).sort((a, b) => Number(a) - Number(b));
-                          if (playerIds.length > 0) {
-                            // Assign to next player
-                            sendMessage({ action: 'manual_deal_card', target: 'player', card: manualCard, player_id: playerIds[0] });
-                            setManualCard('');
-                            addNotification(`Card ${manualCard} assigned to player ${playerIds[0]}`);
-                          } else if (!gameState.dealer_card) {
-                            // Assign to dealer if all players have cards
-                            sendMessage({ action: 'manual_deal_card', target: 'dealer', card: manualCard });
-                            setManualCard('');
-                            addNotification(`Card ${manualCard} assigned to dealer`);
+                          if (gameState.war_round_active) {
+                            // War round assignment: use EXACT same logic as normal rounds
+                            const warPlayerIds = gameState.war_round ? Object.keys(gameState.war_round.players).filter(pid => 
+                              gameState.war_round && (gameState.war_round.players[pid] === null || gameState.war_round.players[pid] === undefined)
+                            ).sort((a, b) => Number(a) - Number(b)) : [];
+                            if (warPlayerIds.length > 0) {
+                              sendMessage({ action: 'assign_war_card', target: 'player', card: manualCard, player_id: warPlayerIds[0] });
+                              setManualCard('');
+                              addNotification(`War card ${manualCard} assigned to player ${warPlayerIds[0]}`);
+                            } else if (gameState.war_round && !gameState.war_round.dealer_card) {
+                              sendMessage({ action: 'assign_war_card', target: 'dealer', card: manualCard });
+                              setManualCard('');
+                              addNotification(`War card ${manualCard} assigned to dealer`);
+                            }
+                          } else {
+                            // Normal round assignment
+                            const playerIds = Object.keys(gameState.players).filter(pid => gameState.players[pid] && gameState.players[pid].card === null).sort((a, b) => Number(a) - Number(b));
+                            if (playerIds.length > 0) {
+                              sendMessage({ action: 'manual_deal_card', target: 'player', card: manualCard, player_id: playerIds[0] });
+                              setManualCard('');
+                              addNotification(`Card ${manualCard} assigned to player ${playerIds[0]}`);
+                            } else if (!gameState.dealer_card) {
+                              sendMessage({ action: 'manual_deal_card', target: 'dealer', card: manualCard });
+                              setManualCard('');
+                              addNotification(`Card ${manualCard} assigned to dealer`);
+                            }
                           }
                         }}
                       >
                         ➕ Add Card
                       </button>
                     </div>
-                    {/* Disable if all players and dealer have cards */}
-                    {/* Helper for disabling the button */}
-                    {Object.values(gameState.players).every(p => p.card !== null) && gameState.dealer_card && (
+                    {/* Disable if all players and dealer have cards (normal) or all war cards assigned (war round) */}
+                    {allAssigned && (
                       <div className="text-center text-sm text-gray-400 mt-2">
-                        All players and dealer have been assigned cards.
+                        {gameState.war_round_active
+                          ? 'All war cards have been assigned to the players and dealer.'
+                          : 'All cards have been assigned to the players and dealer.'}
                       </div>
                     )}
                   </div>
                   {/* Common Card Assignment by Dropdown (Player/Dealer) */}
                   <div className="mb-6">
-                    <label className="block text-casino-gold font-semibold mb-2">Assign Card to Specific Player/Dealer</label>
+                    <label className="block text-casino-gold font-semibold mb-2">
+                      {gameState.war_round_active ? 'Assign War Card to Specific Player/Dealer' : 'Assign Card to Specific Player/Dealer'}
+                    </label>
                     <div className="flex flex-col gap-2">
                       <div className="flex gap-2">
                         <select
@@ -540,11 +585,17 @@ export default function DealerPage() {
                           className="bg-black border border-casino-gold rounded-lg px-3 py-2 text-white flex-1"
                         >
                           <option value="">Select...</option>
-                          {Object.keys(gameState.players).map(pid => (
-                            <option key={pid} value={pid}>
-                              Player {pid}
-                            </option>
-                          ))}
+                          {(gameState.war_round_active && gameState.war_round)
+                            ? Object.keys(gameState.war_round.players).map(pid => (
+                                <option key={pid} value={pid}>
+                                  Player {pid}
+                                </option>
+                              ))
+                            : Object.keys(gameState.players).map(pid => (
+                                <option key={pid} value={pid}>
+                                  Player {pid}
+                                </option>
+                              ))}
                           <option value="dealer">Dealer</option>
                         </select>
                         <input
@@ -560,7 +611,14 @@ export default function DealerPage() {
                         disabled={
                           !manualCardTarget ||
                           manualCardSpecific.length !== 2 ||
-                          (manualCardTarget === 'dealer' ? !!gameState.dealer_card : !!gameState.players[manualCardTarget]?.card)
+                          (gameState.war_round_active
+                            ? (manualCardTarget === 'dealer'
+                                ? !!(gameState.war_round && gameState.war_round.dealer_card)
+                                : !!(gameState.war_round && gameState.war_round.players && gameState.war_round.players[manualCardTarget] !== null && gameState.war_round.players[manualCardTarget] !== undefined))
+                            : (manualCardTarget === 'dealer'
+                                ? !!gameState.dealer_card
+                                : !!gameState.players[manualCardTarget]?.card)
+                          )
                         }
                         onClick={() => {
                           if (!manualCardTarget || manualCardSpecific.length !== 2) return;
@@ -571,12 +629,22 @@ export default function DealerPage() {
                             ]);
                             return;
                           }
-                          if (manualCardTarget === 'dealer') {
-                            sendMessage({ action: 'manual_deal_card', target: 'dealer', card: manualCardSpecific });
-                            addNotification(`Card ${manualCardSpecific} assigned to dealer`);
+                          if (gameState.war_round_active) {
+                            if (manualCardTarget === 'dealer') {
+                              sendMessage({ action: 'assign_war_card', target: 'dealer', card: manualCardSpecific });
+                              addNotification(`War card ${manualCardSpecific} assigned to dealer`);
+                            } else {
+                              sendMessage({ action: 'assign_war_card', target: 'player', card: manualCardSpecific, player_id: manualCardTarget });
+                              addNotification(`War card ${manualCardSpecific} assigned to player ${manualCardTarget}`);
+                            }
                           } else {
-                            sendMessage({ action: 'manual_deal_card', target: 'player', card: manualCardSpecific, player_id: manualCardTarget });
-                            addNotification(`Card ${manualCardSpecific} assigned to player ${manualCardTarget}`);
+                            if (manualCardTarget === 'dealer') {
+                              sendMessage({ action: 'manual_deal_card', target: 'dealer', card: manualCardSpecific });
+                              addNotification(`Card ${manualCardSpecific} assigned to dealer`);
+                            } else {
+                              sendMessage({ action: 'manual_deal_card', target: 'player', card: manualCardSpecific, player_id: manualCardTarget });
+                              addNotification(`Card ${manualCardSpecific} assigned to player ${manualCardTarget}`);
+                            }
                           }
                           setManualCardSpecific('');
                           setManualCardTarget('');
@@ -592,11 +660,10 @@ export default function DealerPage() {
               {/* Utility Controls */}
               <div className="space-y-2">
                 <button onClick={() => sendMessage({ action: 'undo_last_card' })} className="danger-button w-full">
-                  ↩️ Undo Last Deal
+                  ↩️ UNDO CARD
                 </button>
                 <button onClick={() => sendMessage({ action: 'reset_game' })} className="danger-button w-full">
-                  🔄 NEW GAME
-                </button>
+                  🔄 CLEAR ALL STATS             </button>
               </div>
             </motion.div>
           </motion.div>
@@ -748,7 +815,7 @@ export default function DealerPage() {
               </h2>
               <div className="text-right">
                 <div className="text-casino-gold font-semibold">Table: {gameState.table_number}</div>
-                <div className="text-casino-gold font-semibold">Betting: ${gameState.min_bet} - ${gameState.max_bet}</div>
+                <div className="text-casino-gold font-semibold">Betting: ${gameState.min_bet} - $${gameState.max_bet}</div>
                 <div className="text-gray-300 text-sm">Players: {Object.keys(gameState.players).length}/6</div>
               </div>
             </div>
@@ -776,43 +843,14 @@ export default function DealerPage() {
                     </div>
                   )}
                 </div>
-                {/* Only show dealer card assignment input in live mode if round is active OR round is not active (before cards dealt) */}
-                {gameState.game_mode === 'live' && (gameState.round_active || !gameState.dealer_card) && (
-                  <div className="mt-4">
-                    <input 
-                      type="text" 
-                      placeholder="Manual card (e.g., AS, KH)"
-                      value={manualCard}
-                      onChange={(e) => setManualCard(e.target.value.toUpperCase())}
-                      className="bg-black border border-casino-gold rounded-lg px-3 py-2 text-white mr-2"
-                    />
-                    <button 
-                      onClick={() => {
-                        if (manualCard) {
-                          if (!validCardPattern.test(manualCard)) {
-                            setNotifications(prev => [
-                              ...prev.slice(-4),
-                              "Invalid card. Please enter a valid card using ranks (2-10, J, Q, K, A) and suits (S, H, D, C)."
-                            ]);
-                            return;
-                          }
-                          sendMessage({ action: 'manual_deal_card', target: 'dealer', card: manualCard });
-                          setManualCard('');
-                        }
-                      }}
-                      className="success-button"
-                    >
-                      Set Dealer Card
-                    </button>
-                  </div>
-                )}
+                {/* Dealer card assignment textbox and button removed as requested */}
               </div>
             ) : (
               // If war round is active, still show the dealer card assignment input in live mode ONLY if round is active
               gameState.game_mode === 'live' && gameState.round_active && (
                 <div className="text-center mb-8">
                   <h3 className="text-xl font-bold text-casino-gold mb-4">Dealer</h3>
-                  <div className="mt-4">
+                  {/* <div className="mt-4">
                     <input 
                       type="text" 
                       placeholder="Manual card (e.g., AS, KH)"
@@ -838,7 +876,7 @@ export default function DealerPage() {
                     >
                       Set Dealer Card
                     </button>
-                  </div>
+                  </div> */}
                 </div>
               )
             )}

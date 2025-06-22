@@ -50,12 +50,8 @@ export default function PlayerPage() {
   
   const [connected, setConnected] = useState(false)
   const [notifications, setNotifications] = useState<string[]>([])
-  const [playerStats, setPlayerStats] = useState({
-    wins: 0,
-    losses: 0,
-    ties: 0,
-    surrenders: 0
-  })
+  // Use sessionStats from backend, not local increment
+  const [sessionStats, setSessionStats] = useState<Record<string, { wins: number; losses: number; ties: number; surrenders: number }>>({})
   
   const wsRef = useRef<WebSocket | null>(null)
 
@@ -113,9 +109,11 @@ export default function PlayerPage() {
     switch (data.action) {
       case 'game_state_update':
         setGameState(data.game_state)
+        if (data.stats) setSessionStats(data.stats) // Always overwrite
         break
       case 'player_registered':
         addNotification(`Registered as ${data.player_id}`)
+        // Do NOT update sessionStats here; wait for game_state_update or round_completed
         break
       case 'round_dealt':
         setGameState(prev => ({ 
@@ -126,7 +124,6 @@ export default function PlayerPage() {
           deck_count: data.deck_count,
           player_results: data.player_results
         }))
-        
         // Check if this player has a tie
         if (data.tie_players?.includes(playerId)) {
           addNotification('TIE! Choose WAR or SURRENDER')
@@ -179,32 +176,21 @@ export default function PlayerPage() {
           round_active: false,
           player_results: data.player_results
         }))
-        
-        // Update player stats
-        const result = data.player_results[playerId]
-        if (result) {
-          setPlayerStats(prev => ({
-            ...prev,
-            [result === 'win' ? 'wins' : 
-             result === 'lose' ? 'losses' : 
-             result === 'surrender' ? 'surrenders' : 'ties']: prev[
-              result === 'win' ? 'wins' : 
-              result === 'lose' ? 'losses' : 
-              result === 'surrender' ? 'surrenders' : 'ties'
-            ] + 1
-          }))
-        }
+        if (data.stats) setSessionStats(data.stats) // Always overwrite
+        break
+      case 'all_player_stats':
+        if (data.stats) setSessionStats(data.stats) // Always overwrite
+        break
+      case 'clear_all_stats':
+        setSessionStats({}) // Clear immediately, backend will send new stats
         break
       case 'error':
         addNotification(`Error: ${data.message}`)
         break
-      
       case 'game_reset':
-        // Update the UI using the new game state from the server.
         setGameState(data.game_state)
         addNotification("Game has been reset")
         break
-        
       case 'dealer_card_set':
         setGameState(prev => ({ 
           ...prev, 
@@ -247,7 +233,6 @@ export default function PlayerPage() {
           `War card ${data.card} assigned to ${data.target === 'dealer' ? 'Dealer' : 'Player ' + data.player_id}`
         );
         break;
-        
       case 'cards_undone':
         setGameState(prev => ({
           ...prev,
@@ -277,13 +262,26 @@ export default function PlayerPage() {
           addNotification('You have been removed from the table.');
         }
         break;
-      
       default:
         if (data.message) {
           addNotification(data.message)
         }
     }
   }
+
+  // On mount, request all player stats from backend (optional, for instant sync)
+  useEffect(() => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ action: 'get_all_player_stats' }))
+    }
+  }, [connected])
+
+  // Handle clear all stats
+  const handleClearAllStats = () => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ action: 'clear_all_stats' }));
+    }
+  };
 
   const renderCard = (card: string | null, size: 'small' | 'medium' | 'large' = 'medium') => {
     if (!card) return null
@@ -354,6 +352,17 @@ export default function PlayerPage() {
             {connected ? 'Connected' : 'Disconnected'}
           </div>
         </div>
+        {/* Clear All Stats button */}
+        <div className="mt-4 flex justify-end">
+          <button
+            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold border border-red-800 transition"
+            onClick={handleClearAllStats}
+            disabled={!connected}
+            title="Clear all player stats (session only)"
+          >
+            Clear All Stats
+          </button>
+        </div>
       </div>
 
       {/* Notifications */}
@@ -379,19 +388,19 @@ export default function PlayerPage() {
           <div className="space-y-3">
             <div className="flex justify-between items-center p-3 bg-green-500/20 rounded-lg">
               <span className="text-green-400 font-semibold">Wins</span>
-              <span className="text-green-400 text-xl font-bold">{playerStats.wins}</span>
+              <span className="text-green-400 text-xl font-bold">{sessionStats[playerId]?.wins ?? 0}</span>
             </div>
             <div className="flex justify-between items-center p-3 bg-red-500/20 rounded-lg">
               <span className="text-red-400 font-semibold">Losses</span>
-              <span className="text-red-400 text-xl font-bold">{playerStats.losses}</span>
+              <span className="text-red-400 text-xl font-bold">{sessionStats[playerId]?.losses ?? 0}</span>
             </div>
             <div className="flex justify-between items-center p-3 bg-yellow-500/20 rounded-lg">
               <span className="text-yellow-400 font-semibold">Ties</span>
-              <span className="text-yellow-400 text-xl font-bold">{playerStats.ties}</span>
+              <span className="text-yellow-400 text-xl font-bold">{sessionStats[playerId]?.ties ?? 0}</span>
             </div>
             <div className="flex justify-between items-center p-3 bg-gray-500/20 rounded-lg">
               <span className="text-gray-400 font-semibold">Surrenders</span>
-              <span className="text-gray-400 text-xl font-bold">{playerStats.surrenders}</span>
+              <span className="text-gray-400 text-xl font-bold">{sessionStats[playerId]?.surrenders ?? 0}</span>
             </div>
           </div>
           

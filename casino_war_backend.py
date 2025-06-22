@@ -43,6 +43,9 @@ game_state = {
     "auto_choice_delay": 3,  # Seconds to wait for player choices before auto-surrender
 }
 
+# In-memory session stats (not MongoDB)
+session_stats = {}
+
 def create_deck():
     """Creates 6 standard 52-card decks and shuffles them."""
     ranks = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "T", "J", "Q", "K"]
@@ -76,12 +79,75 @@ def compare_cards(player_card, dealer_card):
     else:
         return "tie"
 
+# Simple stats retrieval for player registration/refresh
+async def get_player_stats_simple(player_id=None):
+    """Fetches win/loss/tie/surrender/total_games for a player from MongoDB."""
+    try:
+        if player_id:
+            pipeline = [
+                {"$match": {"player_id": player_id}},
+                {"$group": {
+                    "_id": "$player_id",
+                    "wins": {"$sum": {"$cond": [{"$eq": ["$result", "win"]}, 1, 0]}},
+                    "losses": {"$sum": {"$cond": [{"$eq": ["$result", "lose"]}, 1, 0]}},
+                    "ties": {"$sum": {"$cond": [{"$eq": ["$result", "tie"]}, 1, 0]}},
+                    "surrenders": {"$sum": {"$cond": [{"$eq": ["$result", "surrender"]}, 1, 0]}},
+                    "total_games": {"$sum": 1}
+                }}
+            ]
+            cursor = results_collection.aggregate(pipeline)
+            result = await cursor.to_list(length=1)
+            if result:
+                doc = result[0]
+                return {
+                    "wins": doc["wins"],
+                    "losses": doc["losses"],
+                    "ties": doc["ties"],
+                    "surrenders": doc["surrenders"],
+                    "total_games": doc["total_games"]
+                }
+        return {"wins": 0, "losses": 0, "ties": 0, "surrenders": 0, "total_games": 0}
+    except Exception as e:
+        print(f"[MONGODB ERROR] Failed to retrieve player stats: {e}")
+        return {"wins": 0, "losses": 0, "ties": 0, "surrenders": 0, "total_games": 0}
+
+async def get_all_player_stats():
+    """Fetches stats for all players in the current game from MongoDB."""
+    stats = {}
+    try:
+        player_ids = list(game_state["players"].keys())
+        for pid in player_ids:
+            stats[pid] = await get_player_stats_simple(pid)
+    except Exception as e:
+        print(f"[MONGODB ERROR] Failed to retrieve all player stats: {e}")
+    return stats
+
+async def get_session_stats():
+    return dict(session_stats)
+
+async def update_session_stats(player_results):
+    for player_id, result in player_results.items():
+        if player_id not in session_stats:
+            session_stats[player_id] = {"wins": 0, "losses": 0, "ties": 0, "surrenders": 0}
+        if result == "win":
+            session_stats[player_id]["wins"] += 1
+        elif result == "lose":
+            session_stats[player_id]["losses"] += 1
+        elif result == "surrender":
+            session_stats[player_id]["surrenders"] += 1
+        elif result == "tie":
+            session_stats[player_id]["ties"] += 1
+
+async def clear_session_stats():
+    session_stats.clear()
+
 async def handle_connection(websocket, path=None):
     """Handles new client connections."""
     connected_clients.add(websocket)
     print(f"Client connected: {websocket.remote_address}")
     
     # Send current game state to new client
+    stats = await get_session_stats()
     await websocket.send(json.dumps({
         "action": "game_state_update",
         "game_state": {
@@ -96,15 +162,15 @@ async def handle_connection(websocket, path=None):
             "min_bet": game_state["min_bet"],
             "max_bet": game_state["max_bet"],
             "player_results": game_state["player_results"]
-        }
+        },
+        "stats": stats
     }))
 
     try:
         async for message in websocket:
             data = json.loads(message)
             print(f"Received: {data}")
-            
-            # Route messages based on action
+              # Route messages based on action
             if data["action"] == "register_dealer":
                 dealer_clients.add(websocket)
                 await websocket.send(json.dumps({"action": "dealer_registered"}))
@@ -112,9 +178,11 @@ async def handle_connection(websocket, path=None):
             elif data["action"] == "register_player":
                 player_id = data["player_id"]
                 player_clients[player_id] = websocket
+                player_stats = await get_player_stats_simple(player_id)
                 await websocket.send(json.dumps({
-                    "action": "player_registered", 
-                    "player_id": player_id
+                    "action": "player_registered",
+                    "player_id": player_id,
+                    "stats": player_stats
                 }))
                 
             elif data["action"] == "shuffle_deck":
@@ -166,8 +234,7 @@ async def handle_connection(websocket, path=None):
                 
             elif data["action"] == "manual_deal_card":
                 await handle_manual_deal_card(data["target"], data["card"], data.get("player_id"))
-#new handle connection for manual evalatuation
-            elif data["action"] == "evaluate_round":
+#new handle connection for manual evalatuation            elif data["action"] == "evaluate_round":
                 # Check that every active (added) player has a card assigned AND dealer has a card.
                 incomplete = [pid for pid, pdata in game_state["players"].items() if pdata.get("card") is None]
                 dealer_missing = game_state["dealer_card"] is None
@@ -201,19 +268,13 @@ async def handle_connection(websocket, path=None):
                 break
 
 async def handle_shuffle_deck():
-    """Shuffles the deck and burns the first card."""
+    """Shuffles the deck."""
     game_state["deck"] = create_deck()
     game_state["burned_cards"] = []
-    
-    # Auto-burn first card
-    if game_state["deck"]:
-        burned_card = game_state["deck"].pop(0)
-        game_state["burned_cards"].append(burned_card)
     
     await broadcast_to_all({
         "action": "deck_shuffled",
         "deck_count": len(game_state["deck"]),
-        "burned_card": burned_card if game_state["burned_cards"] else None,
         "burned_cards_count": len(game_state["burned_cards"])
     })
 
@@ -451,24 +512,37 @@ async def handle_assign_war_card(target, card, player_id=None):
     if not game_state.get("war_round_active") or not game_state.get("war_round"):
         return
 
-    # Assign the card to the correct target in war_round
+    # Enforce max 6 per shoe and card must be available in deck
+    if card not in game_state["deck"]:
+        await broadcast_to_dealers({
+            "action": "error",
+            "message": f"Card {card} is not available in the deck for assignment."
+        })
+        return
+    game_state["deck"].remove(card)
+    # Track assignment order for undo
+    if "assignment_order" not in game_state:
+        game_state["assignment_order"] = []
+
     if target == "dealer":
         game_state["war_round"]["dealer_card"] = card
-        # Broadcast to all clients that dealer's war card is assigned
+        game_state["assignment_order"].append({"card": card, "type": "dealer", "war_round": True})
         await broadcast_to_all({
             "action": "war_card_assigned",
             "target": "dealer",
-            "card": card
+            "card": card,
+            "deck_count": len(game_state["deck"])
         })
     elif target == "player" and player_id:
         if player_id in game_state["war_round"]["players"]:
             game_state["war_round"]["players"][player_id] = card
-            # Broadcast to all clients that player's war card is assigned
+            game_state["assignment_order"].append({"player_id": player_id, "card": card, "type": "player", "war_round": True})
             await broadcast_to_all({
                 "action": "war_card_assigned",
                 "target": "player",
                 "card": card,
-                "player_id": player_id
+                "player_id": player_id,
+                "deck_count": len(game_state["deck"])
             })
     # Optionally: you could trigger war round evaluation here if all cards are assigned
 
@@ -534,14 +608,16 @@ async def complete_round():
             except Exception as e:
                 print(f"[MONGODB ERROR] Failed to insert result for player {player_id}: {e}")
     
+    await update_session_stats(game_state["player_results"])
     await broadcast_to_all({
         "action": "round_completed",
         "round_number": game_state["round_number"],
-        "player_results": game_state["player_results"]
+        "player_results": game_state["player_results"],
+        "stats": dict(session_stats)  # Always include updated session stats
     })
     
 async def handle_start_auto_round():
-    """Starts an automatic round: assigns cards to all players and evaluates the round."""
+    """Starts an automatic round: burns one card first, then assigns cards to all players and evaluates the round."""
     if game_state["game_mode"] != "automatic":
         await broadcast_to_dealers({"action": "error", "message": "Not in automatic mode"})
         return
@@ -551,7 +627,31 @@ async def handle_start_auto_round():
     if not game_state["players"]:
         await broadcast_to_dealers({"action": "error", "message": "No players to start round"})
         return
-    # Assign cards and evaluate
+    
+    # Check if we have enough cards (1 burn + 1 per player + 1 dealer)
+    needed_cards = 1 + len(game_state["players"]) + 1
+    if len(game_state["deck"]) < needed_cards:
+        await broadcast_to_dealers({
+            "action": "error", 
+            "message": f"Not enough cards in deck. Need {needed_cards} cards (1 burn + {len(game_state['players'])} players + 1 dealer), but only {len(game_state['deck'])} available."
+        })
+        return
+    
+    # Burn one card first (the first card in automatic mode)
+    if game_state["deck"]:
+        burned_card = game_state["deck"].pop(0)
+        game_state["burned_cards"].append(burned_card)
+        
+        # Broadcast the burned card information
+        await broadcast_to_all({
+            "action": "card_burned",
+            "burned_card": burned_card,
+            "deck_count": len(game_state["deck"]),
+            "burned_cards_count": len(game_state["burned_cards"]),
+            "message": f"Card {burned_card} burned before automatic deal"
+        })
+    
+    # Now assign cards and evaluate
     await deal_cards_internal()
 
 async def handle_clear_round():
@@ -588,9 +688,9 @@ async def handle_clear_round():
     })
 
 async def handle_reset_game():
-    """Resets the entire game state."""
+    """Resets the entire game state, deck, and session stats."""
     game_state.update({
-        "deck": [],
+        "deck": create_deck(),  # Always reset to 312 cards
         "burned_cards": [],
         "dealer_card": None,
         "players": {},
@@ -603,10 +703,12 @@ async def handle_reset_game():
             "players": {}
         }
     })
-    
+    # Clear session stats as well
+    session_stats.clear()
     await broadcast_to_all({
         "action": "game_reset",
-        "game_state": game_state
+        "game_state": game_state,
+        "stats": dict(session_stats)  # Send cleared stats to all clients
     })
 
 async def handle_change_bets(min_bet, max_bet):
@@ -630,12 +732,10 @@ async def handle_change_table(table_number):
     })
 
 async def handle_undo_last_card():
-    """Undoes the last dealt card (dealer or any player), based on true assignment order."""
-    # Track assignment order in game_state
+    """Undoes the last dealt card (dealer or any player), based on true assignment order. Now also supports war round assignments."""
     if "assignment_order" not in game_state:
         game_state["assignment_order"] = []
 
-    # Find the last assignment
     if not game_state["assignment_order"]:
         await broadcast_to_all({
             "action": "cards_undone",
@@ -650,21 +750,34 @@ async def handle_undo_last_card():
     last_card = None
     last_type = last["type"]
     last_player_id = last.get("player_id")
+    last_is_war = last.get("war_round", False)
 
-    if last_type == "dealer":
-        last_card = game_state["dealer_card"]
-        game_state["dealer_card"] = None
-    elif last_type == "player" and last_player_id:
-        player = game_state["players"].get(last_player_id)
-        if player and player.get("card"):
-            last_card = player["card"]
-            player["card"] = None
-            player["status"] = "active"
-            player["result"] = None
-            player["war_card"] = None
-
-    if last_card:
-        game_state["deck"].insert(0, last_card)
+    if last_is_war:
+        # Undo war round assignment
+        if last_type == "dealer":
+            last_card = game_state["war_round"]["dealer_card"]
+            game_state["war_round"]["dealer_card"] = None
+        elif last_type == "player" and last_player_id:
+            if last_player_id in game_state["war_round"]["players"]:
+                last_card = game_state["war_round"]["players"][last_player_id]
+                game_state["war_round"]["players"][last_player_id] = None
+        if last_card:
+            game_state["deck"].insert(0, last_card)
+    else:
+        # Normal undo logic
+        if last_type == "dealer":
+            last_card = game_state["dealer_card"]
+            game_state["dealer_card"] = None
+        elif last_type == "player" and last_player_id:
+            player = game_state["players"].get(last_player_id)
+            if player and player.get("card"):
+                last_card = player["card"]
+                player["card"] = None
+                player["status"] = "active"
+                player["result"] = None
+                player["war_card"] = None
+        if last_card:
+            game_state["deck"].insert(0, last_card)
 
     await broadcast_to_all({
         "action": "cards_undone",
@@ -685,18 +798,19 @@ async def handle_add_card_manual(card):
     })
 
 async def handle_set_game_mode(mode):
-    """Sets the game mode (manual, automatic, live)."""
+    """Sets the game mode and ensures deck is initialized if needed."""
     game_state["game_mode"] = mode
-    
+    # If starting fresh, initialize the deck
+    if game_state.get("round_number", 0) == 0 or not game_state.get("deck"):
+        game_state["deck"] = create_deck()
     # Stop any running automatic mode
     if hasattr(game_state, 'auto_task') and game_state['auto_task']:
         game_state['auto_task'].cancel()
         game_state['auto_task'] = None
-
-    
     await broadcast_to_all({
         "action": "game_mode_changed",
-        "mode": mode
+        "mode": mode,
+        "deck_count": len(game_state["deck"])
     })
 
 def get_next_card_assignment_target():
@@ -835,7 +949,8 @@ async def handle_manual_deal_card(target, card, player_id=None):
             "action": "dealer_card_set",
             "card": card,
             "message": "Dealer card manually set",
-            "game_state": game_state
+            "game_state": game_state,
+            "deck_count": len(game_state["deck"])
         })
     elif target == "player":
         if not player_id or player_id not in game_state["players"]:
@@ -852,7 +967,8 @@ async def handle_manual_deal_card(target, card, player_id=None):
             "player_id": player_id,
             "card": card,
             "message": f"Card manually assigned to player {player_id}",
-            "game_state": game_state
+            "game_state": game_state,
+            "deck_count": len(game_state["deck"])
         })
 
 
@@ -880,6 +996,26 @@ async def broadcast_to_player(player_id, message):
         except websockets.ConnectionClosed:
             del player_clients[player_id]
 
+async def broadcast_game_state_update():
+    stats = await get_session_stats()
+    msg = {
+        "action": "game_state_update",
+        "game_state": {
+            "deck_count": len(game_state["deck"]),
+            "burned_cards_count": len(game_state["burned_cards"]),
+            "dealer_card": game_state["dealer_card"],
+            "players": game_state["players"],
+            "round_active": game_state["round_active"],
+            "round_number": game_state["round_number"],
+            "game_mode": game_state["game_mode"],
+            "table_number": game_state["table_number"],
+            "min_bet": game_state["min_bet"],
+            "max_bet": game_state["max_bet"],
+            "player_results": game_state["player_results"]
+        },
+        "stats": stats
+    }
+    await broadcast_to_all(msg)
 # DELETE DATA FROM MONGODB
 async def delete_recent_result():
     """Deletes the most recent game result from MongoDB."""
@@ -934,3 +1070,4 @@ if __name__ == "__main__":
 #     print("WebSocket server running on ws://localhost:6789")
 
 #     await asyncio.gather(server, read_from_serial())  # Run both tasks concurrently
+
