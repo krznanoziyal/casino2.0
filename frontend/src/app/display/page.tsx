@@ -360,14 +360,6 @@ export default function DisplayPage() {
             <div className="text-white text-lg font-mono">
               {currentTime.toLocaleTimeString()}
             </div>
-            <button
-              className="mt-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold border border-red-800 transition"
-              onClick={handleClearAllStats}
-              disabled={!connected}
-              title="Clear all player stats (session only)"
-            >
-              Clear All Stats
-            </button>
           </div>
         </div>
       </motion.div>
@@ -533,7 +525,7 @@ export default function DisplayPage() {
         </div>
 
         {/* Recent Rounds History */}
-        <div className="xl:col-span-1">
+        {/* <div className="xl:col-span-1">
           <motion.div 
             className="bg-black/70 backdrop-blur-sm border border-purple-500 rounded-xl p-6"
             initial={{ opacity: 0, y: 50 }}
@@ -574,7 +566,7 @@ export default function DisplayPage() {
               )}
             </div>
           </motion.div>
-        </div>
+        </div> */}
       </div>
 
       {/* Bottom Info Bar */}

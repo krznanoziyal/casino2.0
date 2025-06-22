@@ -448,13 +448,13 @@ export default function DealerPage() {
               </div>
 
               {/* Deal Cards */}
-              <button 
+              {/* <button 
                 onClick={() => sendMessage({ action: 'deal_cards' })} 
                 disabled={gameState.round_active || Object.keys(gameState.players).length === 0}
                 className="dealer-button w-full mb-4 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 🎴 Deal Cards
-              </button>
+              </button> */}
 
               {/* AUTOMATIC MODE: START and NEW ROUND BUTTONS */}
               {gameState.game_mode === 'automatic' && !gameState.round_active && Object.keys(gameState.players).length > 0 && (
@@ -663,9 +663,11 @@ export default function DealerPage() {
 
               {/* Utility Controls */}
               <div className="space-y-2">
-                <button onClick={() => sendMessage({ action: 'undo_last_card' })} className="danger-button w-full">
-                  ↩️ UNDO CARD
-                </button>
+                {gameState.game_mode !== 'automatic' && (
+                  <button onClick={() => sendMessage({ action: 'undo_last_card' })} className="danger-button w-full">
+                    ↩️ UNDO CARD
+                  </button>
+                )}
                 <button onClick={() => sendMessage({ action: 'reset_game' })} className="danger-button w-full">
                   🔄 CLEAR ALL STATS             </button>
               </div>

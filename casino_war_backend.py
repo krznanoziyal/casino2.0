@@ -32,7 +32,7 @@ game_state = {
     "dealer_card": None,
     "players": {},  # {player_id: {card: None, status: 'active/war/surrender', result: None}}
     "round_active": False,
-    "round_number": 0,
+    "round_number": 1,  # Start from 1, not 0
     "game_mode": "manual",  # manual, automatic, live
     "table_number": 1,
     "min_bet": 10,
@@ -340,7 +340,7 @@ async def handle_deal_cards():
     
     await deal_cards_internal()
 
-async def deal_cards_internal():
+async def deal_cards_internal(increment_round=True):
     """Internal function to deal cards (used by all modes)."""
     if not game_state["deck"]:
         await broadcast_to_dealers({"action": "error", "message": "No cards left in deck"})
@@ -350,7 +350,8 @@ async def deal_cards_internal():
         await broadcast_to_dealers({"action": "error", "message": "Not enough cards for all players and dealer"})
         return False
     
-    game_state["round_number"] += 1
+    if increment_round:
+        game_state["round_number"] += 1
     game_state["round_active"] = True
     
     # Deal cards to players
@@ -529,7 +530,7 @@ async def complete_round():
     })
     
 async def handle_start_auto_round():
-    """Starts an automatic round: burns one card first, then assigns cards to all players and evaluates the round."""
+    """Starts an automatic round: burns one card first, then assigns cards to all players and evaluates the round, but only if all players and dealer have no cards assigned. Does NOT increment round number."""
     if game_state["game_mode"] != "automatic":
         await broadcast_to_dealers({"action": "error", "message": "Not in automatic mode"})
         return
@@ -539,7 +540,15 @@ async def handle_start_auto_round():
     if not game_state["players"]:
         await broadcast_to_dealers({"action": "error", "message": "No players to start round"})
         return
-    
+    # Only allow if all players and dealer have no cards assigned
+    players_have_cards = any(p["card"] is not None for p in game_state["players"].values())
+    dealer_has_card = game_state["dealer_card"] is not None
+    if players_have_cards or dealer_has_card:
+        await broadcast_to_dealers({
+            "action": "error",
+            "message": "Cannot start: Some players or dealer already have cards assigned. Use 'NEW GAME' to reset first."
+        })
+        return
     # Check if we have enough cards (1 burn + 1 per player + 1 dealer)
     needed_cards = 1 + len(game_state["players"]) + 1
     if len(game_state["deck"]) < needed_cards:
@@ -548,13 +557,10 @@ async def handle_start_auto_round():
             "message": f"Not enough cards in deck. Need {needed_cards} cards (1 burn + {len(game_state['players'])} players + 1 dealer), but only {len(game_state['deck'])} available."
         })
         return
-    
     # Burn one card first (the first card in automatic mode)
     if game_state["deck"]:
         burned_card = game_state["deck"].pop(0)
         game_state["burned_cards"].append(burned_card)
-        
-        # Broadcast the burned card information
         await broadcast_to_all({
             "action": "card_burned",
             "burned_card": burned_card,
@@ -562,12 +568,37 @@ async def handle_start_auto_round():
             "burned_cards_count": len(game_state["burned_cards"]),
             "message": f"Card {burned_card} burned before automatic deal"
         })
-    
-    # Now assign cards and evaluate
-    await deal_cards_internal()
+    # Now assign cards and evaluate (do NOT increment round number)
+    await deal_cards_internal(increment_round=False)
+
+# Patch deal_cards_internal to allow skipping round number increment
+async def deal_cards_internal(increment_round=True):
+    """Internal function to deal cards (used by all modes)."""
+    if not game_state["deck"]:
+        await broadcast_to_dealers({"action": "error", "message": "No cards left in deck"})
+        return False
+    if len(game_state["deck"]) < len(game_state["players"]) + 1:
+        await broadcast_to_dealers({"action": "error", "message": "Not enough cards for all players and dealer"})
+        return False
+    if increment_round:
+        game_state["round_number"] += 1
+    game_state["round_active"] = True
+    for player_id in game_state["players"]:
+        if game_state["deck"]:
+            card = game_state["deck"].pop(0)
+            game_state["players"][player_id]["card"] = card
+            game_state["players"][player_id]["status"] = "active"
+            game_state["players"][player_id]["result"] = None
+            game_state["players"][player_id]["war_card"] = None
+            game_state.setdefault("assignment_order", []).append({"player_id": player_id, "card": card, "type": "player"})
+    if game_state["deck"]:
+        game_state["dealer_card"] = game_state["deck"].pop(0)
+        game_state["assignment_order"].append({"card": game_state["dealer_card"], "type": "dealer"})
+    await evaluate_round()
+    return True
 
 async def handle_clear_round():
-    """Resets the round for the next auto round, keeps players but clears cards/statuses/results."""
+    """Resets the round for the next auto round, keeps players but clears cards/statuses/results, and increments round number."""
     if game_state["game_mode"] != "automatic" and game_state["game_mode"] != "live":
         await broadcast_to_dealers({"action": "error", "message": "Not in automatic or live mode"})
         return
@@ -580,8 +611,8 @@ async def handle_clear_round():
     game_state["dealer_card"] = None
     game_state["war_round_active"] = False
     game_state["war_round"] = {"dealer_card": None, "players": {}}
-    game_state["round_active"] = False  # Ensure round_active is always reset so START is available
-    # Do not reset round_number or remove players
+    game_state["round_active"] = False
+    game_state["round_number"] = max(1, game_state["round_number"] + 1)  # Never below 1
     await broadcast_to_all({
         "action": "game_state_update",
         "game_state": {
@@ -607,7 +638,7 @@ async def handle_reset_game():
         "dealer_card": None,
         "players": {},
         "round_active": False,
-        "round_number": 0,
+        "round_number": 1,  # Reset to 1, not 0
         "player_results": {},
         "war_round_active": False,     # Reset war round flag
         "war_round": {                 # Reset war round state

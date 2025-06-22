@@ -192,6 +192,7 @@ export default function PlayerPage() {
         break
       case 'game_reset':
         setGameState(data.game_state)
+        if (data.stats) setSessionStats(data.stats)
         addNotification("Game has been reset")
         break
       case 'dealer_card_set':
@@ -355,17 +356,7 @@ export default function PlayerPage() {
             {connected ? 'Connected' : 'Disconnected'}
           </div>
         </div>
-        {/* Clear All Stats button */}
-        <div className="mt-4 flex justify-end">
-          <button
-            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold border border-red-800 transition"
-            onClick={handleClearAllStats}
-            disabled={!connected}
-            title="Clear all player stats (session only)"
-          >
-            Clear All Stats
-          </button>
-        </div>
+        {/* Removed Clear All Stats button from player page header */}
       </div>
 
       {/* Notifications */}
