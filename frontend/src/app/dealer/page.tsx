@@ -118,8 +118,12 @@ export default function DealerPage() {
     }
   }
 
+  // Deduplicated notification function
   const addNotification = (message: string) => {
-    setNotifications(prev => [...prev.slice(-4), message])
+    setNotifications(prev => {
+      if (prev[prev.length - 1] === message) return prev; // Prevent duplicate
+      return [...prev.slice(-4), message];
+    });
     setTimeout(() => {
       setNotifications(prev => prev.slice(1))
     }, 5000)
