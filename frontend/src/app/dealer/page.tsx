@@ -75,6 +75,7 @@ export default function DealerPage() {
   const [pendingTableNumber, setPendingTableNumber] = useState(gameState.table_number)
   
   const wsRef = useRef<WebSocket | null>(null)
+  const prevPlayerStatusesRef = useRef<Record<string, string>>({});
 
   useEffect(() => {
     connectWebSocket()
@@ -269,23 +270,20 @@ export default function DealerPage() {
         break;
       case 'cards_undone':
         setGameState(prev => {
-          if (data.war_round) {
-            // For war round, always update the full war_round from backend and do NOT set top-level dealer_card/players
-            return {
-              ...prev,
-              deck_count: typeof data.deck_count === 'number' ? data.deck_count : prev.deck_count,
-              war_round: data.war_round
-            };
-          } else {
-            // For normal round, update top-level dealer_card and players
-            return {
-              ...prev,
-              deck_count: typeof data.deck_count === 'number' ? data.deck_count : prev.deck_count,
-              dealer_card: data.dealer_card,
-              players: data.players,
-              war_round: prev.war_round
-            };
-          }
+          setWarCardValue('');
+          setWarPlayerId('');
+          // Debug: log war_round received from backend
+          console.log('Received war_round from backend after undo:', data.war_round);
+          const newState = {
+            ...prev,
+            deck_count: typeof data.deck_count === 'number' ? data.deck_count : prev.deck_count,
+            war_round: data.hasOwnProperty('war_round') ? data.war_round : prev.war_round,
+            players: data.hasOwnProperty('players') ? data.players : prev.players,
+            dealer_card: data.hasOwnProperty('dealer_card') ? data.dealer_card : prev.dealer_card
+          };
+          // Debug: log new war_round in state
+          console.log('Updated war_round in state after undo:', newState.war_round);
+          return newState;
         });
         if (data.message) addNotification(data.message);
         break
@@ -360,7 +358,20 @@ export default function DealerPage() {
         !!gameState.dealer_card
       );
     }
-  }, [gameState.war_round_active, gameState.war_round?.players, gameState.war_round?.dealer_card, gameState.players, gameState.dealer_card]);
+  }, [gameState.war_round_active, gameState.war_round, gameState.war_round?.players, gameState.war_round?.dealer_card, gameState.players, gameState.dealer_card]);
+
+  useEffect(() => {
+    // Compare previous and current player statuses
+    const prevStatuses = prevPlayerStatusesRef.current;
+    const currStatuses: Record<string, string> = {};
+    Object.entries(gameState.players).forEach(([pid, pdata]) => {
+      currStatuses[pid] = pdata.status;
+      if (prevStatuses[pid] && prevStatuses[pid] !== pdata.status) {
+        addNotification(`DEBUG: Player ${pid} status changed: ${prevStatuses[pid]} → ${pdata.status}`);
+      }
+    });
+    prevPlayerStatusesRef.current = currStatuses;
+  }, [gameState.players]);
 
   return (
     <div className="min-h-screen p-6">
@@ -540,7 +551,8 @@ export default function DealerPage() {
                       </div>
                       <button
                         className="success-button w-full"
-                        disabled={manualCard.length !== 2 || allAssigned}                        onClick={() => {
+                        disabled={manualCard.length !== 2 || allAssigned}
+                        onClick={() => {
                           if (manualCard.length !== 2) return;
                           if (gameState.war_round_active) {
                             // War round assignment: use EXACT same logic as normal rounds
@@ -1007,6 +1019,8 @@ export default function DealerPage() {
                     ⚖️ Evaluate War Round
                   </button>
                 </div>
+
+                {/* Removed the separate Undo War Card button and logic */}
               </div>
             )}
 

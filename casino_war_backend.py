@@ -41,6 +41,7 @@ game_state = {
     "auto_task": None,  # For automatic mode task
     "auto_round_delay": 5,  # Seconds between automatic rounds
     "auto_choice_delay": 3,  # Seconds to wait for player choices before auto-surrender
+    "shoe_first_card_burned": False,  # Flag to track if first card from shoe reader is burned
 }
 
 # In-memory session stats (not MongoDB)
@@ -146,23 +147,28 @@ async def handle_connection(websocket, path=None):
     connected_clients.add(websocket)
     print(f"Client connected: {websocket.remote_address}")
     
-    # Send current game state to new client
+    # Send current game state to new client (INCLUDE WAR ROUND STATE IF ACTIVE)
     stats = await get_session_stats()
+    game_state_update = {
+        "deck_count": len(game_state["deck"]),
+        "burned_cards_count": len(game_state["burned_cards"]),
+        "dealer_card": game_state["dealer_card"],
+        "players": game_state["players"],
+        "round_active": game_state["round_active"],
+        "round_number": game_state["round_number"],
+        "game_mode": game_state["game_mode"],
+        "table_number": game_state["table_number"],
+        "min_bet": game_state["min_bet"],
+        "max_bet": game_state["max_bet"],
+        "player_results": game_state["player_results"]
+    }
+    # PATCH: Always include war round state if present
+    if game_state.get("war_round_active") or (game_state.get("war_round") and game_state["war_round"]):
+        game_state_update["war_round_active"] = game_state.get("war_round_active", False)
+        game_state_update["war_round"] = game_state.get("war_round", None)
     await websocket.send(json.dumps({
         "action": "game_state_update",
-        "game_state": {
-            "deck_count": len(game_state["deck"]),
-            "burned_cards_count": len(game_state["burned_cards"]),
-            "dealer_card": game_state["dealer_card"],
-            "players": game_state["players"],
-            "round_active": game_state["round_active"],
-            "round_number": game_state["round_number"],
-            "game_mode": game_state["game_mode"],
-            "table_number": game_state["table_number"],
-            "min_bet": game_state["min_bet"],
-            "max_bet": game_state["max_bet"],
-            "player_results": game_state["player_results"]
-        },
+        "game_state": game_state_update,
         "stats": stats
     }))
 
@@ -425,6 +431,8 @@ async def handle_player_choice(player_id, choice):
         "player_results": game_state["player_results"],
         "deck_count": len(game_state["deck"])
     })
+    # NEW: Always broadcast full game state update so dealer sees status change
+    await broadcast_game_state_update()
     # In all modes, as soon as all non-war players have finished, proceed automatically
     all_non_war_finished = all(
         p["status"] != "waiting_choice" for p in game_state["players"].values() if p["status"] != "war"
@@ -439,6 +447,23 @@ async def handle_player_choice(player_id, choice):
                 await start_war_round(war_players)
         else:
             await complete_round()
+
+async def start_war_round(war_players):
+    """Starts a war round for the given players."""
+    game_state["war_round_active"] = True
+    game_state["war_round"] = {
+        "dealer_card": None,
+        "players": {pid: None for pid in war_players},
+        "original_cards": {
+            "dealer_card": game_state["dealer_card"],
+            "players": {pid: game_state["players"][pid]["card"] for pid in game_state["players"]}
+        }
+    }
+    await broadcast_to_all({
+        "action": "war_round_started",
+        "players": war_players,
+        "war_round": game_state["war_round"]
+    })
 
 async def assign_and_evaluate_war_round(war_players):
     """Automatically assign war cards to dealer and war players, then evaluate only new cards for war participants."""
@@ -487,6 +512,71 @@ async def evaluate_war_round_auto(war_round, war_players):
         "dealer_card": dealer_war_card,
         "players": { pid: game_state["players"][pid] for pid in war_players },
         "player_results": dict(game_state["player_results"]),
+        "message": "War round evaluated"
+    })
+    # Complete round if all finished
+    all_finished = all(p["status"] == "finished" for p in game_state["players"].values())
+    if all_finished:
+        await complete_round()
+
+async def handle_assign_war_card(target, card, player_id=None):
+    """Assigns a war card to a player or dealer during a war round."""
+    war = game_state.get("war_round")
+    if not war or not game_state.get("war_round_active"):
+        await broadcast_to_dealers({"action": "error", "message": "No active war round."})
+        return
+    if card not in game_state["deck"]:
+        await broadcast_to_dealers({"action": "error", "message": f"Card {card} not available in deck."})
+        return
+    game_state["deck"].remove(card)
+    if target == "dealer":
+        war["dealer_card"] = card
+    elif target == "player" and player_id:
+        war["players"][player_id] = card
+    else:
+        await broadcast_to_dealers({"action": "error", "message": "Invalid war card assignment target."})
+        return
+    await broadcast_to_all({
+        "action": "war_card_assigned",
+        "target": target,
+        "card": card,
+        "player_id": player_id
+    })
+
+async def evaluate_war_round():
+    """Evaluates the war round using assigned war cards."""
+    war = game_state.get("war_round")
+    if not war or not game_state.get("war_round_active"):
+        await broadcast_to_dealers({"action": "error", "message": "No active war round to evaluate."})
+        return
+    dealer_card = war.get("dealer_card")
+    player_cards = war.get("players", {})
+    # PATCH: Check for missing war cards (None) after undo
+    if not dealer_card or any(card is None for card in player_cards.values()):
+        await broadcast_to_dealers({"action": "error", "message": "Not all war cards assigned."})
+        return
+    # Evaluate results for each war player
+    for pid, card in player_cards.items():
+        result = compare_cards(card, dealer_card)
+        game_state["players"][pid]["result"] = result
+        game_state["players"][pid]["status"] = "finished"
+        game_state["players"][pid]["war_card"] = card
+        game_state["player_results"][pid] = result
+    # PATCH: Preserve original_cards after evaluation
+    original_cards = war.get("original_cards")
+    game_state["war_round_active"] = False
+    game_state["war_round"] = {
+        "dealer_card": dealer_card,
+        "players": dict(player_cards),
+        "original_cards": original_cards  # Always preserve
+    }
+    # Broadcast war round evaluated
+    await broadcast_to_all({
+        "action": "war_round_evaluated",
+        "dealer_card": dealer_card,
+        "players": {pid: game_state["players"][pid] for pid in player_cards},
+        "player_results": dict(game_state["player_results"]),
+        "war_round": game_state["war_round"],
         "message": "War round evaluated"
     })
     # Complete round if all finished
@@ -613,6 +703,7 @@ async def handle_clear_round():
     game_state["war_round"] = {"dealer_card": None, "players": {}}
     game_state["round_active"] = False
     game_state["round_number"] = max(1, game_state["round_number"] + 1)  # Never below 1
+    game_state["shoe_first_card_burned"] = False  # Reset shoe reader flag
     await broadcast_to_all({
         "action": "game_state_update",
         "game_state": {
@@ -644,7 +735,8 @@ async def handle_reset_game():
         "war_round": {                 # Reset war round state
             "dealer_card": None,
             "players": {}
-        }
+        },
+        "shoe_first_card_burned": False,  # Reset shoe reader flag
     })
     # Clear session stats as well
     session_stats.clear()
@@ -677,16 +769,11 @@ async def handle_change_table(table_number):
 async def handle_undo_last_card():
     """Undoes the last dealt card (dealer or any player), based on true assignment order. Now also supports war round assignments."""
     if "assignment_order" not in game_state:
-        game_state["assignment_order"] = []
+        await broadcast_to_dealers({"action": "error", "message": "No assignment order to undo."})
+        return
 
     if not game_state["assignment_order"]:
-        await broadcast_to_all({
-            "action": "cards_undone",
-            "deck_count": len(game_state["deck"]),
-            "players": game_state["players"],
-            "dealer_card": game_state["dealer_card"],
-            "message": "No card to undo"
-        })
+        await broadcast_to_dealers({"action": "error", "message": "No assignments to undo."})
         return
 
     last = game_state["assignment_order"].pop()
@@ -695,40 +782,62 @@ async def handle_undo_last_card():
     last_player_id = last.get("player_id")
     last_is_war = last.get("war_round", False)
 
+    # PATCH: Always include updated war_round in cards_undone broadcast if war card was undone
+    war_round_before = game_state.get("war_round")
+    war_round_active_before = game_state.get("war_round_active")
+
     if last_is_war:
         # Undo war round assignment
+        war = game_state.get("war_round")
+        if not war:
+            await broadcast_to_dealers({"action": "error", "message": "No active war round to undo."})
+            return
         if last_type == "dealer":
-            last_card = game_state["war_round"]["dealer_card"]
-            game_state["war_round"]["dealer_card"] = None
+            last_card = war.get("dealer_card")
+            if last_card:
+                war["dealer_card"] = None
+                game_state["deck"].insert(0, last_card)
         elif last_type == "player" and last_player_id:
-            if last_player_id in game_state["war_round"]["players"]:
-                last_card = game_state["war_round"]["players"][last_player_id]
-                game_state["war_round"]["players"][last_player_id] = None
-        if last_card:
-            game_state["deck"].insert(0, last_card)
+            last_card = war["players"].get(last_player_id)
+            if last_card:
+                war["players"][last_player_id] = None
+                game_state["deck"].insert(0, last_card)
+        # PATCH: Always broadcast updated war_round
+        await broadcast_to_all({
+            "action": "cards_undone",
+            "deck_count": len(game_state["deck"]),
+            "players": game_state["players"],
+            "dealer_card": game_state["dealer_card"],
+            "war_round": game_state["war_round"],
+            "war_round_active": game_state.get("war_round_active", False),
+            "message": f"Last war card ({last_card}) unassigned from {'dealer' if last_type == 'dealer' else 'player ' + str(last_player_id) if last_player_id else ''} and put back to deck" if last_card else "No war card to undo"
+        })
+        return
     else:
-        # Normal undo logic
+        # Undo normal round assignment
         if last_type == "dealer":
             last_card = game_state["dealer_card"]
-            game_state["dealer_card"] = None
+            if last_card:
+                game_state["dealer_card"] = None
+                game_state["deck"].insert(0, last_card)
         elif last_type == "player" and last_player_id:
-            player = game_state["players"].get(last_player_id)
-            if player and player.get("card"):
-                last_card = player["card"]
-                player["card"] = None
-                player["status"] = "active"
-                player["result"] = None
-                player["war_card"] = None
-        if last_card:
-            game_state["deck"].insert(0, last_card)
-
-    await broadcast_to_all({
-        "action": "cards_undone",
-        "deck_count": len(game_state["deck"]),
-        "players": game_state["players"],
-        "dealer_card": game_state["dealer_card"],
-        "message": f"Last card ({last_card}) unassigned from {'dealer' if last_type == 'dealer' else 'player ' + str(last_player_id) if last_player_id else ''} and put back to deck" if last_card else "No card to undo"
-    })
+            last_card = game_state["players"][last_player_id]["card"]
+            if last_card:
+                game_state["players"][last_player_id]["card"] = None
+                game_state["players"][last_player_id]["status"] = "active"
+                game_state["players"][last_player_id]["result"] = None
+                game_state["players"][last_player_id]["war_card"] = None
+                game_state["deck"].insert(0, last_card)
+        await broadcast_to_all({
+            "action": "cards_undone",
+            "deck_count": len(game_state["deck"]),
+            "players": game_state["players"],
+            "dealer_card": game_state["dealer_card"],
+            "war_round": game_state.get("war_round"),
+            "war_round_active": game_state.get("war_round_active", False),
+            "message": f"Last card ({last_card}) unassigned from {'dealer' if last_type == 'dealer' else 'player ' + str(last_player_id) if last_player_id else ''} and put back to deck" if last_card else "No card to undo"
+        })
+        return
 
 async def handle_add_card_manual(card):
     """Manually adds a card (for testing purposes)."""
@@ -800,7 +909,25 @@ def is_card_available(card):
 #     return (None, None)
 
 # async def handle_live_card_scan(card):
-#     """Assigns a scanned card to the next available player or dealer in order (main round)."""
+#     """Assigns a scanned card to the next available player or dealer in order (main round). First card each round is burned."""
+#     # Initialize the flag if not present
+#     if "shoe_first_card_burned" not in game_state:
+#         game_state["shoe_first_card_burned"] = False
+#     # If first card of the round, burn it
+#     if not game_state["shoe_first_card_burned"]:
+#         if card in game_state["deck"]:
+#             game_state["deck"].remove(card)
+#             game_state["burned_cards"].append(card)
+#         game_state["shoe_first_card_burned"] = True
+#         await broadcast_to_all({
+#             "action": "card_burned",
+#             "burned_card": card,
+#             "deck_count": len(game_state["deck"]),
+#             "burned_cards_count": len(game_state["burned_cards"]),
+#             "message": f"First card {card} burned from shoe reader"
+#         })
+#         return
+#     # Otherwise, assign as normal
 #     target, player_id = get_next_card_assignment_target()
 #     if target is None:
 #         await broadcast_to_dealers({
@@ -808,7 +935,7 @@ def is_card_available(card):
 #             "message": "All players and dealer already have cards assigned."
 #         })
 #         return
-## remove card from deck if present
+# # remove card from deck if present
 #     if card in game_state["deck"]:
 #         game_state["deck"].remove(card)
 #     if target == "player":
@@ -876,16 +1003,16 @@ async def handle_manual_deal_card(target, card, player_id=None):
     if game_state["game_mode"] != "live":
         await broadcast_to_dealers({"action": "error", "message": "Manual card assignment allowed only in live mode"})
         return
-    next_target, next_pid = get_next_card_assignment_target()
-    if (target == "player" and (next_target != "player" or player_id != next_pid)) or (target == "dealer" and next_target != "dealer"):
-        await broadcast_to_dealers({
-            "action": "error",
-            "message": f"Card must be assigned to the next available player (lowest number) or dealer in order. Next: {next_target} {next_pid}"
-        })
-        return
+    # Allow assignment to any unassigned player or dealer (not just next in order)
     if not assign_card_if_available(card, "manual assignment"):
         return
     if target == "dealer":
+        if game_state["dealer_card"] is not None:
+            await broadcast_to_dealers({
+                "action": "error",
+                "message": "Dealer already has a card assigned."
+            })
+            return
         game_state["dealer_card"] = card
         game_state.setdefault("assignment_order", []).append({"card": card, "type": "dealer"})
         await broadcast_to_all({
@@ -900,6 +1027,12 @@ async def handle_manual_deal_card(target, card, player_id=None):
             await broadcast_to_dealers({
                 "action": "error",
                 "message": f"Player {player_id} not found."
+            })
+            return
+        if game_state["players"][player_id]["card"] is not None:
+            await broadcast_to_dealers({
+                "action": "error",
+                "message": f"Player {player_id} already has a card assigned."
             })
             return
         game_state["players"][player_id]["card"] = card
@@ -939,25 +1072,27 @@ async def broadcast_to_player(player_id, message):
             del player_clients[player_id]
 
 async def broadcast_game_state_update():
-    stats = await get_session_stats()
-    msg = {
-        "action": "game_state_update",
-        "game_state": {
-            "deck_count": len(game_state["deck"]),
-            "burned_cards_count": len(game_state["burned_cards"]),
-            "dealer_card": game_state["dealer_card"],
-            "players": game_state["players"],
-            "round_active": game_state["round_active"],
-            "round_number": game_state["round_number"],
-            "game_mode": game_state["game_mode"],
-            "table_number": game_state["table_number"],
-            "min_bet": game_state["min_bet"],
-            "max_bet": game_state["max_bet"],
-            "player_results": game_state["player_results"]
-        },
-        "stats": stats
+    # PATCH: Always include war round state if present
+    game_state_update = {
+        "deck_count": len(game_state["deck"]),
+        "burned_cards_count": len(game_state["burned_cards"]),
+        "dealer_card": game_state["dealer_card"],
+        "players": game_state["players"],
+        "round_active": game_state["round_active"],
+        "round_number": game_state["round_number"],
+        "game_mode": game_state["game_mode"],
+        "table_number": game_state["table_number"],
+        "min_bet": game_state["min_bet"],
+        "max_bet": game_state["max_bet"],
+        "player_results": game_state["player_results"]
     }
-    await broadcast_to_all(msg)
+    if game_state.get("war_round_active") or (game_state.get("war_round") and game_state["war_round"]):
+        game_state_update["war_round_active"] = game_state.get("war_round_active", False)
+        game_state_update["war_round"] = game_state.get("war_round", None)
+    await broadcast_to_all({
+        "action": "game_state_update",
+        "game_state": game_state_update
+    })
 # DELETE DATA FROM MONGODB
 async def delete_recent_result():
     """Deletes the most recent game result from MongoDB."""
