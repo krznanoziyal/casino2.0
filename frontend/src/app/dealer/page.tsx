@@ -374,27 +374,56 @@ export default function DealerPage() {
   }, [gameState.players]);
 
   return (
-    <div className="min-h-screen p-6">
+    <div className="min-h-screen">
       {/* Menu Button in top right */}
-      <div className="absolute top-4 right-4 z-20">
-        <button
-          className="bg-black/60 border border-casino-gold rounded-full p-3 hover:bg-black/80 transition"
+      <div className="absolute top-0 right-0 z-20">
+        <div 
+          className="logo-container cursor-pointer relative shadow-xl"
           onClick={() => setMenuOpen(true)}
-          aria-label="Open Game Controls Menu"
+          aria-label="Open Bet/Table Menu"
         >
-          <FaBarsIcon className="text-casino-gold text-2xl" />
-        </button>
+          <img 
+            src="/assets/image.png" 
+            alt="Table header background" 
+            className="w-80 rounded-md"
+          />
+          <div className="absolute top-0 left-0 w-full h-full flex flex-col items-center justify-center">
+            <img 
+              src="/assets/menu.png" 
+              alt="Mini Flush Logo" 
+              className="w-2/3 h-auto object-contain"
+            />
+          </div>
+        </div>
       </div>
 
       {/* Bet/Table Menu Button in top left */}
-      <div className="absolute top-4 left-4 z-20">
-        <button
-          className="bg-black/60 border border-casino-gold rounded-full p-3 hover:bg-black/80 transition"
+      <div className="absolute top-0 left-0 z-20">
+        <div 
+          className="logo-container cursor-pointer relative shadow-xl"
           onClick={() => setBetMenuOpen(true)}
           aria-label="Open Bet/Table Menu"
         >
-          <FaMoneyIcon className="text-casino-gold text-2xl" />
-        </button>
+          {/* Background image */}
+          <img 
+            src="/assets/image.png" 
+            alt="Table header background" 
+            className="w-80 h-auto rounded-md"
+          />
+          
+          {/* Logo overlay */}
+          <div className="absolute top-0 left-0 w-full h-full flex flex-col items-center justify-center">
+            <img 
+              src="/assets/logo.png" 
+              alt="Mini Flush Logo" 
+              className="w-2/3 h-auto object-contain"
+            />
+          <div className="table-number mt-2 text-yellow-300 text-xl antialiased tracking-wide font-light">
+            Table {gameState.table_number}
+          </div>
+          </div>
+          
+        </div>
       </div>
 
       {/* Game Controls Modal */}
@@ -770,46 +799,48 @@ export default function DealerPage() {
         )}
       </AnimatePresence>
 
-      {/* Player Management + Connection Status */}
-      <div className="relative">
-        {/* Connection Status in top right */}
-        <div className="absolute top-4 right-4 z-10">
-          <div className={`px-4 py-2 rounded-full flex items-center gap-2 ${connected ? 'bg-green-500/20 border border-green-500 text-green-400' : 'bg-red-500/20 border border-red-500 text-red-400'}`}>
-        <div className={`w-3 h-3 rounded-full ${connected ? 'bg-green-400' : 'bg-red-400'} animate-pulse`}></div>
-        {connected ? 'Connected' : 'Disconnected'}
+      <div className="relative mb-6">
+        <div className="wood-header overflow-hidden">
+          {/* Wood background image */}
+          <div className="absolute inset-0 z-0">
+            <img 
+              src="/assets/wood.png" 
+              alt="Wooden table" 
+              className="w-full h-full object-cover"
+            />
           </div>
-        </div>
-        <div className="bg-black/40 backdrop-blur-sm border border-casino-gold rounded-xl p-6 mb-6">
-          <h2 className="text-xl font-bold text-casino-gold mb-4">Player Management</h2>
-          <div className="flex gap-4 justify-center">
-        {Array.from({ length: 6 }, (_, i) => i + 1).map((seatNumber) => {
-          const playerId = seatNumber.toString();
-          const isActive = gameState.players[playerId] !== undefined;
-          return (
-            <button
-          key={seatNumber}
-          onClick={() => {
-            if (isActive) {
-              sendMessage({ action: "remove_player", player_id: playerId });
-              addNotification(`Seat ${seatNumber} deactivated`);
-            } else {
-              sendMessage({ action: "add_player", player_id: playerId });
-              addNotification(`Seat ${seatNumber} activated`);
-            }
-          }}
-          className={`flex flex-col items-center justify-center border-2 rounded-xl p-4 transition-all duration-200 ${
-            isActive 
-              ? "bg-green-800 border-green-400 shadow-lg shadow-green-400/20"
-              : "bg-gray-800 border-gray-600 hover:border-gray-400"
-          }`}
-            >
-          <div className="text-4xl mb-2">
-            {isActive ? "🟢" : "⚫"}
-          </div>
-          <div className="text-lg font-bold text-white">Seat {seatNumber}</div>
-            </button>
-          );
-        })}
+          
+          {/* Hat images overlay */}
+          <div className="relative z-10 px-6 py-8">
+            <div className="flex gap-8 justify-center">
+              {Array.from({ length: 6 }, (_, i) => i + 1).map((seatNumber) => {
+                const playerId = seatNumber.toString();
+                const isActive = gameState.players[playerId] !== undefined;
+                return (
+                  <button
+                    key={seatNumber}
+                    onClick={() => {
+                      if (isActive) {
+                        sendMessage({ action: "remove_player", player_id: playerId });
+                        addNotification(`Seat ${seatNumber} deactivated`);
+                      } else {
+                        sendMessage({ action: "add_player", player_id: playerId });
+                        addNotification(`Seat ${seatNumber} activated`);
+                      }
+                    }}
+                    className="flex flex-col items-center justify-center transition-all duration-200"
+                  >
+                    <div className="hat-container mb-2">
+                      <img 
+                        src={isActive ? "/assets/whitehat.png" : "/assets/redhat.png"} 
+                        alt={isActive ? "Active Player" : "Inactive Player"} 
+                        className="w-20 h-20 object-contain"
+                      />
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
       </div>
@@ -832,79 +863,104 @@ export default function DealerPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Game Table */}
-        <div className="lg:col-span-3 col-span-full w-full">
-          <div className="bg-black/40 backdrop-blur-sm border border-casino-gold rounded-xl p-6 mb-6 w-full grow flex flex-col">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-casino-gold">
-                Round {gameState.round_number} {gameState.round_active ? '(Active)' : ''}
-              </h2>
-              <div className="text-right">
-                <div className="text-casino-gold font-semibold">Table: {gameState.table_number}</div>
-                <div className="text-casino-gold font-semibold">Betting: ${gameState.min_bet} - $${gameState.max_bet}</div>
-                <div className="text-gray-300 text-sm">Players: {Object.keys(gameState.players).length}/6</div>
+        <div className="lg:col-span-3 w-full">
+          <div className="bg-[#911606] border-4 border-[#d4af37] p-6 mb-6 w-full grow flex flex-col">
+            
+            {/* Flex container for Dealer + Game Info layout */}
+            <div className="flex flex-col lg:flex-row gap-6 mb-6">
+              {/* Left side - Dealer section */}
+              <div className="lg:w-2/3">
+                {(!gameState.war_round_active || !gameState.war_round?.original_cards) ? (
+                  <div className="mb-0">
+                    {/* Dealer section styling to match the image */}
+                    <div className="bg-[#911606] border-2 border-dashed border-white p-6 rounded-lg">
+                      <h3 className="text-xl font-bold text-white mb-4 text-left">Dealer's Cards</h3>
+                      
+                      <div className="flex justify-center items-center min-h-[120px]">
+                        {/* After war round, show both original and war card stacked */}
+                        {(!gameState.war_round_active && gameState.war_round?.original_cards?.dealer_card) ? (
+                          <div className="flex flex-col items-center gap-1">
+                            {renderCard(gameState.war_round.original_cards.dealer_card, 'large')}
+                            {gameState.war_round?.dealer_card && (
+                              <div className="mt-1">{renderCard(gameState.war_round.dealer_card, 'large')}</div>
+                            )}
+                          </div>
+                        ) :
+                        // Normal round: show only the original card
+                        gameState.dealer_card ? (
+                          renderCard(gameState.dealer_card, 'large')
+                        ) : (
+                          <div className="w-20 h-28 card-back rounded-lg flex items-center justify-center">
+                            <span className="text-white text-2xl">?</span>
+                          </div>
+                        )}
+                      </div>
+                      {/* Dealer card assignment textbox and button removed as requested */}
+                    </div>
+                  </div>
+                ) : (
+                  // If war round is active, still show the dealer card assignment input in live mode ONLY if round is active
+                  gameState.game_mode === 'live' && gameState.round_active && (
+                    <div className="text-center mb-8">
+                      <h3 className="text-xl font-bold text-casino-gold mb-4">Dealer</h3>
+                      {/* <div className="mt-4">
+                        <input 
+                          type="texwt" 
+                          placeholder="Manual card (e.g., AS, KH)"
+                          value={manualCard}
+                          onChange={(e) => setManualCard(e.target.value.toUpperCase())}
+                          className="bg-black border border-casino-gold rounded-lg px-3 py-2 text-white mr-2"
+                        />
+                        <button 
+                          onClick={() => {
+                            if (manualCard) {
+                              if (!validCardPattern.test(manualCard)) {
+                                setNotifications(prev => [
+                                  ...prev.slice(-4),
+                                  "Invalid card. Please enter a valid card using ranks (2-10, J, Q, K, A) and suits (S, H, D, C)."
+                                ]);
+                                return;
+                              }
+                              sendMessage({ action: 'manual_deal_card', target: 'dealer', card: manualCard });
+                              setManualCard('');
+                            }
+                          }}
+                          className="success-button"
+                        >
+                          Set Dealer Card
+                        </button>
+                      </div> */}
+                    </div>
+                  )
+                )}
+              </div>
+
+              {/* Right side - Game information */}
+              <div className="lg:w-1/3 flex flex-col justify-start items-end">
+                {/* Game information styled as yellow lines */}
+                <div className="mb-3 p-2">
+                  <h2 className="text-xl font-bold text-yellow-300">
+                    Round {gameState.round_number} {gameState.round_active ? '(Active)' : ''}
+                  </h2>
+                </div>
+                
+                <div className="mb-3 p-2">
+                  <div className="text-yellow-300 font-semibold">Table: {gameState.table_number}</div>
+                </div>
+                
+                <div className="mb-3 p-2">
+                  <div className="text-yellow-300 font-semibold">
+                    Betting: ${gameState.min_bet} - ${gameState.max_bet}
+                  </div>
+                </div>
+                
+                <div className="mb-3 p-2">
+                  <div className="text-yellow-300 font-semibold">
+                    Players: {Object.keys(gameState.players).length}/6
+                  </div>
+                </div>
               </div>
             </div>
-
-            {/* Dealer Section */}
-            {(!gameState.war_round_active || !gameState.war_round?.original_cards) ? (
-              <div className="text-center mb-8">
-                <h3 className="text-xl font-bold text-casino-gold mb-4">Dealer</h3>
-                <div className="flex flex-col items-center justify-center">
-                  {/* After war round, show both original and war card stacked */}
-                  {(!gameState.war_round_active && gameState.war_round?.original_cards?.dealer_card) ? (
-                    <div className="flex flex-col items-center gap-1">
-                      {renderCard(gameState.war_round.original_cards.dealer_card, 'large')}
-                      {gameState.war_round?.dealer_card && (
-                        <div className="mt-1">{renderCard(gameState.war_round.dealer_card, 'large')}</div>
-                      )}
-                    </div>
-                  ) :
-                  // Normal round: show only the original card
-                  gameState.dealer_card ? (
-                    renderCard(gameState.dealer_card, 'large')
-                  ) : (
-                    <div className="w-20 h-28 card-back rounded-lg flex items-center justify-center">
-                      <span className="text-white text-2xl">🎴</span>
-                    </div>
-                  )}
-                </div>
-                {/* Dealer card assignment textbox and button removed as requested */}
-              </div>
-            ) : (
-              // If war round is active, still show the dealer card assignment input in live mode ONLY if round is active
-              gameState.game_mode === 'live' && gameState.round_active && (
-                <div className="text-center mb-8">
-                  <h3 className="text-xl font-bold text-casino-gold mb-4">Dealer</h3>
-                  {/* <div className="mt-4">
-                    <input 
-                      type="text" 
-                      placeholder="Manual card (e.g., AS, KH)"
-                      value={manualCard}
-                      onChange={(e) => setManualCard(e.target.value.toUpperCase())}
-                      className="bg-black border border-casino-gold rounded-lg px-3 py-2 text-white mr-2"
-                    />
-                    <button 
-                      onClick={() => {
-                        if (manualCard) {
-                          if (!validCardPattern.test(manualCard)) {
-                            setNotifications(prev => [
-                              ...prev.slice(-4),
-                              "Invalid card. Please enter a valid card using ranks (2-10, J, Q, K, A) and suits (S, H, D, C)."
-                            ]);
-                            return;
-                          }
-                          sendMessage({ action: 'manual_deal_card', target: 'dealer', card: manualCard });
-                          setManualCard('');
-                        }
-                      }}
-                      className="success-button"
-                    >
-                      Set Dealer Card
-                    </button>
-                  </div> */}
-                </div>
-              )
-            )}
 
             {/* War Round Section */}
             {gameState.war_round_active && (
@@ -1051,7 +1107,7 @@ export default function DealerPage() {
                     key={playerId}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="bg-black/30 border border-casino-gold/50 rounded-xl p-4"
+                    className="bg-red-400/5 border-2 border-dashed border-white p-4 rounded-lg"
                   >
                     <div className="flex justify-between items-center mb-3">
                       <h4 className="font-bold text-casino-gold">{playerId}</h4>
@@ -1157,20 +1213,19 @@ export default function DealerPage() {
 
       <style jsx>{`
         .card {
-          background: linear-gradient(135deg, #2c4b2e 0%, #1d3323 100%);
+          background: white;
           border: 2px solid #d4af37;
           border-radius: 8px;
-          box-shadow: 0 4px 8px rgba(0, 0, 0, 0.8);
+          box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
         }
-        
         .card-back {
-          background: linear-gradient(135deg, #0b1e0b 0%, #0a150a 100%);
+          background: #6b0000;
           border: 2px solid #d4af37;
-          box-shadow: 0 4px 8px rgba(0, 0, 0, 0.8);
+          box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
         }
         
         .dealer-button {
-          @apply bg-gradient-to-r from-yellow-600 to-yellow-700 hover:from-yellow-700 hover:to-yellow-800 text-white px-4 py-2 rounded-lg transition-all duration-200 font-semibold shadow-lg;
+          @apply g-gradient-to-r from-yellow-600 to-yellow-700 hover:from-yellow-700 hover:to-yellow-800 text-white px-4 py-2 rounded-lg transition-all duration-200 font-semibold shadow-lg;
         }
         
         .success-button {
@@ -1184,10 +1239,24 @@ export default function DealerPage() {
         .animate-spin-slow {
           animation: spin 3s linear infinite;
         }
+        .wood-header {
+          box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+        .table-number {
+        text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+        }
+        .logo-container {
+        filter: drop-shadow(0 8px 12px rgba(0, 0, 0, 0.6));
+        transition: all 0.2s ease;
+      }
+      .logo-container:hover {
+        transform: translateY(-2px);
+        filter: drop-shadow(0 10px 14px rgba(0, 0, 0, 0.7));
+      }
       `}</style>
       <style jsx global>{`
         body {
-          background: radial-gradient(circle,rgb(78, 197, 78),rgb(14, 14, 14));
+          background: radial-gradient(circle, #450a03);
           color: #fff;
         }
       `}</style>
