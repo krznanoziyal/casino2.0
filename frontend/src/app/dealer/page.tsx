@@ -86,6 +86,14 @@ export default function DealerPage() {
     }
   }, [])
 
+  // Debug: Track menuOpen and betMenuOpen state changes
+  useEffect(() => {
+    console.log('[DEBUG] menuOpen changed:', menuOpen)
+  }, [menuOpen])
+  useEffect(() => {
+    console.log('[DEBUG] betMenuOpen changed:', betMenuOpen)
+  }, [betMenuOpen])
+
   const connectWebSocket = () => {
     try {
       wsRef.current = new WebSocket('ws://localhost:6789')
@@ -104,7 +112,9 @@ export default function DealerPage() {
       }
       
       wsRef.current.onmessage = (event) => {
+        console.log('[DEBUG] WebSocket message received:', event.data)
         const data = JSON.parse(event.data)
+        console.log('[DEBUG] Parsed WebSocket data:', data)
         handleServerMessage(data)
       }
     } catch (error) {
@@ -400,6 +410,7 @@ export default function DealerPage() {
       {/* Game Controls Modal */}
       <AnimatePresence>
         {menuOpen && (
+          (() => { console.log('[DEBUG] Rendering Game Controls Modal (menuOpen true)'); return null })() ||
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -709,6 +720,7 @@ export default function DealerPage() {
       {/* Bet/Table Menu Modal */}
       <AnimatePresence>
         {betMenuOpen && (
+          (() => { console.log('[DEBUG] Rendering Bet/Table Menu Modal (betMenuOpen true)'); return null })() ||
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
