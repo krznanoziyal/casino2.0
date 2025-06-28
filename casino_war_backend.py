@@ -12,7 +12,7 @@ import serial
 ser = serial.Serial("COM1", 9600, timeout=0.1)  # Adjust baud rate if necessary
 
 # MongoDB setup
-MONGO_URI = "mongod# b://localhost:27017"
+MONGO_URI = "mongodb://localhost:27017"
 DB_NAME = "casino_war_db"
 COLLECTION_NAME = "game_results"
 
@@ -1179,28 +1179,28 @@ def extract_card_value(input_string):
 
 # Unified handler for shoe reader cards (assigns to main or war round as needed)
 async def handle_card_from_shoe(card):
-    """
-    Handles a card scanned from the shoe reader and assigns it using the same logic as manual assignment.
-    Decides whether to assign to main round or war round based on game state.
-    """
-    if game_state.get("war_round_active"):
-        # War round: assign to next war target
-        target, player_id = get_next_war_card_assignment_target()
-        if target == "player":
-            await handle_assign_war_card("player", card, player_id)
-        elif target == "dealer":
-            await handle_assign_war_card("dealer", card)
+    try:
+        if game_state.get("war_round_active"):
+            # War round: assign to next war target
+            target, player_id = get_next_war_card_assignment_target()
+            if target == "player":
+                await handle_assign_war_card("player", card, player_id)
+            elif target == "dealer":
+                await handle_assign_war_card("dealer", card)
+            else:
+                print("[SHOE] All war cards assigned.")
         else:
-            print("[SHOE] All war cards assigned.")
-    else:
-        # Main round: assign to next available player or dealer
-        target, player_id = get_next_card_assignment_target()
-        if target == "player":
-            await handle_manual_deal_card("player", card, player_id)
-        elif target == "dealer":
-            await handle_manual_deal_card("dealer", card)
-        else:
-            print("[SHOE] All main round cards assigned.")
+            # Main round: assign to next available player or dealer
+            target, player_id = get_next_card_assignment_target()
+            if target == "player":
+                await handle_manual_deal_card("player", card, player_id)
+            elif target == "dealer":
+                await handle_manual_deal_card("dealer", card)
+            else:
+                print("[SHOE] All main round cards assigned.")
+    except Exception as e:
+        print(f"[SHOE HANDLER ERROR] {e}")
+        # Optionally: await broadcast_to_dealers({"action": "error", "message": f"Shoe handler error: {e}"})
 
 # Clean serial reading logic: only reads and calls the handler
 async def read_from_serial(ser):
@@ -1208,21 +1208,18 @@ async def read_from_serial(ser):
     Continuously reads card values from the casino shoe reader and passes them to the backend handler.
     """
     while True:
-        if ser.in_waiting > 0:
-            raw_data = ser.readline().decode("utf-8").strip()
-            card = extract_card_value(raw_data)
-            print("card:", card)
-            if card:
-                await handle_card_from_shoe(card)
-        await asyncio.sleep(0.1)  # Adjust delay if necessary
-
-# async def main():
-#     print("Connected to:", ser.name)
-#     """Starts the WebSocket server and serial reader."""
-#     server = websockets.serve(handle_connection, "0.0.0.0", 6789)
-#     print("WebSocket server running on ws://localhost:6789")
-
-#     await asyncio.gather(server, read_from_serial())  # Run both tasks concurrently
+        try:
+            if ser.in_waiting > 0:
+                raw_data = ser.readline().decode("utf-8").strip()
+                card = extract_card_value(raw_data)
+                print("card:", card)
+                if card:
+                    await handle_card_from_shoe(card)
+            await asyncio.sleep(0.1)  # Adjust delay if necessary
+        except Exception as e:
+            print(f"[SERIAL ERROR] {e}")
+            # Optionally: await broadcast_to_dealers({"action": "error", "message": f"Serial error: {e}"})
+            await asyncio.sleep(1)  # Prevent tight error loop
 
 async def main():
     print("Connected to:", ser.name)
