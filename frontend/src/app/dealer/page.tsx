@@ -680,8 +680,19 @@ export default function DealerPage() {
                 </>
               )}
 
+
+
               {/* Utility Controls */}
               <div className="space-y-2">
+                {/* Add Evaluate War Round button to menu when war round is active */}
+                {gameState.war_round_active && (
+                  <button
+                    onClick={() => sendMessage({ action: 'evaluate_war_round' })}
+                    className="dealer-button w-full"
+                  >
+                    ⚔️ Evaluate War Round
+                  </button>
+                )}
                 {gameState.game_mode !== 'automatic' && (
                   <button onClick={() => sendMessage({ action: 'undo_last_card' })} className="danger-button w-full">
                     ↩️ UNDO CARD
@@ -946,79 +957,7 @@ export default function DealerPage() {
                   </div>
                 </div>
 
-                {/* War Card Assignment Controls */}
-                <div className="mt-6 p-4 bg-black/30 rounded-lg">
-                  <h4 className="text-lg font-semibold text-casino-gold mb-3">Assign War Cards</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <select 
-                      value={warCardTarget} 
-                      onChange={(e) => setWarCardTarget(e.target.value as 'dealer' | 'player')}
-                      className="bg-black border border-casino-gold rounded-lg px-3 py-2 text-white"
-                    >
-                      <option value="dealer">Dealer</option>
-                      <option value="player">Player</option>
-                    </select>
-                    
-                    {warCardTarget === 'player' && (
-                      <select 
-                        value={warPlayerId} 
-                        onChange={(e) => setWarPlayerId(e.target.value)}
-                        className="bg-black border border-casino-gold rounded-lg px-3 py-2 text-white"
-                      >
-                        <option value="">Select Player</option>
-                        {warPlayers.map(([playerId]) => (
-                          <option key={playerId} value={playerId}>{playerId}</option>
-                        ))}
-                      </select>
-                    )}
-                    
-                    <div className="flex gap-2">
-                      <input 
-                        type="text" 
-                        placeholder="Card (e.g., AS, KH)"
-                        value={warCardValue}
-                        onChange={(e) => setWarCardValue(e.target.value.toUpperCase())}
-                        className="flex-1 bg-black border border-casino-gold rounded-lg px-3 py-2 text-white"
-                      />
-                      <button 
-                        onClick={() => {
-                          if (!warCardValue || (warCardTarget === 'player' && !warPlayerId)) {
-                            setNotifications(prev => [
-                              ...prev.slice(-4),
-                              "Please enter a card value and select a player if target is Player."
-                            ]);
-                            return;
-                          }
-                          if (!validCardPattern.test(warCardValue)) {
-                            setNotifications(prev => [
-                              ...prev.slice(-4),
-                              "Invalid card. Please enter a valid card using ranks (2-10, J, Q, K, A) and suits (S, H, D, C)."
-                            ]);
-                            return;
-                          }
-                          sendMessage({ 
-                            action: 'assign_war_card', 
-                            target: warCardTarget, 
-                            card: warCardValue,
-                            player_id: warCardTarget === 'player' ? warPlayerId : undefined
-                          });
-                          setWarCardValue('');
-                          setWarPlayerId('');
-                        }}
-                        className="success-button"
-                      >
-                        Assign
-                      </button>
-                    </div>
-                  </div>
-                  
-                  <button 
-                    onClick={() => sendMessage({ action: 'evaluate_war_round' })}
-                    className="mt-4 w-full bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors font-semibold"
-                  >
-                    ⚖️ Evaluate War Round
-                  </button>
-                </div>
+                
 
                 {/* Removed the separate Undo War Card button and logic */}
               </div>

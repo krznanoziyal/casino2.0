@@ -451,46 +451,38 @@ export default function DisplayPage() {
             )}
 
             {/* Players Grid */}
-            <div className="grid grid-cols-3 gap-4">
-              {Object.entries(gameState.players).map(([playerId, playerData]) => (
-                <motion.div 
-                  key={playerId}
-                  className="bg-gray-800/50 rounded-lg p-4 text-center"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <div className="text-white font-bold mb-2">{playerId}</div>
-                  <div className="mb-3">
-                    {playerData.card ? renderCard(playerData.card, 'medium') : (
-                      <div className="w-16 h-22 bg-gray-600 rounded border border-gray-500 mx-auto flex items-center justify-center">
-                        <div className="text-gray-400 text-xs">No Card</div>
-                      </div>
-                    )}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {Object.entries(gameState.players).map(([playerId, playerData]) => {
+                let resultColor = '';
+                let resultText = '';
+                switch (playerData.result) {
+                  case 'win':
+                    resultColor = 'bg-green-500 text-white';
+                    resultText = 'WIN';
+                    break;
+                  case 'lose':
+                    resultColor = 'bg-red-600 text-white';
+                    resultText = 'LOSS';
+                    break;
+                  case 'surrender':
+                    resultColor = 'bg-white text-black';
+                    resultText = 'SURRENDER';
+                    break;
+                  case 'tie':
+                    resultColor = 'bg-yellow-400 text-black';
+                    resultText = 'TIE';
+                    break;
+                  default:
+                    resultColor = 'bg-gray-700 text-white';
+                    resultText = 'PENDING';
+                }
+                return (
+                  <div key={playerId} className={`rounded-xl p-8 flex flex-col items-center justify-center shadow-lg ${resultColor}`} style={{ minHeight: '120px' }}>
+                    <div className="text-2xl font-bold mb-2">Player {playerId}</div>
+                    <div className="text-3xl font-extrabold">{resultText}</div>
                   </div>
-                  
-                  {playerData.war_card && (
-                    <div className="mb-2">
-                      <div className="text-red-400 text-xs mb-1">War Card</div>
-                      {renderCard(playerData.war_card, 'small')}
-                    </div>
-                  )}
-                  
-                  <div className={`px-2 py-1 rounded text-xs font-bold ${getResultColor(playerData.result || 'waiting')}`}>
-                    {playerData.result || playerData.status}
-                  </div>
-                </motion.div>
-              ))}
-              
-              {/* Empty slots */}
-              {Array.from({ length: Math.max(0, 6 - Object.keys(gameState.players).length) }).map((_, i) => (
-                <div key={`empty-${i}`} className="bg-gray-800/30 rounded-lg p-4 text-center border-2 border-dashed border-gray-600">
-                  <div className="text-gray-500 text-sm">Empty Seat</div>
-                  <div className="w-16 h-22 bg-gray-700/30 rounded border border-gray-600 mx-auto mt-2 flex items-center justify-center">
-                    <div className="text-gray-500 text-xs">Seat {Object.keys(gameState.players).length + i + 1}</div>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </motion.div>
         </div>

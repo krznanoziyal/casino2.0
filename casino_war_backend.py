@@ -5,6 +5,9 @@ import motor.motor_asyncio
 from datetime import datetime
 import random
 import time
+import re
+import urllib.parse
+# ser = serial.Serial("COM1", 9600, timeout=0.1)  # Adjust baud rate if necessary
 
 # MongoDB setup
 MONGO_URI = "mongodb://localhost:27017"
@@ -888,7 +891,8 @@ def is_card_available(card):
 
 
 
-# --- SHOE READER (LIVE MODE) CARD ASSIGNMENT ---
+# --- SERIAL CARD READER INTEGRATION (COMPATIBLE WITH BACKEND ASSIGNMENT LOGIC) ---
+import re
 
 # def get_next_war_card_assignment_target():
 #     """Returns the next war card assignment target: (target_type, player_id or None)."""
@@ -907,6 +911,25 @@ def is_card_available(card):
 #     if war.get("dealer_card") is None:
 #         return ("dealer", None)
 #     return (None, None)
+
+# Helper to get next war card assignment target
+def get_next_war_card_assignment_target():
+    """Returns the next war card assignment target: (target_type, player_id or None)."""
+    war = game_state.get("war_round", {})
+    if not war:
+        return (None, None)
+    # Find lowest-numbered war player without a war card
+    war_players = [pid for pid, card in war.get("players", {}).items() if card is None]
+    if war_players:
+        try:
+            next_pid = sorted(war_players, key=lambda x: int(x))[0]
+        except Exception:
+            next_pid = sorted(war_players)[0]
+        return ("player", next_pid)
+    # If all war players have cards, assign to dealer if not assigned
+    if war.get("dealer_card") is None:
+        return ("dealer", None)
+    return (None, None)
 
 # async def handle_live_card_scan(card):
 #     """Assigns a scanned card to the next available player or dealer in order (main round). First card each round is burned."""
@@ -1120,7 +1143,8 @@ async def main():
 if __name__ == "__main__":
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
     asyncio.run(main())
-
+    
+# OLD KRISHA CODE:
 # def extract_card_value(input_string):
 #     """
 #     Extract the card value from the input string formatted like:
@@ -1148,3 +1172,51 @@ if __name__ == "__main__":
 
 #     await asyncio.gather(server, read_from_serial())  # Run both tasks concurrently
 
+# Extract card value from serial input
+
+def extract_card_value(input_string):
+    """
+    Extract the card value from the input string formatted like:
+    [Manual Burn Cards]<Card:{data}>
+    """
+    match = re.search(r"<Card:(.*?)>", input_string)
+    return match.group(1) if match else None
+
+# Serial reading logic (call backend assignment functions)
+async def read_from_serial(ser, war_mode=False):
+    """
+    Continuously reads card values from the casino shoe reader and assigns them using backend logic.
+    Set war_mode=True to assign war cards, else assigns main round cards.
+    """
+    while True:
+        if ser.in_waiting > 0:
+            raw_data = ser.readline().decode("utf-8").strip()
+            card = extract_card_value(raw_data)
+            print("card:", card)
+            if card:
+                if war_mode:
+                    # Assign to next war target
+                    target, player_id = get_next_war_card_assignment_target()
+                    if target == "player":
+                        await handle_assign_war_card("player", card, player_id)
+                    elif target == "dealer":
+                        await handle_assign_war_card("dealer", card)
+                    else:
+                        print("[SERIAL] All war cards assigned.")
+                else:
+                    # Assign to next main round target
+                    target, player_id = get_next_card_assignment_target()
+                    if target == "player":
+                        await handle_manual_deal_card("player", card, player_id)
+                    elif target == "dealer":
+                        await handle_manual_deal_card("dealer", card)
+                    else:
+                        print("[SERIAL] All main round cards assigned.")
+        await asyncio.sleep(0.1)  # Adjust delay if necessary
+
+# Usage:
+#   - For main round: await read_from_serial(ser, war_mode=False)
+#   - For war round:  await read_from_serial(ser, war_mode=True)
+# Replace 'ser' with your serial.Serial instance.
+
+# ...existing code...
