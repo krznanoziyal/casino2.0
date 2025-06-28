@@ -9,7 +9,7 @@ import re
 import urllib.parse
 import serial
 
-# ser = serial.Serial("COM1", 9600, timeout=0.1)  # Adjust baud rate if necessary
+ser = serial.Serial("COM1", 9600, timeout=0.1)  # Adjust baud rate if necessary
 
 # MongoDB setup
 MONGO_URI = "mongod# b://localhost:27017"
@@ -1137,18 +1137,7 @@ async def delete_all_results():
         })
 # ENDS
 
-async def main():
-    """Starts the WebSocket server."""
-    async with websockets.serve(handle_connection, "localhost", 6789):
-        print("WebSocket server running on ws://localhost:6789")
-        await asyncio.Future()
 
-# --- MAIN ENTRY POINT ---
-if __name__ == "__main__":
-    import sys
-    if sys.platform.startswith("win"):
-        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
-    asyncio.run(main())
 
 # OLD KRISHA CODE:
 # def extract_card_value(input_string):
@@ -1220,6 +1209,37 @@ async def read_from_serial(ser, war_mode=False):
                     else:
                         print("[SERIAL] All main round cards assigned.")
         await asyncio.sleep(0.1)  # Adjust delay if necessary
+        
+#UPDATED KRISHA FUNCS
+async def main():
+    print("Connected to:", ser.name)
+    async with websockets.serve(handle_connection, "0.0.0.0", 6789):
+        print("WebSocket server running on ws://localhost:6789")
+        await asyncio.gather(
+            read_from_serial(ser, war_mode=False),
+            asyncio.Future()  # Keeps the server running forever
+        )
+
+if __name__ == "__main__":
+    import sys
+    if sys.platform.startswith("win"):
+        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+    asyncio.run(main())
+
+# MY FUNCSSS
+
+# async def main():
+#     """Starts the WebSocket server."""
+#     async with websockets.serve(handle_connection, "localhost", 6789):
+#         print("WebSocket server running on ws://localhost:6789")
+#         await asyncio.Future()
+
+# # --- MAIN ENTRY POINT ---
+# if __name__ == "__main__":
+#     import sys
+#     if sys.platform.startswith("win"):
+#         asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+#     asyncio.run(main())
 
 # Usage:
 #   - For main round: await read_from_serial(ser, war_mode=False)
