@@ -1171,18 +1171,41 @@ async def delete_all_results():
 
 def extract_card_value(input_string):
     """
-    Extract the card value fr
-om the input string formatted like:
+    Extract the card value from the input string formatted like:
     [Manual Burn Cards]<Card:{data}>
     """
     match = re.search(r"<Card:(.*?)>", input_string)
     return match.group(1) if match else None
 
-# Serial reading logic (call backend assignment functions)
-async def read_from_serial(ser, war_mode=False):
+# Unified handler for shoe reader cards (assigns to main or war round as needed)
+async def handle_card_from_shoe(card):
     """
-    Continuously reads card values from the casino shoe reader and assigns them using backend logic.
-    Set war_mode=True to assign war cards, else assigns main round cards.
+    Handles a card scanned from the shoe reader and assigns it using the same logic as manual assignment.
+    Decides whether to assign to main round or war round based on game state.
+    """
+    if game_state.get("war_round_active"):
+        # War round: assign to next war target
+        target, player_id = get_next_war_card_assignment_target()
+        if target == "player":
+            await handle_assign_war_card("player", card, player_id)
+        elif target == "dealer":
+            await handle_assign_war_card("dealer", card)
+        else:
+            print("[SHOE] All war cards assigned.")
+    else:
+        # Main round: assign to next available player or dealer
+        target, player_id = get_next_card_assignment_target()
+        if target == "player":
+            await handle_manual_deal_card("player", card, player_id)
+        elif target == "dealer":
+            await handle_manual_deal_card("dealer", card)
+        else:
+            print("[SHOE] All main round cards assigned.")
+
+# Clean serial reading logic: only reads and calls the handler
+async def read_from_serial(ser):
+    """
+    Continuously reads card values from the casino shoe reader and passes them to the backend handler.
     """
     while True:
         if ser.in_waiting > 0:
@@ -1190,33 +1213,23 @@ async def read_from_serial(ser, war_mode=False):
             card = extract_card_value(raw_data)
             print("card:", card)
             if card:
-                if war_mode:
-                    # Assign to next war target
-                    target, player_id = get_next_war_card_assignment_target()
-                    if target == "player":
-                        await handle_assign_war_card("player", card, player_id)
-                    elif target == "dealer":
-                        await handle_assign_war_card("dealer", card)
-                    else:
-                        print("[SERIAL] All war cards assigned.")
-                else:
-                    # Assign to next main round target
-                    target, player_id = get_next_card_assignment_target()
-                    if target == "player":
-                        await handle_manual_deal_card("player", card, player_id)
-                    elif target == "dealer":
-                        await handle_manual_deal_card("dealer", card)
-                    else:
-                        print("[SERIAL] All main round cards assigned.")
+                await handle_card_from_shoe(card)
         await asyncio.sleep(0.1)  # Adjust delay if necessary
-        
-#UPDATED KRISHA FUNCS
+
+# async def main():
+#     print("Connected to:", ser.name)
+#     """Starts the WebSocket server and serial reader."""
+#     server = websockets.serve(handle_connection, "0.0.0.0", 6789)
+#     print("WebSocket server running on ws://localhost:6789")
+
+#     await asyncio.gather(server, read_from_serial())  # Run both tasks concurrently
+
 async def main():
     print("Connected to:", ser.name)
     async with websockets.serve(handle_connection, "0.0.0.0", 6789):
         print("WebSocket server running on ws://localhost:6789")
         await asyncio.gather(
-            read_from_serial(ser, war_mode=False),
+            read_from_serial(ser),
             asyncio.Future()  # Keeps the server running forever
         )
 
