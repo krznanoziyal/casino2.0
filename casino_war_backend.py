@@ -12,7 +12,7 @@ import serial
 # ser = serial.Serial("COM1", 9600, timeout=0.1)  # Adjust baud rate if necessary
 
 # MongoDB setup
-MONGO_URI = "mongod# b://localhost:27017"
+MONGO_URI = "mongodb://localhost:27017"
 DB_NAME = "casino_war_db"
 COLLECTION_NAME = "game_results"
 
@@ -1074,6 +1074,7 @@ async def handle_manual_deal_card(target, card, player_id=None):
 
 async def broadcast_to_all(message):
     """Broadcasts message to all connected clients."""
+    print(f"[BROADCAST_TO_ALL] {json.dumps(message)}")  # LOG every broadcast
     if connected_clients:
         await asyncio.gather(
             *[client.send(json.dumps(message)) for client in connected_clients],
@@ -1082,19 +1083,12 @@ async def broadcast_to_all(message):
 
 async def broadcast_to_dealers(message):
     """Broadcasts message only to dealer clients."""
+    print(f"[BROADCAST_TO_DEALERS] {json.dumps(message)}")  # LOG every dealer broadcast
     if dealer_clients:
         await asyncio.gather(
             *[client.send(json.dumps(message)) for client in dealer_clients],
             return_exceptions=True
         )
-
-async def broadcast_to_player(player_id, message):
-    """Broadcasts message to a specific player."""
-    if player_id in player_clients:
-        try:
-            await player_clients[player_id].send(json.dumps(message))
-        except websockets.ConnectionClosed:
-            del player_clients[player_id]
 
 async def broadcast_game_state_update():
     # PATCH: Always include war round state if present
@@ -1114,10 +1108,12 @@ async def broadcast_game_state_update():
     if game_state.get("war_round_active") or (game_state.get("war_round") and game_state["war_round"]):
         game_state_update["war_round_active"] = game_state.get("war_round_active", False)
         game_state_update["war_round"] = game_state.get("war_round", None)
+    print(f"[GAME_STATE_UPDATE] {json.dumps(game_state_update)}")  # LOG every game state update
     await broadcast_to_all({
         "action": "game_state_update",
         "game_state": game_state_update
     })
+
 # DELETE DATA FROM MONGODB
 async def delete_recent_result():
     """Deletes the most recent game result from MongoDB."""
@@ -1137,18 +1133,7 @@ async def delete_all_results():
         })
 # ENDS
 
-async def main():
-    """Starts the WebSocket server."""
-    async with websockets.serve(handle_connection, "localhost", 6789):
-        print("WebSocket server running on ws://localhost:6789")
-        await asyncio.Future()
 
-# --- MAIN ENTRY POINT ---
-if __name__ == "__main__":
-    import sys
-    if sys.platform.startswith("win"):
-        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
-    asyncio.run(main())
 
 # OLD KRISHA CODE:
 # def extract_card_value(input_string):
@@ -1182,44 +1167,85 @@ if __name__ == "__main__":
 
 def extract_card_value(input_string):
     """
-    Extract the card value fr
-om the input string formatted like:
+    Extract the card value from the input string formatted like:
     [Manual Burn Cards]<Card:{data}>
     """
     match = re.search(r"<Card:(.*?)>", input_string)
     return match.group(1) if match else None
 
-# Serial reading logic (call backend assignment functions)
-async def read_from_serial(ser, war_mode=False):
+# Unified handler for shoe reader cards (assigns to main or war round as needed)
+async def handle_card_from_shoe(card):
+    try:
+        if game_state.get("war_round_active"):
+            # War round: assign to next war target
+            target, player_id = get_next_war_card_assignment_target()
+            if target == "player":
+                await handle_assign_war_card("player", card, player_id)
+            elif target == "dealer":
+                await handle_assign_war_card("dealer", card)
+            else:
+                print("[SHOE] All war cards assigned.")
+        else:
+            # Main round: assign to next available player or dealer
+            target, player_id = get_next_card_assignment_target()
+            if target == "player":
+                await handle_manual_deal_card("player", card, player_id)
+            elif target == "dealer":
+                await handle_manual_deal_card("dealer", card)
+            else:
+                print("[SHOE] All main round cards assigned.")
+    except Exception as e:
+        print(f"[SHOE HANDLER ERROR] {e}")
+        # Optionally: await broadcast_to_dealers({"action": "error", "message": f"Shoe handler error: {e}"})
+
+# Clean serial reading logic: only reads and calls the handler
+async def read_from_serial(ser):
     """
-    Continuously reads card values from the casino shoe reader and assigns them using backend logic.
-    Set war_mode=True to assign war cards, else assigns main round cards.
+    Continuously reads card values from the casino shoe reader and passes them to the backend handler.
     """
     while True:
-        if ser.in_waiting > 0:
-            raw_data = ser.readline().decode("utf-8").strip()
-            card = extract_card_value(raw_data)
-            print("card:", card)
-            if card:
-                if war_mode:
-                    # Assign to next war target
-                    target, player_id = get_next_war_card_assignment_target()
-                    if target == "player":
-                        await handle_assign_war_card("player", card, player_id)
-                    elif target == "dealer":
-                        await handle_assign_war_card("dealer", card)
-                    else:
-                        print("[SERIAL] All war cards assigned.")
-                else:
-                    # Assign to next main round target
-                    target, player_id = get_next_card_assignment_target()
-                    if target == "player":
-                        await handle_manual_deal_card("player", card, player_id)
-                    elif target == "dealer":
-                        await handle_manual_deal_card("dealer", card)
-                    else:
-                        print("[SERIAL] All main round cards assigned.")
-        await asyncio.sleep(0.1)  # Adjust delay if necessary
+        try:
+            if ser.in_waiting > 0:
+                raw_data = ser.readline().decode("utf-8").strip()
+                card = extract_card_value(raw_data)
+                print("card:", card)
+                if card:
+                    await handle_card_from_shoe(card)
+            await asyncio.sleep(0.1)  # Adjust delay if necessary
+        except Exception as e:
+            print(f"[SERIAL ERROR] {e}")
+            # Optionally: await broadcast_to_dealers({"action": "error", "message": f"Serial error: {e}"})
+            await asyncio.sleep(1)  # Prevent tight error loop
+
+# async def main():
+#     print("Connected to:", ser.name)
+#     async with websockets.serve(handle_connection, "0.0.0.0", 6789):
+#         print("WebSocket server running on ws://localhost:6789")
+#         await asyncio.gather(
+#             read_from_serial(ser),
+#             asyncio.Future()  # Keeps the server running forever
+#         )
+
+# if __name__ == "__main__":
+#     import sys
+#     if sys.platform.startswith("win"):
+#         asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+#     asyncio.run(main())
+
+# MY FUNCSSS
+
+async def main():
+    """Starts the WebSocket server."""
+    async with websockets.serve(handle_connection, "localhost", 6790):
+        print("WebSocket server running on ws://localhost:6790")
+        await asyncio.Future()
+
+# --- MAIN ENTRY POINT ---
+if __name__ == "__main__":
+    import sys
+    if sys.platform.startswith("win"):
+        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+    asyncio.run(main())
 
 # Usage:
 #   - For main round: await read_from_serial(ser, war_mode=False)
