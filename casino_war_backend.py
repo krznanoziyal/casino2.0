@@ -9,7 +9,7 @@ import re
 import urllib.parse
 import serial
 
-ser = serial.Serial("COM1", 9600, timeout=0.1)  # Adjust baud rate if necessary
+# ser = serial.Serial("COM1", 9600, timeout=0.1)  # Adjust baud rate if necessary
 
 # MongoDB setup
 MONGO_URI = "mongodb://localhost:27017"
@@ -1217,35 +1217,35 @@ async def read_from_serial(ser):
             # Optionally: await broadcast_to_dealers({"action": "error", "message": f"Serial error: {e}"})
             await asyncio.sleep(1)  # Prevent tight error loop
 
-async def main():
-    print("Connected to:", ser.name)
-    async with websockets.serve(handle_connection, "0.0.0.0", 6789):
-        print("WebSocket server running on ws://localhost:6789")
-        await asyncio.gather(
-            read_from_serial(ser),
-            asyncio.Future()  # Keeps the server running forever
-        )
-
-if __name__ == "__main__":
-    import sys
-    if sys.platform.startswith("win"):
-        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
-    asyncio.run(main())
-
-# MY FUNCSSS
-
 # async def main():
-#     """Starts the WebSocket server."""
-#     async with websockets.serve(handle_connection, "localhost", 6789):
+#     print("Connected to:", ser.name)
+#     async with websockets.serve(handle_connection, "0.0.0.0", 6789):
 #         print("WebSocket server running on ws://localhost:6789")
-#         await asyncio.Future()
+#         await asyncio.gather(
+#             read_from_serial(ser),
+#             asyncio.Future()  # Keeps the server running forever
+#         )
 
-# # --- MAIN ENTRY POINT ---
 # if __name__ == "__main__":
 #     import sys
 #     if sys.platform.startswith("win"):
 #         asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 #     asyncio.run(main())
+
+# MY FUNCSSS
+
+async def main():
+    """Starts the WebSocket server."""
+    async with websockets.serve(handle_connection, "localhost", 6789):
+        print("WebSocket server running on ws://localhost:6789")
+        await asyncio.Future()
+
+# --- MAIN ENTRY POINT ---
+if __name__ == "__main__":
+    import sys
+    if sys.platform.startswith("win"):
+        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+    asyncio.run(main())
 
 # Usage:
 #   - For main round: await read_from_serial(ser, war_mode=False)
