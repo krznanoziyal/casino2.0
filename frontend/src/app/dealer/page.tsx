@@ -557,441 +557,472 @@ export default function DealerPage () {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className='fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm'
+            className='fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4'
           >
             <motion.div
               initial={{ scale: 0.9, y: -40 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.9, y: -40 }}
-              className='bg-black/90 border-2 border-casino-gold rounded-2xl p-8 w-full max-w-md relative shadow-2xl'
+              className='bg-black/90 border-2 border-casino-gold rounded-2xl w-full max-w-md max-h-[90vh] relative shadow-2xl overflow-hidden flex flex-col'
             >
-              <button
-                className='absolute top-4 right-4 text-casino-gold hover:text-white text-2xl'
-                onClick={() => setMenuOpen(false)}
-                aria-label='Close Menu'
-              >
-                <FaTimesIcon />
-              </button>
-              <h2 className='text-2xl font-bold text-casino-gold mb-4 text-center'>
-                Game Controls
-              </h2>
-              {/* Deck Management */}
-              <div className='space-y-3 mb-6'>
-                {gameState.game_mode === 'live' ? (
-                  <div className='dealer-button w-full text-center bg-black/60 border border-casino-gold rounded-lg py-2 font-bold text-black'>
-                    🃏 Deck Status: {gameState.deck_count} cards left
-                  </div>
-                ) : gameState.game_mode === 'automatic' ? (
-                  <>
-                    <button
-                      onClick={() => sendMessage({ action: 'shuffle_deck' })}
-                      className='dealer-button w-full'
-                    >
-                      🔄 Shuffle Deck ({gameState.deck_count} cards)
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button
-                      onClick={() => sendMessage({ action: 'shuffle_deck' })}
-                      className='dealer-button w-full'
-                    >
-                      🔄 Shuffle Deck ({gameState.deck_count} cards)
-                    </button>
-                    <button
-                      onClick={() => sendMessage({ action: 'burn_card' })}
-                      className='w-full bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg transition-colors'
-                    >
-                      🔥 Burn Card ({gameState.burned_cards_count} burned)
-                    </button>
-                  </>
-                )}
-              </div>
-
-              {/* Game Mode */}
-              <div className='mb-6'>
-                <label className='block text-casino-gold font-semibold mb-2'>
-                  Game Mode
-                </label>
-                <select
-                  value={gameState.game_mode}
-                  onChange={async e => {
-                    const newMode = e.target.value
-                    sendMessage({ action: 'set_game_mode', mode: newMode })
-                    // Wait a short moment to ensure backend processes mode change before reset
-                    setTimeout(() => {
-                      sendMessage({ action: 'reset_game' })
-                    }, 200)
-                  }}
-                  className='w-full bg-black border border-casino-gold rounded-lg px-3 py-2 text-white'
+              {/* Fixed Header */}
+              <div className='flex-shrink-0 p-6 pb-4 border-b border-casino-gold/30'>
+                <button
+                  className='absolute top-4 right-4 text-casino-gold hover:text-white text-2xl z-10'
+                  onClick={() => setMenuOpen(false)}
+                  aria-label='Close Menu'
                 >
-                  <option value='manual'>Manual</option>
-                  <option value='automatic'>Automatic</option>
-                  <option value='live'>Live</option>
-                </select>
+                  <FaTimesIcon />
+                </button>
               </div>
 
-              {/* Deal Cards */}
-              {/* <button 
-                onClick={() => sendMessage({ action: 'deal_cards' })} 
-                disabled={gameState.round_active || Object.keys(gameState.players).length === 0}
-                className="dealer-button w-full mb-4 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                🎴 Deal Cards
-              </button> */}
-
-              {/* AUTOMATIC MODE: START and NEW ROUND BUTTONS */}
-              {gameState.game_mode === 'automatic' &&
-                !gameState.round_active &&
-                Object.keys(gameState.players).length > 0 && (
-                  <div className='flex flex-col gap-2 mb-4'>
-                    <button
-                      className='success-button w-full'
-                      onClick={() => {
-                        // Start round: assign cards and evaluate
-                        sendMessage({ action: 'start_auto_round' })
-                      }}
-                    >
-                      ▶️ START
-                    </button>
-                    {/* Show NEW ROUND if previous round completed and players exist */}
-                    {Object.values(gameState.players).some(
-                      p => p.card || p.status !== 'active'
-                    ) && (
+              {/* Scrollable Content */}
+              <div className='flex-1 overflow-y-auto px-6 py-4'>
+                {/* Deck Management */}
+                <div className='space-y-3 mb-6'>
+                  {gameState.game_mode === 'live' ? (
+                    <div className='dealer-button w-full text-center bg-black/60 border border-casino-gold rounded-lg py-2 font-bold '>
+                      🃏 Deck Status: {gameState.deck_count} cards left
+                    </div>
+                  ) : gameState.game_mode === 'automatic' ? (
+                    <>
                       <button
+                        onClick={() => sendMessage({ action: 'shuffle_deck' })}
                         className='dealer-button w-full'
-                        onClick={() => {
-                          sendMessage({ action: 'clear_round' })
-                        }}
                       >
-                        🔄 NEW GAME
+                        🔄 Shuffle Deck ({gameState.deck_count} cards)
                       </button>
-                    )}
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => sendMessage({ action: 'shuffle_deck' })}
+                        className='dealer-button w-full'
+                      >
+                        🔄 Shuffle Deck ({gameState.deck_count} cards)
+                      </button>
+                      <button
+                        onClick={() => sendMessage({ action: 'burn_card' })}
+                        className='w-full bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg transition-colors'
+                      >
+                        🔥 Burn Card ({gameState.burned_cards_count} burned)
+                      </button>
+                    </>
+                  )}
+                </div>
+
+                {/* Game Mode */}
+                <div className='mb-6'>
+                  <div className='flex rounded-lg overflow-hidden border border-casino-gold'>
+                    <button
+                      onClick={() => {
+                        const newMode = 'live'
+                        sendMessage({ action: 'set_game_mode', mode: newMode })
+                        // Wait a short moment to ensure backend processes mode change before reset
+                        setTimeout(() => {
+                          sendMessage({ action: 'reset_game' })
+                        }, 200)
+                      }}
+                      className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
+                        gameState.game_mode === 'live'
+                          ? 'bg-red-700 text-white'
+                          : 'bg-transparent text-casino-gold hover:bg-casino-gold/10'
+                      }`}
+                    >
+                      Live Mode
+                    </button>
+                    <button
+                      onClick={() => {
+                        const newMode = 'automatic'
+                        sendMessage({ action: 'set_game_mode', mode: newMode })
+                        // Wait a short moment to ensure backend processes mode change before reset
+                        setTimeout(() => {
+                          sendMessage({ action: 'reset_game' })
+                        }, 200)
+                      }}
+                      className={`flex-1 px-4 py-2 text-sm font-medium transition-colors border-l border-casino-gold ${
+                        gameState.game_mode === 'automatic'
+                          ? 'bg-red-700 text-white'
+                          : 'bg-transparent text-casino-gold hover:bg-casino-gold/10'
+                      }`}
+                    >
+                      Automatic Mode
+                    </button>
+                    <button
+                      onClick={() => {
+                        const newMode = 'manual'
+                        sendMessage({ action: 'set_game_mode', mode: newMode })
+                        // Wait a short moment to ensure backend processes mode change before reset
+                        setTimeout(() => {
+                          sendMessage({ action: 'reset_game' })
+                        }, 200)
+                      }}
+                      className={`flex-1 px-4 py-2 text-sm font-medium transition-colors border-l border-casino-gold ${
+                        gameState.game_mode === 'manual'
+                          ? 'bg-red-700 text-white'
+                          : 'bg-transparent text-casino-gold hover:bg-casino-gold/10'
+                      }`}
+                    >
+                      Manual Mode
+                    </button>
                   </div>
-                )}
+                </div>
 
-              {gameState.game_mode === 'live' && (
-                <>
-                  <button
-                    onClick={() => sendMessage({ action: 'evaluate_round' })}
-                    className='success-button w-full mb-2'
-                  >
-                    ⚖️ Evaluate Round
-                  </button>
-                  <button
-                    className='dealer-button w-full mb-4'
-                    onClick={() => {
-                      sendMessage({ action: 'clear_round' })
-                    }}
-                  >
-                    🔄 NEW GAME
-                  </button>
-                </>
-              )}
-
-              {/* Card Assignment Panel for Manual/Live Mode */}
-              {(gameState.game_mode === 'manual' ||
-                gameState.game_mode === 'live') && (
-                <>
-                  <div className='mb-6'>
-                    <label className='block text-casino-gold font-semibold mb-2'>
-                      {gameState.war_round_active
-                        ? 'Assign War Card (Number & Suit)'
-                        : 'Assign Card (Number & Suit)'}
-                    </label>
-                    <div className='flex flex-col gap-2'>
-                      <div className='flex flex-wrap gap-2 justify-center mb-2'>
-                        {[
-                          'A',
-                          '2',
-                          '3',
-                          '4',
-                          '5',
-                          '6',
-                          '7',
-                          '8',
-                          '9',
-                          'T',
-                          'J',
-                          'Q',
-                          'K'
-                        ].map(rank => (
-                          <button
-                            key={rank}
-                            className={`px-3 py-1 rounded border ${
-                              manualCard[0] === rank
-                                ? 'bg-casino-gold text-black'
-                                : 'bg-black text-casino-gold border-casino-gold'
-                            }`}
-                            onClick={() =>
-                              setManualCard(rank + (manualCard[1] || ''))
-                            }
-                          >
-                            {rank}
-                          </button>
-                        ))}
-                      </div>
-                      <div className='flex flex-wrap gap-2 justify-center mb-2'>
-                        {['S', 'H', 'D', 'C'].map(suit => (
-                          <button
-                            key={suit}
-                            className={`px-3 py-1 rounded border ${
-                              manualCard[1] === suit
-                                ? 'bg-casino-gold text-black'
-                                : 'bg-black text-casino-gold border-casino-gold'
-                            }`}
-                            onClick={() =>
-                              setManualCard((manualCard[0] || '') + suit)
-                            }
-                          >
-                            {suit === 'S'
-                              ? '♠'
-                              : suit === 'H'
-                              ? '♥'
-                              : suit === 'D'
-                              ? '♦'
-                              : '♣'}
-                          </button>
-                        ))}
-                      </div>
+                {/* AUTOMATIC MODE: START and NEW ROUND BUTTONS */}
+                {gameState.game_mode === 'automatic' &&
+                  !gameState.round_active &&
+                  Object.keys(gameState.players).length > 0 && (
+                    <div className='flex flex-col gap-2 mb-6'>
                       <button
                         className='success-button w-full'
-                        disabled={manualCard.length !== 2 || allAssigned}
                         onClick={() => {
-                          if (manualCard.length !== 2) return
-                          if (gameState.war_round_active) {
-                            // War round assignment: use EXACT same logic as normal rounds
-                            const warPlayerIds = gameState.war_round
-                              ? Object.keys(gameState.war_round.players)
-                                  .filter(
-                                    pid =>
-                                      gameState.war_round &&
-                                      (gameState.war_round.players[pid] ===
-                                        null ||
-                                        gameState.war_round.players[pid] ===
-                                          undefined)
-                                  )
-                                  .sort((a, b) => Number(a) - Number(b))
-                              : []
-                            if (warPlayerIds.length > 0) {
-                              sendMessage({
-                                action: 'assign_war_card',
-                                target: 'player',
-                                card: manualCard,
-                                player_id: warPlayerIds[0]
-                              })
-                              setManualCard('')
-                              addNotification(
-                                `War card ${manualCard} assigned to player ${warPlayerIds[0]}`
-                              )
-                            } else if (
-                              gameState.war_round &&
-                              !gameState.war_round.dealer_card
-                            ) {
-                              sendMessage({
-                                action: 'assign_war_card',
-                                target: 'dealer',
-                                card: manualCard
-                              })
-                              setManualCard('')
-                              addNotification(
-                                `War card ${manualCard} assigned to dealer`
-                              )
-                            }
-                          } else {
-                            // Normal round assignment
-                            const playerIds = Object.keys(gameState.players)
-                              .filter(
-                                pid =>
-                                  gameState.players[pid] &&
-                                  gameState.players[pid].card === null
-                              )
-                              .sort((a, b) => Number(a) - Number(b))
-                            if (playerIds.length > 0) {
-                              sendMessage({
-                                action: 'manual_deal_card',
-                                target: 'player',
-                                card: manualCard,
-                                player_id: playerIds[0]
-                              })
-                              setManualCard('')
-                              addNotification(
-                                `Card ${manualCard} assigned to player ${playerIds[0]}`
-                              )
-                            } else if (!gameState.dealer_card) {
-                              sendMessage({
-                                action: 'manual_deal_card',
-                                target: 'dealer',
-                                card: manualCard
-                              })
-                              setManualCard('')
-                              addNotification(
-                                `Card ${manualCard} assigned to dealer`
-                              )
-                            }
-                          }
+                          // Start round: assign cards and evaluate
+                          sendMessage({ action: 'start_auto_round' })
                         }}
                       >
-                        ➕ Add Card
+                        ▶️ START
                       </button>
-                    </div>
-                    {/* Disable if all players and dealer have cards (normal) or all war cards assigned (war round) */}
-                    {allAssigned && (
-                      <div className='text-center text-sm text-gray-400 mt-2'>
-                        {gameState.war_round_active
-                          ? 'All war cards have been assigned to the players and dealer.'
-                          : 'All cards have been assigned to the players and dealer.'}
-                      </div>
-                    )}
-                  </div>
-                  {/* Common Card Assignment by Dropdown (Player/Dealer) */}
-                  <div className='mb-6'>
-                    <label className='block text-casino-gold font-semibold mb-2'>
-                      {gameState.war_round_active
-                        ? 'Assign War Card to Specific Player/Dealer'
-                        : 'Assign Card to Specific Player/Dealer'}
-                    </label>
-                    <div className='flex flex-col gap-2'>
-                      <div className='flex gap-2'>
-                        <select
-                          value={manualCardTarget}
-                          onChange={e => setManualCardTarget(e.target.value)}
-                          className='bg-black border border-casino-gold rounded-lg px-3 py-2 text-white flex-1'
+                      {/* Show NEW ROUND if previous round completed and players exist */}
+                      {Object.values(gameState.players).some(
+                        p => p.card || p.status !== 'active'
+                      ) && (
+                        <button
+                          className='dealer-button w-full'
+                          onClick={() => {
+                            sendMessage({ action: 'clear_round' })
+                          }}
                         >
-                          <option value=''>Select...</option>
-                          {gameState.war_round_active && gameState.war_round
-                            ? Object.keys(gameState.war_round.players).map(
-                                pid => (
+                          🔄 NEW GAME
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                {gameState.game_mode === 'live' && (
+                  <div className='mb-6'>
+                    <button
+                      onClick={() => sendMessage({ action: 'evaluate_round' })}
+                      className='success-button w-full mb-2'
+                    >
+                      ⚖️ Evaluate Round
+                    </button>
+                    <button
+                      className='dealer-button w-full'
+                      onClick={() => {
+                        sendMessage({ action: 'clear_round' })
+                      }}
+                    >
+                      🔄 NEW GAME
+                    </button>
+                  </div>
+                )}
+
+                {/* Card Assignment Panel for Manual/Live Mode */}
+                {(gameState.game_mode === 'manual' ||
+                  gameState.game_mode === 'live') && (
+                  <>
+                    <div className='mb-6'>
+                      <label className='block text-casino-gold font-semibold mb-2 text-sm'>
+                        {gameState.war_round_active
+                          ? 'Assign War Card (Number & Suit)'
+                          : 'Assign Card (Number & Suit)'}
+                      </label>
+                      <div className='flex flex-col gap-2'>
+                        <div className='grid grid-cols-7 gap-1 mb-2'>
+                          {[
+                            'A',
+                            '2',
+                            '3',
+                            '4',
+                            '5',
+                            '6',
+                            '7',
+                            '8',
+                            '9',
+                            'T',
+                            'J',
+                            'Q',
+                            'K'
+                          ].map(rank => (
+                            <button
+                              key={rank}
+                              className={`px-2 py-1 text-xs rounded border ${
+                                manualCard[0] === rank
+                                  ? 'bg-casino-gold text-black'
+                                  : 'bg-black text-casino-gold border-casino-gold'
+                              }`}
+                              onClick={() =>
+                                setManualCard(rank + (manualCard[1] || ''))
+                              }
+                            >
+                              {rank}
+                            </button>
+                          ))}
+                        </div>
+                        <div className='grid grid-cols-4 gap-2 mb-2'>
+                          {['S', 'H', 'D', 'C'].map(suit => (
+                            <button
+                              key={suit}
+                              className={`px-3 py-1 text-sm rounded border ${
+                                manualCard[1] === suit
+                                  ? 'bg-casino-gold text-black'
+                                  : 'bg-black text-casino-gold border-casino-gold'
+                              }`}
+                              onClick={() =>
+                                setManualCard((manualCard[0] || '') + suit)
+                              }
+                            >
+                              {suit === 'S'
+                                ? '♠'
+                                : suit === 'H'
+                                ? '♥'
+                                : suit === 'D'
+                                ? '♦'
+                                : '♣'}
+                            </button>
+                          ))}
+                        </div>
+                        <button
+                          className='success-button w-full text-sm'
+                          disabled={manualCard.length !== 2 || allAssigned}
+                          onClick={() => {
+                            if (manualCard.length !== 2) return
+                            if (gameState.war_round_active) {
+                              // War round assignment: use EXACT same logic as normal rounds
+                              const warPlayerIds = gameState.war_round
+                                ? Object.keys(gameState.war_round.players)
+                                    .filter(
+                                      pid =>
+                                        gameState.war_round &&
+                                        (gameState.war_round.players[pid] ===
+                                          null ||
+                                          gameState.war_round.players[pid] ===
+                                            undefined)
+                                    )
+                                    .sort((a, b) => Number(a) - Number(b))
+                                : []
+                              if (warPlayerIds.length > 0) {
+                                sendMessage({
+                                  action: 'assign_war_card',
+                                  target: 'player',
+                                  card: manualCard,
+                                  player_id: warPlayerIds[0]
+                                })
+                                setManualCard('')
+                                addNotification(
+                                  `War card ${manualCard} assigned to player ${warPlayerIds[0]}`
+                                )
+                              } else if (
+                                gameState.war_round &&
+                                !gameState.war_round.dealer_card
+                              ) {
+                                sendMessage({
+                                  action: 'assign_war_card',
+                                  target: 'dealer',
+                                  card: manualCard
+                                })
+                                setManualCard('')
+                                addNotification(
+                                  `War card ${manualCard} assigned to dealer`
+                                )
+                              }
+                            } else {
+                              // Normal round assignment
+                              const playerIds = Object.keys(gameState.players)
+                                .filter(
+                                  pid =>
+                                    gameState.players[pid] &&
+                                    gameState.players[pid].card === null
+                                )
+                                .sort((a, b) => Number(a) - Number(b))
+                              if (playerIds.length > 0) {
+                                sendMessage({
+                                  action: 'manual_deal_card',
+                                  target: 'player',
+                                  card: manualCard,
+                                  player_id: playerIds[0]
+                                })
+                                setManualCard('')
+                                addNotification(
+                                  `Card ${manualCard} assigned to player ${playerIds[0]}`
+                                )
+                              } else if (!gameState.dealer_card) {
+                                sendMessage({
+                                  action: 'manual_deal_card',
+                                  target: 'dealer',
+                                  card: manualCard
+                                })
+                                setManualCard('')
+                                addNotification(
+                                  `Card ${manualCard} assigned to dealer`
+                                )
+                              }
+                            }
+                          }}
+                        >
+                          ➕ Add Card
+                        </button>
+                      </div>
+                      {/* Disable if all players and dealer have cards (normal) or all war cards assigned (war round) */}
+                      {allAssigned && (
+                        <div className='text-center text-xs text-gray-400 mt-2'>
+                          {gameState.war_round_active
+                            ? 'All war cards have been assigned to the players and dealer.'
+                            : 'All cards have been assigned to the players and dealer.'}
+                        </div>
+                      )}
+                    </div>
+                    {/* Common Card Assignment by Dropdown (Player/Dealer) */}
+                    <div className='mb-6'>
+                      <label className='block text-casino-gold font-semibold mb-2 text-sm'>
+                        {gameState.war_round_active
+                          ? 'Assign War Card to Specific Player/Dealer'
+                          : 'Assign Card to Specific Player/Dealer'}
+                      </label>
+                      <div className='flex flex-col gap-2'>
+                        <div className='flex gap-2'>
+                          <select
+                            value={manualCardTarget}
+                            onChange={e => setManualCardTarget(e.target.value)}
+                            className='bg-black border border-casino-gold rounded-lg px-3 py-2 text-white flex-1 text-sm'
+                          >
+                            <option value=''>Select...</option>
+                            {gameState.war_round_active && gameState.war_round
+                              ? Object.keys(gameState.war_round.players).map(
+                                  pid => (
+                                    <option key={pid} value={pid}>
+                                      Player {pid}
+                                    </option>
+                                  )
+                                )
+                              : Object.keys(gameState.players).map(pid => (
                                   <option key={pid} value={pid}>
                                     Player {pid}
                                   </option>
-                                )
+                                ))}
+                            <option value='dealer'>Dealer</option>
+                          </select>
+                          <input
+                            type='text'
+                            placeholder='Card (e.g., AS, KH)'
+                            value={manualCardSpecific}
+                            onChange={e =>
+                              setManualCardSpecific(
+                                e.target.value.toUpperCase()
                               )
-                            : Object.keys(gameState.players).map(pid => (
-                                <option key={pid} value={pid}>
-                                  Player {pid}
-                                </option>
-                              ))}
-                          <option value='dealer'>Dealer</option>
-                        </select>
-                        <input
-                          type='text'
-                          placeholder='Card (e.g., AS, KH)'
-                          value={manualCardSpecific}
-                          onChange={e =>
-                            setManualCardSpecific(e.target.value.toUpperCase())
-                          }
-                          className='bg-black border border-casino-gold rounded-lg px-3 py-2 text-white flex-1'
-                        />
-                      </div>
-                      <button
-                        className='success-button w-full'
-                        disabled={
-                          !manualCardTarget ||
-                          manualCardSpecific.length !== 2 ||
-                          (gameState.war_round_active
-                            ? manualCardTarget === 'dealer'
-                              ? !!(
-                                  gameState.war_round &&
-                                  gameState.war_round.dealer_card
-                                )
-                              : !!(
-                                  gameState.war_round &&
-                                  gameState.war_round.players &&
-                                  gameState.war_round.players[
-                                    manualCardTarget
-                                  ] !== null &&
-                                  gameState.war_round.players[
-                                    manualCardTarget
-                                  ] !== undefined
-                                )
-                            : manualCardTarget === 'dealer'
-                            ? !!gameState.dealer_card
-                            : !!gameState.players[manualCardTarget]?.card)
-                        }
-                        onClick={() => {
-                          if (
+                            }
+                            className='bg-black border border-casino-gold rounded-lg px-3 py-2 text-white flex-1 text-sm'
+                          />
+                        </div>
+                        <button
+                          className='success-button w-full text-sm'
+                          disabled={
                             !manualCardTarget ||
-                            manualCardSpecific.length !== 2
-                          )
-                            return
-                          if (!validCardPattern.test(manualCardSpecific)) {
-                            setNotifications(prev => [
-                              ...prev.slice(-4),
-                              'Invalid card. Please enter a valid card using ranks (2-10, J, Q, K, A) and suits (S, H, D, C).'
-                            ])
-                            return
+                            manualCardSpecific.length !== 2 ||
+                            (gameState.war_round_active
+                              ? manualCardTarget === 'dealer'
+                                ? !!(
+                                    gameState.war_round &&
+                                    gameState.war_round.dealer_card
+                                  )
+                                : !!(
+                                    gameState.war_round &&
+                                    gameState.war_round.players &&
+                                    gameState.war_round.players[
+                                      manualCardTarget
+                                    ] !== null &&
+                                    gameState.war_round.players[
+                                      manualCardTarget
+                                    ] !== undefined
+                                  )
+                              : manualCardTarget === 'dealer'
+                              ? !!gameState.dealer_card
+                              : !!gameState.players[manualCardTarget]?.card)
                           }
-                          if (gameState.war_round_active) {
-                            if (manualCardTarget === 'dealer') {
-                              sendMessage({
-                                action: 'assign_war_card',
-                                target: 'dealer',
-                                card: manualCardSpecific
-                              })
-                              addNotification(
-                                `War card ${manualCardSpecific} assigned to dealer`
-                              )
-                            } else {
-                              sendMessage({
-                                action: 'assign_war_card',
-                                target: 'player',
-                                card: manualCardSpecific,
-                                player_id: manualCardTarget
-                              })
-                              addNotification(
-                                `War card ${manualCardSpecific} assigned to player ${manualCardTarget}`
-                              )
+                          onClick={() => {
+                            if (
+                              !manualCardTarget ||
+                              manualCardSpecific.length !== 2
+                            )
+                              return
+                            if (!validCardPattern.test(manualCardSpecific)) {
+                              setNotifications(prev => [
+                                ...prev.slice(-4),
+                                'Invalid card. Please enter a valid card using ranks (2-10, J, Q, K, A) and suits (S, H, D, C).'
+                              ])
+                              return
                             }
-                          } else {
-                            if (manualCardTarget === 'dealer') {
-                              sendMessage({
-                                action: 'manual_deal_card',
-                                target: 'dealer',
-                                card: manualCardSpecific
-                              })
-                              addNotification(
-                                `Card ${manualCardSpecific} assigned to dealer`
-                              )
+                            if (gameState.war_round_active) {
+                              if (manualCardTarget === 'dealer') {
+                                sendMessage({
+                                  action: 'assign_war_card',
+                                  target: 'dealer',
+                                  card: manualCardSpecific
+                                })
+                                addNotification(
+                                  `War card ${manualCardSpecific} assigned to dealer`
+                                )
+                              } else {
+                                sendMessage({
+                                  action: 'assign_war_card',
+                                  target: 'player',
+                                  card: manualCardSpecific,
+                                  player_id: manualCardTarget
+                                })
+                                addNotification(
+                                  `War card ${manualCardSpecific} assigned to player ${manualCardTarget}`
+                                )
+                              }
                             } else {
-                              sendMessage({
-                                action: 'manual_deal_card',
-                                target: 'player',
-                                card: manualCardSpecific,
-                                player_id: manualCardTarget
-                              })
-                              addNotification(
-                                `Card ${manualCardSpecific} assigned to player ${manualCardTarget}`
-                              )
+                              if (manualCardTarget === 'dealer') {
+                                sendMessage({
+                                  action: 'manual_deal_card',
+                                  target: 'dealer',
+                                  card: manualCardSpecific
+                                })
+                                addNotification(
+                                  `Card ${manualCardSpecific} assigned to dealer`
+                                )
+                              } else {
+                                sendMessage({
+                                  action: 'manual_deal_card',
+                                  target: 'player',
+                                  card: manualCardSpecific,
+                                  player_id: manualCardTarget
+                                })
+                                addNotification(
+                                  `Card ${manualCardSpecific} assigned to player ${manualCardTarget}`
+                                )
+                              }
                             }
-                          }
-                          setManualCardSpecific('')
-                          setManualCardTarget('')
-                        }}
-                      >
-                        Assign Card
-                      </button>
+                            setManualCardSpecific('')
+                            setManualCardTarget('')
+                          }}
+                        >
+                          Assign Card
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                </>
-              )}
-
-              {/* Utility Controls */}
-              <div className='space-y-2'>
-                {gameState.game_mode !== 'automatic' && (
-                  <button
-                    onClick={() => sendMessage({ action: 'undo_last_card' })}
-                    className='danger-button w-full'
-                  >
-                    ↩️ UNDO CARD
-                  </button>
+                  </>
                 )}
-                <button
-                  onClick={() => sendMessage({ action: 'reset_game' })}
-                  className='danger-button w-full'
-                >
-                  🔄 CLEAR ALL STATS{' '}
-                </button>
+
+                {/* Utility Controls */}
+                <div className='space-y-2'>
+                  {gameState.game_mode !== 'automatic' && (
+                    <button
+                      onClick={() => sendMessage({ action: 'undo_last_card' })}
+                      className='danger-button w-full text-sm'
+                    >
+                      ↩️ UNDO CARD
+                    </button>
+                  )}
+                  <button
+                    onClick={() => sendMessage({ action: 'reset_game' })}
+                    className='danger-button w-full text-sm'
+                  >
+                    🔄 CLEAR ALL STATS{' '}
+                  </button>
+                </div>
               </div>
             </motion.div>
           </motion.div>
@@ -1104,6 +1135,21 @@ export default function DealerPage () {
             </motion.div>
           </motion.div>
         )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {notifications.map((notification, index) => (
+          <motion.div
+            key={index}
+            initial={{ opacity: 0, x: 300 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -300 }}
+            className='fixed top-20 right-6 bg-casino-gold text-black px-4 py-2 rounded-lg shadow-lg z-50 mb-2'
+            style={{ top: `${80 + index * 60}px` }}
+          >
+            {notification}
+          </motion.div>
+        ))}
       </AnimatePresence>
 
       <div className='grid grid-cols-1 lg:grid-cols-3 gap-6'>
