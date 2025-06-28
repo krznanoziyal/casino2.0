@@ -1074,6 +1074,7 @@ async def handle_manual_deal_card(target, card, player_id=None):
 
 async def broadcast_to_all(message):
     """Broadcasts message to all connected clients."""
+    print(f"[BROADCAST_TO_ALL] {json.dumps(message)}")  # LOG every broadcast
     if connected_clients:
         await asyncio.gather(
             *[client.send(json.dumps(message)) for client in connected_clients],
@@ -1082,19 +1083,12 @@ async def broadcast_to_all(message):
 
 async def broadcast_to_dealers(message):
     """Broadcasts message only to dealer clients."""
+    print(f"[BROADCAST_TO_DEALERS] {json.dumps(message)}")  # LOG every dealer broadcast
     if dealer_clients:
         await asyncio.gather(
             *[client.send(json.dumps(message)) for client in dealer_clients],
             return_exceptions=True
         )
-
-async def broadcast_to_player(player_id, message):
-    """Broadcasts message to a specific player."""
-    if player_id in player_clients:
-        try:
-            await player_clients[player_id].send(json.dumps(message))
-        except websockets.ConnectionClosed:
-            del player_clients[player_id]
 
 async def broadcast_game_state_update():
     # PATCH: Always include war round state if present
@@ -1114,10 +1108,12 @@ async def broadcast_game_state_update():
     if game_state.get("war_round_active") or (game_state.get("war_round") and game_state["war_round"]):
         game_state_update["war_round_active"] = game_state.get("war_round_active", False)
         game_state_update["war_round"] = game_state.get("war_round", None)
+    print(f"[GAME_STATE_UPDATE] {json.dumps(game_state_update)}")  # LOG every game state update
     await broadcast_to_all({
         "action": "game_state_update",
         "game_state": game_state_update
     })
+
 # DELETE DATA FROM MONGODB
 async def delete_recent_result():
     """Deletes the most recent game result from MongoDB."""
