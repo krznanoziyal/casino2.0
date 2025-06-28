@@ -894,25 +894,7 @@ def is_card_available(card):
 
 
 # --- SERIAL CARD READER INTEGRATION (COMPATIBLE WITH BACKEND ASSIGNMENT LOGIC) ---
-import re
 
-# def get_next_war_card_assignment_target():
-#     """Returns the next war card assignment target: (target_type, player_id or None)."""
-#     war = game_state.get("war_round", {})
-#     if not war:
-#         return (None, None)
-#     # Find lowest-numbered war player without a war card
-#     war_players = [pid for pid, card in war.get("players", {}).items() if card is None]
-#     if war_players:
-#         try:
-#             next_pid = sorted(war_players, key=lambda x: int(x))[0]
-#         except Exception:
-#             next_pid = sorted(war_players)[0]
-#         return ("player", next_pid)
-#     # If all war players have cards, assign to dealer if not assigned
-#     if war.get("dealer_card") is None:
-#         return ("dealer", None)
-#     return (None, None)
 
 # Helper to get next war card assignment target
 def get_next_war_card_assignment_target():
