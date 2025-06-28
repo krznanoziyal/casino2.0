@@ -7,6 +7,8 @@ import random
 import time
 import re
 import urllib.parse
+import serial
+
 # ser = serial.Serial("COM1", 9600, timeout=0.1)  # Adjust baud rate if necessary
 
 # MongoDB setup
@@ -1135,88 +1137,35 @@ async def delete_all_results():
         })
 # ENDS
 async def main():
-    """Starts the WebSocket server."""
-    async with websockets.serve(handle_connection, "localhost", 6789):
-        print("WebSocket server running on ws://localhost:6789")
-        await asyncio.Future()
+    # Initialize serial port (adjust COM port as needed)
+    ser = serial.Serial("COM1", 9600, timeout=0.1)  # Make sure this matches your hardware
 
+    print("Connected to:", ser.name)
+    """Starts the WebSocket server and serial reader."""
+    server = await websockets.serve(handle_connection, "0.0.0.0", 6789)
+    print("WebSocket server running on ws://localhost:6789")
+    await asyncio.gather(
+        server.wait_closed(),
+        read_from_serial(ser)
+    )
+
+# --- MAIN ENTRY POINT ---
 if __name__ == "__main__":
-    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+    import sys
+    import serial
+    # Set Windows event loop policy for asyncio
+    if sys.platform.startswith("win"):
+        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+    # Initialize serial port (adjust COM port and baudrate as needed)
+    ser = serial.Serial("COM1", 9600, timeout=0.1)
+
+    async def main():
+        print("Connected to:", ser.name)
+        print("WebSocket server running on ws://localhost:6789")
+        async with websockets.serve(handle_connection, "0.0.0.0", 6789):
+            await asyncio.gather(
+                read_from_serial(ser, war_mode=False),  # Main round serial reader
+                # Optionally, you can run another serial reader for war_mode=True if needed
+            )
+
     asyncio.run(main())
-    
-# OLD KRISHA CODE:
-# def extract_card_value(input_string):
-#     """
-#     Extract the card value from the input string formatted like:
-#     [Manual Burn Cards]<Card:{data}>
-#     """
-#     match = re.search(r"<Card:(.*?)>", input_string)
-#     return match.group(1) if match else None
-
-# async def read_from_serial():
-#     """Continuously reads card values from the casino shoe reader and adds them to the game."""
-#     while True:
-#         if ser.in_waiting > 0:
-#             raw_data = ser.readline().decode("utf-8").strip()
-#             card = extract_card_value(raw_data)
-#             print ("card:",card)
-#             if card:
-#                 await handle_add_card(card)
-#         await asyncio.sleep(0.1)  # Adjust delay if necessary
-
-# async def main():
-#     print("Connected to:", ser.name)
-#     """Starts the WebSocket server and serial reader."""
-#     server = websockets.serve(handle_connection, "0.0.0.0", 6789)
-#     print("WebSocket server running on ws://localhost:6789")
-
-#     await asyncio.gather(server, read_from_serial())  # Run both tasks concurrently
-
-# Extract card value from serial input
-
-def extract_card_value(input_string):
-    """
-    Extract the card value from the input string formatted like:
-    [Manual Burn Cards]<Card:{data}>
-    """
-    match = re.search(r"<Card:(.*?)>", input_string)
-    return match.group(1) if match else None
-
-# Serial reading logic (call backend assignment functions)
-async def read_from_serial(ser, war_mode=False):
-    """
-    Continuously reads card values from the casino shoe reader and assigns them using backend logic.
-    Set war_mode=True to assign war cards, else assigns main round cards.
-    """
-    while True:
-        if ser.in_waiting > 0:
-            raw_data = ser.readline().decode("utf-8").strip()
-            card = extract_card_value(raw_data)
-            print("card:", card)
-            if card:
-                if war_mode:
-                    # Assign to next war target
-                    target, player_id = get_next_war_card_assignment_target()
-                    if target == "player":
-                        await handle_assign_war_card("player", card, player_id)
-                    elif target == "dealer":
-                        await handle_assign_war_card("dealer", card)
-                    else:
-                        print("[SERIAL] All war cards assigned.")
-                else:
-                    # Assign to next main round target
-                    target, player_id = get_next_card_assignment_target()
-                    if target == "player":
-                        await handle_manual_deal_card("player", card, player_id)
-                    elif target == "dealer":
-                        await handle_manual_deal_card("dealer", card)
-                    else:
-                        print("[SERIAL] All main round cards assigned.")
-        await asyncio.sleep(0.1)  # Adjust delay if necessary
-
-# Usage:
-#   - For main round: await read_from_serial(ser, war_mode=False)
-#   - For war round:  await read_from_serial(ser, war_mode=True)
-# Replace 'ser' with your serial.Serial instance.
-
-# ...existing code...
