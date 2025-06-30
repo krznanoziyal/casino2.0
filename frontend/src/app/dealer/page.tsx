@@ -370,12 +370,12 @@ export default function DealerPage () {
 
     const rank = card[0]
     const suit = card[1]
+
     const suitSymbol = { S: '♠', H: '♥', D: '♦', C: '♣' }[suit] || suit
     const isRed = suit === 'H' || suit === 'D'
-
     const sizeClasses = {
       small: 'w-12 h-16 text-xs',
-      medium: 'w-16 h-22 text-sm',
+      medium: 'w-16 h-20 text-sm',
       large: 'w-20 h-28 text-base'
     }
 
@@ -384,19 +384,15 @@ export default function DealerPage () {
         initial={{ rotateY: 180, scale: 0.8 }}
         animate={{ rotateY: 0, scale: 1 }}
         transition={{ duration: 0.6 }}
-        className={`card ${sizeClasses[size]} ${
-          isRed ? 'text-red-600' : 'text-black'
-        } flex flex-col justify-between p-1`}
+        className={`${sizeClasses[size]} relative rounded-lg shadow-lg overflow-hidden`}
       >
-        <div className='text-left'>
-          <div className='font-bold'>{rank}</div>
-          <div className='text-lg leading-none'>{suitSymbol}</div>
-        </div>
-        <div className='text-center text-2xl'>{suitSymbol}</div>
-        <div className='text-right rotate-180'>
-          <div className='font-bold'>{rank}</div>
-          <div className='text-lg leading-none'>{suitSymbol}</div>
-        </div>
+        <Image
+          src={`/cards/${rank}${suit}.png`}
+          alt={`${rank} of ${suit}`}
+          fill
+          className='object-cover rounded-lg'
+          sizes='(max-width: 640px) 64px, (max-width: 768px) 80px, 96px'
+        />
       </motion.div>
     )
   }
@@ -457,14 +453,14 @@ export default function DealerPage () {
   return (
     <div className='min-h-screen'>
       {/* Header Section */}
-      <nav className='relative h-[15vh] w-full overflow-hidden'>
+      <nav className='relative h-[15vh] w-full overflow-hidden mb-6'>
         <img
           src='/assets/wood.png'
           alt='Wood Background'
           className='absolute inset-0 object-cover w-full h-full'
         />
         <div className='relative h-full'>
-          <div className='flex items-center justify-between h-full -mt-2 xs:-mt-3 sm:-mt-4 px-2 xs:px-4 sm:px-6 md:px-8'>
+          <div className='flex items-center justify-between -mt-2 xs:-mt-3 sm:-mt-4 px-2 xs:px-4 sm:px-6 md:px-8'>
             {/* Left Logo */}
             <div
               className='w-16 h-16 xs:w-20 xs:h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 lg:w-32 lg:h-32 relative flex flex-col items-center justify-center cursor-pointer hover:scale-105 transition-transform overflow-hidden'
@@ -481,7 +477,7 @@ export default function DealerPage () {
                   priority
                 />
               </div>
-              <span className='text-yellow-300'>
+              <span className='text-yellow-300 -mt-4'>
                 Table: {gameState.table_number}
               </span>
             </div>
@@ -553,509 +549,326 @@ export default function DealerPage () {
       {/* Game Controls Modal */}
       <AnimatePresence>
         {menuOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className='fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4'
-          >
-            <motion.div
-              initial={{ scale: 0.9, y: -40 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.9, y: -40 }}
-              className='bg-black/90 border-2 border-casino-gold rounded-2xl w-full max-w-md max-h-[90vh] relative shadow-2xl overflow-hidden flex flex-col'
+          <div className="fixed top-0 left-0 h-full w-full z-50 flex items-center justify-center bg-black bg-opacity-60 overflow-y-auto p-4">
+            <div
+              className="rounded-lg shadow-lg p-8 relative min-w-[320px] min-h-[200px] max-w-[90vw] my-8 flex flex-col items-center justify-center"
+              style={{ backgroundColor: '#F0DEAD' }}
             >
-              {/* Fixed Header */}
-              <div className='flex-shrink-0 p-6 pb-4 border-b border-casino-gold/30'>
+              <button
+                onClick={() => setMenuOpen(false)}
+                className="absolute top-3 right-3 text-gray-500 hover:text-gray-700 text-2xl font-bold focus:outline-none"
+                aria-label="Close"
+              >
+                ×
+              </button>
+              <div className="flex flex-row items-center justify-center gap-6 w-full h-full">
                 <button
-                  className='absolute top-4 right-4 text-casino-gold hover:text-white text-2xl z-10'
-                  onClick={() => setMenuOpen(false)}
-                  aria-label='Close Menu'
+                  className="px-3 py-1.5 rounded-lg text-xl font-semibold shadow text-white transition-colors"
+                  style={{ width: 166, height: 49, backgroundColor: gameState.game_mode === 'live' ? '#741003' : '#911606' }}
+                  onClick={() => {
+                    const newMode = 'live'
+                    sendMessage({ action: 'set_game_mode', mode: newMode })
+                    setTimeout(() => {
+                      sendMessage({ action: 'reset_game' })
+                    }, 200)
+                  }}
                 >
-                  <FaTimesIcon />
+                  Live Mode
+                </button>
+                <button
+                  className="px-3 py-1.5 rounded-lg text-xl font-semibold shadow text-white transition-colors whitespace-nowrap"
+                  style={{ height: 49, backgroundColor: gameState.game_mode === 'automatic' ? '#741003' : '#911606' }}
+                  onClick={() => {
+                    const newMode = 'automatic'
+                    sendMessage({ action: 'set_game_mode', mode: newMode })
+                    setTimeout(() => {
+                      sendMessage({ action: 'reset_game' })
+                    }, 200)
+                  }}
+                >
+                  Automatic Mode
+                </button>
+                <button
+                  className="px-3 py-1.5 rounded-lg text-xl font-semibold shadow text-white transition-colors"
+                  style={{ width: 166, height: 49, backgroundColor: gameState.game_mode === 'manual' ? '#741003' : '#911606' }}
+                  onClick={() => {
+                    const newMode = 'manual'
+                    sendMessage({ action: 'set_game_mode', mode: newMode })
+                    setTimeout(() => {
+                      sendMessage({ action: 'reset_game' })
+                    }, 200)
+                  }}
+                >
+                  Manual Mode
                 </button>
               </div>
-
-              {/* Scrollable Content */}
-              <div className='flex-1 overflow-y-auto px-6 py-4'>
-                {/* Deck Management */}
-                <div className='space-y-3 mb-6'>
-                  {gameState.game_mode === 'live' ? (
-                    <div className='dealer-button w-full text-center bg-black/60 border border-casino-gold rounded-lg py-2 font-bold '>
-                      🃏 Deck Status: {gameState.deck_count} cards left
-                    </div>
-                  ) : gameState.game_mode === 'automatic' ? (
-                    <>
+              {gameState.game_mode === 'live' ? (
+                <div className="flex flex-row w-full gap-6 justify-center items-center mt-8">
+                  {/* Second column */}
+                  <div className="flex-1 flex flex-col h-full min-h-full">
+                    <div className="flex flex-col items-center gap-2 mb-16">
                       <button
+                        className="rounded-lg shadow text-xl font-bold flex items-center justify-center"
+                        style={{ width: 250, height: 49, backgroundColor: '#fff', color: '#741003' }}
                         onClick={() => sendMessage({ action: 'shuffle_deck' })}
-                        className='dealer-button w-full'
                       >
-                        🔄 Shuffle Deck ({gameState.deck_count} cards)
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <button
-                        onClick={() => sendMessage({ action: 'shuffle_deck' })}
-                        className='dealer-button w-full'
-                      >
-                        🔄 Shuffle Deck ({gameState.deck_count} cards)
+                        Shuffle Deck ({gameState.deck_count} Cards)
                       </button>
                       <button
+                        className="rounded-lg shadow text-xl font-bold flex items-center justify-center"
+                        style={{ width: 250, height: 49, backgroundColor: '#fff', color: '#741003' }}
                         onClick={() => sendMessage({ action: 'burn_card' })}
-                        className='w-full bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg transition-colors'
                       >
-                        🔥 Burn Card ({gameState.burned_cards_count} burned)
+                        Burn Card
                       </button>
-                    </>
-                  )}
-                </div>
-
-                {/* Game Mode */}
-                <div className='mb-6'>
-                  <div className='flex rounded-lg overflow-hidden border border-casino-gold'>
-                    <button
-                      onClick={() => {
-                        const newMode = 'live'
-                        sendMessage({ action: 'set_game_mode', mode: newMode })
-                        // Wait a short moment to ensure backend processes mode change before reset
-                        setTimeout(() => {
-                          sendMessage({ action: 'reset_game' })
-                        }, 200)
-                      }}
-                      className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
-                        gameState.game_mode === 'live'
-                          ? 'bg-red-700 text-white'
-                          : 'bg-transparent text-casino-gold hover:bg-casino-gold/10'
-                      }`}
-                    >
-                      Live Mode
-                    </button>
-                    <button
-                      onClick={() => {
-                        const newMode = 'automatic'
-                        sendMessage({ action: 'set_game_mode', mode: newMode })
-                        // Wait a short moment to ensure backend processes mode change before reset
-                        setTimeout(() => {
-                          sendMessage({ action: 'reset_game' })
-                        }, 200)
-                      }}
-                      className={`flex-1 px-4 py-2 text-sm font-medium transition-colors border-l border-casino-gold ${
-                        gameState.game_mode === 'automatic'
-                          ? 'bg-red-700 text-white'
-                          : 'bg-transparent text-casino-gold hover:bg-casino-gold/10'
-                      }`}
-                    >
-                      Automatic Mode
-                    </button>
-                    <button
-                      onClick={() => {
-                        const newMode = 'manual'
-                        sendMessage({ action: 'set_game_mode', mode: newMode })
-                        // Wait a short moment to ensure backend processes mode change before reset
-                        setTimeout(() => {
-                          sendMessage({ action: 'reset_game' })
-                        }, 200)
-                      }}
-                      className={`flex-1 px-4 py-2 text-sm font-medium transition-colors border-l border-casino-gold ${
-                        gameState.game_mode === 'manual'
-                          ? 'bg-red-700 text-white'
-                          : 'bg-transparent text-casino-gold hover:bg-casino-gold/10'
-                      }`}
-                    >
-                      Manual Mode
-                    </button>
-                  </div>
-                </div>
-
-                {/* AUTOMATIC MODE: START and NEW ROUND BUTTONS */}
-                {gameState.game_mode === 'automatic' &&
-                  !gameState.round_active &&
-                  Object.keys(gameState.players).length > 0 && (
-                    <div className='flex flex-col gap-2 mb-6'>
                       <button
-                        className='success-button w-full'
-                        onClick={() => {
-                          // Start round: assign cards and evaluate
-                          sendMessage({ action: 'start_auto_round' })
-                        }}
+                        className="rounded-lg shadow text-xl font-bold flex items-center justify-center"
+                        style={{ width: 250, height: 49, backgroundColor: '#fff', color: '#741003' }}
+                        onClick={() => sendMessage({ action: 'deal_cards' })}
                       >
-                        ▶️ START
+                        Deal Cards
                       </button>
-                      {/* Show NEW ROUND if previous round completed and players exist */}
-                      {Object.values(gameState.players).some(
-                        p => p.card || p.status !== 'active'
-                      ) && (
-                        <button
-                          className='dealer-button w-full'
-                          onClick={() => {
-                            sendMessage({ action: 'clear_round' })
-                          }}
-                        >
-                          🔄 NEW GAME
-                        </button>
-                      )}
                     </div>
-                  )}
-
-                {gameState.game_mode === 'live' && (
-                  <div className='mb-6'>
-                    <button
-                      onClick={() => sendMessage({ action: 'evaluate_round' })}
-                      className='success-button w-full mb-2'
-                    >
-                      ⚖️ Evaluate Round
-                    </button>
-                    <button
-                      className='dealer-button w-full'
-                      onClick={() => {
-                        sendMessage({ action: 'clear_round' })
-                      }}
-                    >
-                      🔄 NEW GAME
-                    </button>
+                    <div className="flex flex-col items-center gap-2">
+                      <button
+                        className="rounded-lg shadow text-xl font-bold flex items-center justify-center"
+                        style={{ width: 250, height: 49, backgroundColor: '#fff', color: '#741003' }}
+                        onClick={() => sendMessage({ action: 'delete_last_win' })}
+                      >
+                        Delete Last Win
+                      </button>
+                      <button
+                        className="rounded-lg shadow text-xl font-bold flex items-center justify-center"
+                        style={{ width: 250, height: 49, backgroundColor: '#fff', color: '#741003' }}
+                        onClick={() => sendMessage({ action: 'clear_all_records' })}
+                      >
+                        Clear All Records
+                      </button>
+                      <button
+                        className="rounded-lg shadow text-xl font-bold flex items-center justify-center"
+                        style={{ width: 250, height: 49, backgroundColor: '#fff', color: '#741003' }}
+                        onClick={() => sendMessage({ action: 'reset_hands' })}
+                      >
+                        Reset Hands
+                      </button>
+                      <button
+                        className="rounded-lg shadow text-xl font-bold flex items-center justify-center"
+                        style={{ width: 250, height: 49, backgroundColor: '#911606', color: '#fff' }}
+                        onClick={() => sendMessage({ action: 'reset_game' })}
+                      >
+                        RESET GAME
+                      </button>
+                    </div>
                   </div>
-                )}
-
-                {/* Card Assignment Panel for Manual/Live Mode */}
-                {(gameState.game_mode === 'manual' ||
-                  gameState.game_mode === 'live') && (
-                  <>
-                    <div className='mb-6'>
-                      <label className='block text-casino-gold font-semibold mb-2 text-sm'>
-                        {gameState.war_round_active
-                          ? 'Assign War Card (Number & Suit)'
-                          : 'Assign Card (Number & Suit)'}
-                      </label>
-                      <div className='flex flex-col gap-2'>
-                        <div className='grid grid-cols-7 gap-1 mb-2'>
-                          {[
-                            'A',
-                            '2',
-                            '3',
-                            '4',
-                            '5',
-                            '6',
-                            '7',
-                            '8',
-                            '9',
-                            'T',
-                            'J',
-                            'Q',
-                            'K'
-                          ].map(rank => (
-                            <button
-                              key={rank}
-                              className={`px-2 py-1 text-xs rounded border ${
-                                manualCard[0] === rank
-                                  ? 'bg-casino-gold text-black'
-                                  : 'bg-black text-casino-gold border-casino-gold'
-                              }`}
-                              onClick={() =>
-                                setManualCard(rank + (manualCard[1] || ''))
-                              }
-                            >
-                              {rank}
-                            </button>
-                          ))}
-                        </div>
-                        <div className='grid grid-cols-4 gap-2 mb-2'>
-                          {['S', 'H', 'D', 'C'].map(suit => (
-                            <button
-                              key={suit}
-                              className={`px-3 py-1 text-sm rounded border ${
-                                manualCard[1] === suit
-                                  ? 'bg-casino-gold text-black'
-                                  : 'bg-black text-casino-gold border-casino-gold'
-                              }`}
-                              onClick={() =>
-                                setManualCard((manualCard[0] || '') + suit)
-                              }
-                            >
-                              {suit === 'S'
-                                ? '♠'
-                                : suit === 'H'
-                                ? '♥'
-                                : suit === 'D'
-                                ? '♦'
-                                : '♣'}
-                            </button>
-                          ))}
-                        </div>
+                  {/* Third column */}
+                  <div className="flex-1 flex flex-col h-full min-h-full">
+                    {/* First group: 3x4 grid for ranks */}
+                    <div className="grid grid-cols-3 grid-rows-4 gap-4 mb-10 place-items-center">
+                      <div />
+                      <button
+                        className={`rounded-lg shadow text-xl font-bold flex items-center justify-center ${
+                          manualCard[0] === 'A' ? 'bg-[#741003] text-white' : 'bg-white text-[#741003]'
+                        }`}
+                        style={{ width: 80, height: 44 }}
+                        onClick={() => setManualCard('A' + (manualCard[1] || ''))}
+                      >
+                        A
+                      </button>
+                      <div />
+                      {['2','3','4','5','6','7','8','9','T','J','Q','K'].map((rank) => (
                         <button
-                          className='success-button w-full text-sm'
-                          disabled={manualCard.length !== 2 || allAssigned}
-                          onClick={() => {
-                            if (manualCard.length !== 2) return
-                            if (gameState.war_round_active) {
-                              // War round assignment: use EXACT same logic as normal rounds
-                              const warPlayerIds = gameState.war_round
-                                ? Object.keys(gameState.war_round.players)
-                                    .filter(
-                                      pid =>
-                                        gameState.war_round &&
-                                        (gameState.war_round.players[pid] ===
-                                          null ||
-                                          gameState.war_round.players[pid] ===
-                                            undefined)
-                                    )
-                                    .sort((a, b) => Number(a) - Number(b))
-                                : []
-                              if (warPlayerIds.length > 0) {
-                                sendMessage({
-                                  action: 'assign_war_card',
-                                  target: 'player',
-                                  card: manualCard,
-                                  player_id: warPlayerIds[0]
-                                })
-                                setManualCard('')
-                                addNotification(
-                                  `War card ${manualCard} assigned to player ${warPlayerIds[0]}`
-                                )
-                              } else if (
-                                gameState.war_round &&
-                                !gameState.war_round.dealer_card
-                              ) {
-                                sendMessage({
-                                  action: 'assign_war_card',
-                                  target: 'dealer',
-                                  card: manualCard
-                                })
-                                setManualCard('')
-                                addNotification(
-                                  `War card ${manualCard} assigned to dealer`
-                                )
-                              }
-                            } else {
-                              // Normal round assignment
-                              const playerIds = Object.keys(gameState.players)
-                                .filter(
-                                  pid =>
-                                    gameState.players[pid] &&
-                                    gameState.players[pid].card === null
-                                )
-                                .sort((a, b) => Number(a) - Number(b))
-                              if (playerIds.length > 0) {
-                                sendMessage({
-                                  action: 'manual_deal_card',
-                                  target: 'player',
-                                  card: manualCard,
-                                  player_id: playerIds[0]
-                                })
-                                setManualCard('')
-                                addNotification(
-                                  `Card ${manualCard} assigned to player ${playerIds[0]}`
-                                )
-                              } else if (!gameState.dealer_card) {
-                                sendMessage({
-                                  action: 'manual_deal_card',
-                                  target: 'dealer',
-                                  card: manualCard
-                                })
-                                setManualCard('')
-                                addNotification(
-                                  `Card ${manualCard} assigned to dealer`
-                                )
-                              }
-                            }
-                          }}
+                          key={`grid-btn-${rank}`}
+                          className={`rounded-lg shadow text-xl font-bold flex items-center justify-center ${
+                            manualCard[0] === rank ? 'bg-[#741003] text-white' : 'bg-white text-[#741003]'
+                          }`}
+                          style={{ width: 80, height: 44 }}
+                          onClick={() => setManualCard(rank + (manualCard[1] || ''))}
                         >
-                          ➕ Add Card
+                          {rank}
                         </button>
-                      </div>
-                      {/* Disable if all players and dealer have cards (normal) or all war cards assigned (war round) */}
-                      {allAssigned && (
-                        <div className='text-center text-xs text-gray-400 mt-2'>
-                          {gameState.war_round_active
-                            ? 'All war cards have been assigned to the players and dealer.'
-                            : 'All cards have been assigned to the players and dealer.'}
-                        </div>
-                      )}
+                      ))}
                     </div>
-                    {/* Common Card Assignment by Dropdown (Player/Dealer) */}
-                    <div className='mb-6'>
-                      <label className='block text-casino-gold font-semibold mb-2 text-sm'>
-                        {gameState.war_round_active
-                          ? 'Assign War Card to Specific Player/Dealer'
-                          : 'Assign Card to Specific Player/Dealer'}
-                      </label>
-                      <div className='flex flex-col gap-2'>
-                        <div className='flex gap-2'>
-                          <select
-                            value={manualCardTarget}
-                            onChange={e => setManualCardTarget(e.target.value)}
-                            className='bg-black border border-casino-gold rounded-lg px-3 py-2 text-white flex-1 text-sm'
-                          >
-                            <option value=''>Select...</option>
-                            {gameState.war_round_active && gameState.war_round
-                              ? Object.keys(gameState.war_round.players).map(
-                                  pid => (
-                                    <option key={pid} value={pid}>
-                                      Player {pid}
-                                    </option>
-                                  )
-                                )
-                              : Object.keys(gameState.players).map(pid => (
-                                  <option key={pid} value={pid}>
-                                    Player {pid}
-                                  </option>
-                                ))}
-                            <option value='dealer'>Dealer</option>
-                          </select>
-                          <input
-                            type='text'
-                            placeholder='Card (e.g., AS, KH)'
-                            value={manualCardSpecific}
-                            onChange={e =>
-                              setManualCardSpecific(
-                                e.target.value.toUpperCase()
-                              )
-                            }
-                            className='bg-black border border-casino-gold rounded-lg px-3 py-2 text-white flex-1 text-sm'
-                          />
-                        </div>
+                    {/* Second group: 2x2 grid for suits */}
+                    <div className="grid grid-cols-2 grid-rows-2 gap-4 mb-10 place-items-center">
+                      {[
+                        { symbol: '♠', value: 'S' },
+                        { symbol: '♥', value: 'H' },
+                        { symbol: '♦', value: 'D' },
+                        { symbol: '♣', value: 'C' }
+                      ].map((suit) => (
                         <button
-                          className='success-button w-full text-sm'
-                          disabled={
-                            !manualCardTarget ||
-                            manualCardSpecific.length !== 2 ||
-                            (gameState.war_round_active
-                              ? manualCardTarget === 'dealer'
-                                ? !!(
-                                    gameState.war_round &&
-                                    gameState.war_round.dealer_card
+                          key={`suit-btn-${suit.value}`}
+                          className={`rounded-lg shadow text-xl font-bold flex items-center justify-center ${
+                            manualCard[1] === suit.value ? 'bg-[#741003] text-white' : 'bg-white text-[#741003]'
+                          } ${(suit.value === 'H' || suit.value === 'D') ? 'text-red-600' : 'text-black'}`}
+                          style={{ width: 110, height: 44 }}
+                          onClick={() => setManualCard((manualCard[0] || '') + suit.value)}
+                        >
+                          {suit.symbol}
+                        </button>
+                      ))}
+                    </div>
+                    {/* Third group: Send and Undo buttons */}
+                    <div className="flex flex-row gap-4 items-center justify-center">
+                      <button
+                        className={`rounded-lg shadow text-xl font-bold flex items-center justify-center ${
+                          manualCard.length === 2 ? 'bg-[#D6AB5D] text-white' : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        }`}
+                        style={{ width: 110, height: 44 }}
+                        onClick={() => {
+                          if (manualCard.length !== 2) return
+                          if (gameState.war_round_active) {
+                            const warPlayerIds = gameState.war_round
+                              ? Object.keys(gameState.war_round.players)
+                                  .filter(
+                                    pid =>
+                                      gameState.war_round &&
+                                      (gameState.war_round.players[pid] === null ||
+                                        gameState.war_round.players[pid] === undefined)
                                   )
-                                : !!(
-                                    gameState.war_round &&
-                                    gameState.war_round.players &&
-                                    gameState.war_round.players[
-                                      manualCardTarget
-                                    ] !== null &&
-                                    gameState.war_round.players[
-                                      manualCardTarget
-                                    ] !== undefined
-                                  )
-                              : manualCardTarget === 'dealer'
-                              ? !!gameState.dealer_card
-                              : !!gameState.players[manualCardTarget]?.card)
+                                  .sort((a, b) => Number(a) - Number(b))
+                              : []
+                            if (warPlayerIds.length > 0) {
+                              sendMessage({
+                                action: 'assign_war_card',
+                                target: 'player',
+                                card: manualCard,
+                                player_id: warPlayerIds[0]
+                              })
+                              setManualCard('')
+                            } else if (gameState.war_round && !gameState.war_round.dealer_card) {
+                              sendMessage({
+                                action: 'assign_war_card',
+                                target: 'dealer',
+                                card: manualCard
+                              })
+                              setManualCard('')
+                            }
+                          } else {
+                            const playerIds = Object.keys(gameState.players)
+                              .filter(pid => gameState.players[pid] && gameState.players[pid].card === null)
+                              .sort((a, b) => Number(a) - Number(b))
+                            if (playerIds.length > 0) {
+                              sendMessage({
+                                action: 'manual_deal_card',
+                                target: 'player',
+                                card: manualCard,
+                                player_id: playerIds[0]
+                              })
+                              setManualCard('')
+                            } else if (!gameState.dealer_card) {
+                              sendMessage({
+                                action: 'manual_deal_card',
+                                target: 'dealer',
+                                card: manualCard
+                              })
+                              setManualCard('')
+                            }
                           }
-                          onClick={() => {
-                            if (
-                              !manualCardTarget ||
-                              manualCardSpecific.length !== 2
-                            )
-                              return
-                            if (!validCardPattern.test(manualCardSpecific)) {
-                              setNotifications(prev => [
-                                ...prev.slice(-4),
-                                'Invalid card. Please enter a valid card using ranks (2-10, J, Q, K, A) and suits (S, H, D, C).'
-                              ])
-                              return
-                            }
-                            if (gameState.war_round_active) {
-                              if (manualCardTarget === 'dealer') {
-                                sendMessage({
-                                  action: 'assign_war_card',
-                                  target: 'dealer',
-                                  card: manualCardSpecific
-                                })
-                                addNotification(
-                                  `War card ${manualCardSpecific} assigned to dealer`
-                                )
-                              } else {
-                                sendMessage({
-                                  action: 'assign_war_card',
-                                  target: 'player',
-                                  card: manualCardSpecific,
-                                  player_id: manualCardTarget
-                                })
-                                addNotification(
-                                  `War card ${manualCardSpecific} assigned to player ${manualCardTarget}`
-                                )
-                              }
-                            } else {
-                              if (manualCardTarget === 'dealer') {
-                                sendMessage({
-                                  action: 'manual_deal_card',
-                                  target: 'dealer',
-                                  card: manualCardSpecific
-                                })
-                                addNotification(
-                                  `Card ${manualCardSpecific} assigned to dealer`
-                                )
-                              } else {
-                                sendMessage({
-                                  action: 'manual_deal_card',
-                                  target: 'player',
-                                  card: manualCardSpecific,
-                                  player_id: manualCardTarget
-                                })
-                                addNotification(
-                                  `Card ${manualCardSpecific} assigned to player ${manualCardTarget}`
-                                )
-                              }
-                            }
-                            setManualCardSpecific('')
-                            setManualCardTarget('')
-                          }}
+                        }}
+                        disabled={manualCard.length !== 2}
+                      >
+                        Send card
+                      </button>
+                      <button
+                        className="rounded-lg shadow text-xl font-bold flex items-center justify-center bg-[#911606] text-white"
+                        style={{ width: 110, height: 44 }}
+                        onClick={() => sendMessage({ action: 'undo_last_card' })}
+                      >
+                        Undo Card
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : gameState.game_mode === 'manual' ? (
+                <div className="flex flex-col items-center justify-center w-full h-full mt-8">
+                  <div className="grid grid-cols-3 grid-rows-3 w-fit">
+                    <div className="bg-[#D6AB5D] h-28 w-52 row-start-1 row-end-1 col-start-2 col-end-2 m-2 rounded-lg flex flex-col justify-center items-center">
+                      <div className="text-lg font-bold mb-2 text-[#911606]">DEALER</div>
+                      <div className="flex flex-row gap-2">
+                        <button
+                          className="px-4 rounded text-[#741003] bg-[#F0DEAD]"
+                          onClick={() => sendMessage({ action: 'manual_set_result', player: 'dealer', result: 'win' })}
                         >
-                          Assign Card
+                          WIN
+                        </button>
+                        <button
+                          className="px-4 py-2 rounded bg-[#450A03] text-[#F0DEAD]"
+                          onClick={() => sendMessage({ action: 'manual_set_result', player: 'dealer', result: 'lose' })}
+                        >
+                          LOSE
                         </button>
                       </div>
                     </div>
-                  </>
-                )}
-
-                {/* Utility Controls */}
-                <div className='space-y-2'>
-                  {gameState.game_mode !== 'automatic' && (
-                    <button
-                      onClick={() => sendMessage({ action: 'undo_last_card' })}
-                      className='danger-button w-full text-sm'
-                    >
-                      ↩️ UNDO CARD
-                    </button>
-                  )}
+                    {[1, 2, 3, 4, 5, 6].map(playerNum => (
+                      <div
+                        key={playerNum}
+                        className={`bg-[#911606] h-28 w-52 ${
+                          playerNum === 1 || playerNum === 4 
+                            ? 'row-start-2 row-end-2 col-start-1 col-end-1' 
+                            : playerNum === 2 || playerNum === 5
+                            ? 'row-start-2 row-end-2 col-start-2 col-end-2'
+                            : 'row-start-2 row-end-2 col-start-3 col-end-3'
+                        } ${
+                          playerNum > 3 ? 'row-start-3 row-end-3' : ''
+                        } m-2 rounded-lg flex flex-col justify-center items-center`}
+                      >
+                        <div className="text-lg font-bold mb-2 text-[#F0DEAD]">PLAYER {playerNum}</div>
+                        <div className="flex flex-row gap-2">
+                          <button
+                            className="px-4 rounded text-[#741003] bg-[#F0DEAD]"
+                            onClick={() => sendMessage({ action: 'manual_set_result', player: `player${playerNum}`, result: 'win' })}
+                          >
+                            WIN
+                          </button>
+                          <button
+                            className="px-4 py-2 rounded bg-[#450A03] text-[#F0DEAD]"
+                            onClick={() => sendMessage({ action: 'manual_set_result', player: `player${playerNum}`, result: 'lose' })}
+                          >
+                            LOSE
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center w-full h-full">
                   <button
-                    onClick={() => sendMessage({ action: 'reset_game' })}
-                    className='danger-button w-full text-sm'
+                    className="m-4 px-5 py-3 rounded-lg text-xl font-bold shadow text-white bg-[#911606] hover:bg-[#741003] transition-colors"
+                    onClick={() => {
+                      sendMessage({ action: 'start_auto_round' })
+                    }}
                   >
-                    🔄 CLEAR ALL STATS{' '}
+                    Start automatic
                   </button>
                 </div>
-              </div>
-            </motion.div>
-          </motion.div>
+              )}
+            </div>
+          </div>
         )}
       </AnimatePresence>
 
       {/* Bet/Table Menu Modal */}
       <AnimatePresence>
         {betMenuOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className='fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm'
-          >
-            <motion.div
-              initial={{ scale: 0.9, y: -40 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.9, y: -40 }}
-              className='bg-black/90 border-2 border-casino-gold rounded-2xl p-8 w-full max-w-xs relative shadow-2xl'
+          <div className="fixed top-0 left-0 h-full w-full z-50 flex items-center justify-center bg-black bg-opacity-60 overflow-y-auto p-4">
+            <div
+              className="rounded-lg shadow-lg p-8 relative min-w-[320px] min-h-[200px] max-w-[90vw] my-8 flex flex-col items-center justify-center"
+              style={{ backgroundColor: '#F0DEAD' }}
             >
               <button
-                className='absolute top-4 right-4 text-casino-gold hover:text-white text-2xl'
                 onClick={() => setBetMenuOpen(false)}
-                aria-label='Close Bet/Table Menu'
+                className="absolute top-3 right-3 text-gray-500 hover:text-gray-700 text-2xl font-bold focus:outline-none"
+                aria-label="Close"
               >
-                <FaTimesIcon />
+                ×
               </button>
-              <h2 className='text-xl font-bold text-casino-gold mb-4 text-center'>
+              <h2 className='text-xl font-bold text-[#741003] mb-6 text-center'>
                 Table & Betting
               </h2>
-              <div className='mb-4'>
-                <label className='block text-casino-gold font-semibold mb-2'>
+              <div className='mb-4 w-full max-w-xs'>
+                <label className='block text-[#741003] font-semibold mb-2'>
                   Table Number
                 </label>
                 <input
@@ -1070,12 +883,12 @@ export default function DealerPage () {
                         : Number(e.target.value.replace(/\D/g, ''))
                     )
                   }
-                  className='w-full bg-black border border-casino-gold rounded-lg px-3 py-2 text-white appearance-none'
+                  className='w-full bg-white border-2 border-[#741003] rounded-lg px-3 py-2 text-[#741003] appearance-none font-semibold'
                   style={{ MozAppearance: 'textfield' }}
                 />
               </div>
-              <div className='mb-4'>
-                <label className='block text-casino-gold font-semibold mb-2'>
+              <div className='mb-4 w-full max-w-xs'>
+                <label className='block text-[#741003] font-semibold mb-2'>
                   Min Bet
                 </label>
                 <input
@@ -1090,12 +903,12 @@ export default function DealerPage () {
                         : Number(e.target.value.replace(/\D/g, ''))
                     )
                   }
-                  className='w-full bg-black border border-casino-gold rounded-lg px-3 py-2 text-white appearance-none'
+                  className='w-full bg-white border-2 border-[#741003] rounded-lg px-3 py-2 text-[#741003] appearance-none font-semibold'
                   style={{ MozAppearance: 'textfield' }}
                 />
               </div>
-              <div className='mb-4'>
-                <label className='block text-casino-gold font-semibold mb-2'>
+              <div className='mb-6 w-full max-w-xs'>
+                <label className='block text-[#741003] font-semibold mb-2'>
                   Max Bet
                 </label>
                 <input
@@ -1110,12 +923,13 @@ export default function DealerPage () {
                         : Number(e.target.value.replace(/\D/g, ''))
                     )
                   }
-                  className='w-full bg-black border border-casino-gold rounded-lg px-3 py-2 text-white appearance-none'
+                  className='w-full bg-white border-2 border-[#741003] rounded-lg px-3 py-2 text-[#741003] appearance-none font-semibold'
                   style={{ MozAppearance: 'textfield' }}
                 />
               </div>
               <button
-                className='success-button w-full'
+                className='rounded-lg shadow text-xl font-bold text-white w-full max-w-xs'
+                style={{ height: 49, backgroundColor: '#911606' }}
                 onClick={() => {
                   sendMessage({
                     action: 'change_bets',
@@ -1132,8 +946,8 @@ export default function DealerPage () {
               >
                 Save
               </button>
-            </motion.div>
-          </motion.div>
+            </div>
+          </div>
         )}
       </AnimatePresence>
 
@@ -1173,23 +987,23 @@ export default function DealerPage () {
                         {/* After war round, show both original and war card stacked */}
                         {!gameState.war_round_active &&
                         gameState.war_round?.original_cards?.dealer_card ? (
-                          <div className='flex flex-col items-center gap-1'>
+                          <div className='flex items-center gap-4'>
                             {renderCard(
                               gameState.war_round.original_cards.dealer_card,
-                              'medium'
+                              'large'
                             )}
                             {gameState.war_round?.dealer_card && (
-                              <div className='mt-1'>
+                              <div className=''>
                                 {renderCard(
                                   gameState.war_round.dealer_card,
-                                  'medium'
+                                  'large'
                                 )}
                               </div>
                             )}
                           </div>
                         ) : // Normal round: show only the original card
                         gameState.dealer_card ? (
-                          renderCard(gameState.dealer_card, 'medium')
+                          renderCard(gameState.dealer_card, 'large')
                         ) : (
                           <div className='w-20 h-28 card-back rounded-lg flex items-center justify-center'>
                             <span className='text-white text-2xl'>?</span>
@@ -1284,7 +1098,7 @@ export default function DealerPage () {
                     </h4>
                     <div className='flex justify-center mb-4'>
                       {gameState.war_round?.dealer_card ? (
-                        renderCard(gameState.war_round.dealer_card, 'medium')
+                        renderCard(gameState.war_round.dealer_card, 'large')
                       ) : (
                         <div className='w-16 h-22 card-back rounded-lg flex items-center justify-center'>
                           <span className='text-white'>🎴</span>
@@ -1496,7 +1310,7 @@ export default function DealerPage () {
                                 {renderCard(
                                   gameState.war_round?.original_cards
                                     ?.players?.[playerId],
-                                  'medium'
+                                  'large'
                                 )}
                               </div>
                             </div>
@@ -1506,14 +1320,14 @@ export default function DealerPage () {
                                   War
                                 </div>
                                 <div className='flex justify-center'>
-                                  {renderCard(playerData.war_card, 'medium')}
+                                  {renderCard(playerData.war_card, 'large')}
                                 </div>
                               </div>
                             )}
                           </div>
                         ) : // Normal round: show only the original card
                         playerData.card ? (
-                          renderCard(playerData.card, 'medium')
+                          renderCard(playerData.card, 'large')
                         ) : (
                           <div className='w-20 h-28 card-back rounded-lg flex items-center justify-center'>
                             <span className='text-white text-2xl'>?</span>

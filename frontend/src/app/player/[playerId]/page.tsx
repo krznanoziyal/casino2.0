@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
+import Image from 'next/image'
 
 interface GameState {
   deck_count: number
@@ -333,12 +334,14 @@ export default function PlayerPage () {
 
     const rank = card[0]
     const suit = card[1]
+
+    console.log(`Rendering card: ${rank}${suit}`)
     const suitSymbol = { S: '♠', H: '♥', D: '♦', C: '♣' }[suit] || suit
     const isRed = suit === 'H' || suit === 'D'
 
     const sizeClasses = {
       small: 'w-12 h-16 text-xs',
-      medium: 'w-16 h-22 text-sm',
+      medium: 'w-16 h-20 text-sm',
       large: 'w-20 h-28 text-base'
     }
 
@@ -347,38 +350,37 @@ export default function PlayerPage () {
         initial={{ rotateY: 180, scale: 0.8 }}
         animate={{ rotateY: 0, scale: 1 }}
         transition={{ duration: 0.6 }}
-        className={`bg-white rounded-lg shadow-lg border-2 border-gray-300 ${
-          sizeClasses[size]
-        } ${
-          isRed ? 'text-red-600' : 'text-black'
-        } flex flex-col justify-between p-2`}
+        className={`${sizeClasses[size]} relative rounded-lg shadow-lg overflow-hidden`}
       >
-        <div className='text-left'>
-          <div className='font-bold'>{rank}</div>
-          <div className='text-2xl leading-none'>{suitSymbol}</div>
-        </div>
-        <div className='text-center text-4xl'>{suitSymbol}</div>
-        <div className='text-right rotate-180'>
-          <div className='font-bold'>{rank}</div>
-          <div className='text-2xl leading-none'>{suitSymbol}</div>
-        </div>
+        
+        <Image
+          src={`/cards/${rank}${suit}.png`}
+          alt={`${rank} of ${suit}`}
+          fill
+          className='object-cover rounded-lg'
+          sizes='(max-width: 640px) 64px, (max-width: 768px) 80px, 96px'
+        />
       </motion.div>
     )
   }
 
   const renderCardBack = (size: 'small' | 'medium' | 'large' = 'medium') => {
     const sizeClasses = {
-      small: 'w-16 h-22 text-sm',
-      medium: 'w-20 h-28 text-base',
-      large: 'w-24 h-36 text-lg'
+      small: 'w-12 h-16 text-xs',
+      medium: 'w-16 h-20 text-sm',
+      large: 'w-20 h-28 text-base'
     }
 
     return (
-      <div
-        className={`bg-blue-900 rounded-lg flex items-center justify-center border-2 border-blue-700 ${sizeClasses[size]}`}
-      >
-        <span className='text-white text-3xl'>🎴</span>
-      </div>
+      <div className={`${sizeClasses[size]} relative rounded-lg shadow-lg overflow-hidden`}>
+      <Image
+        src='/cards/BB.png'
+        alt='Card Back'
+        fill
+        className='object-cover rounded-lg'
+        sizes='(max-width: 640px) 64px, (max-width: 768px) 80px, 96px'
+      />
+    </div>
     )
   }
 
@@ -393,77 +395,62 @@ export default function PlayerPage () {
   return (
     <div className='min-h-screen bg-[#450a03]'>
       {/* Header with wood background */}
-      <div className='relative'>
-        <div className='wood-header overflow-hidden'>
-          {/* Wood background image */}
-          <div className='absolute inset-0 z-0'>
-            <img
-              src='/assets/wood.png'
-              alt='Wooden table'
-              className='w-full h-full object-cover'
-            />
-          </div>
-
-          {/* Ocean 7 Logo overlay - Properly contained */}
-          <div className='relative z-10 h-full flex items-center justify-center'>
-            <div className='flex flex-col items-center justify-center max-h-full'>
-              <img
-                src='/assets/ocean7-logo.png'
-                alt='Ocean 7 Casino'
-                className='h-12 sm:h-14 md:h-20 lg:h-28 xl:h-32 object-contain max-w-full mb-4'
-              />
+      <nav className='relative h-[15vh] w-full overflow-hidden mb-6'>
+        <img
+          src='/assets/wood.png'
+          alt='Wood Background'
+          className='absolute inset-0 object-cover w-full h-full'
+        />
+        <div className='relative h-full'>
+          <div className='flex items-center justify-between -mt-2 xs:-mt-3 sm:-mt-4 px-2 xs:px-4 sm:px-6 md:px-8'>
+            {/* Left Side - Casino Wars Logo */}
+            <div className='w-16 h-16 xs:w-20 xs:h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 lg:w-32 lg:h-32 relative flex flex-col items-center justify-center overflow-hidden'>
+              <div className='relative w-12 h-12 xs:w-14 xs:h-14 sm:w-16 sm:h-16 md:w-20 md:h-20 lg:w-24 lg:h-24 xl:w-28 xl:h-28'>
+                <Image
+                  src='/assets/logo.png'
+                  alt='Casino Wars Logo'
+                  fill
+                  className='object-contain'
+                  sizes='(max-width: 375px) 48px, (max-width: 640px) 56px, (max-width: 768px) 64px, (max-width: 1024px) 80px, (max-width: 1280px) 96px, 112px'
+                  priority
+                />
+              </div>
+              <span className='text-yellow-300 text-[8px] xs:text-[9px] sm:text-xs md:text-sm lg:text-base -mt-1 xs:-mt-2 sm:-mt-3 md:-mt-4'>
+                Table: {gameState.table_number}
+              </span>
             </div>
-          </div>
-        </div>
 
-        {/* Casino Wars Logo in top left */}
-        <div className='absolute top-0 left-0 z-20'>
-          <div className='logo-container relative shadow-xl'>
-            {/* Background image */}
-            <img
-              src='/assets/image.png'
-              alt='Table header background'
-              className='w-[140px] xs:w-[160px] sm:w-[180px] md:w-[200px] lg:w-[240px] xl:w-[280px] h-auto rounded-md'
-            />
-
-            {/* Logo overlay */}
-            <div className='absolute top-0 left-0 w-full h-full flex flex-col items-center justify-center p-1 xs:p-1.5 sm:p-2 md:p-2.5 lg:p-3'>
-              <img
-                src='/assets/logo.png'
-                alt='Casino Wars Logo'
-                className='w-[50%] xs:w-[55%] sm:w-[60%] md:w-[65%] lg:w-2/3 h-auto object-contain max-h-[50%] xs:max-h-[55%] sm:max-h-[60%]'
-              />
-              <div className='mt-0.5 xs:mt-1 sm:mt-1 md:mt-1.5 text-yellow-300 text-[8px] xs:text-[9px] sm:text-xs md:text-sm lg:text-base xl:text-lg antialiased tracking-wide font-light text-center leading-tight'>
-                Table {gameState.table_number}
+            {/* Center - Ocean 7 Logo */}
+            <div className='flex items-center justify-center'>
+              <div className='relative w-20 h-12 xs:w-24 xs:h-14 sm:w-32 sm:h-16 md:w-40 md:h-20 lg:w-48 lg:h-24 xl:w-48 xl:h-24'>
+                <Image
+                  src='/assets/ocean7-logo.png'
+                  alt='Ocean 7 Casino'
+                  fill
+                  className='object-contain'
+                  sizes='(max-width: 375px) 80px, (max-width: 640px) 96px, (max-width: 768px) 128px, (max-width: 1024px) 160px, (max-width: 1280px) 192px, 224px'
+                  priority
+                />
               </div>
             </div>
-          </div>
-        </div>
 
-        {/* Bet data in top right */}
-        <div className='absolute top-0 right-0 z-20'>
-          <div className='logo-container relative shadow-xl'>
-            <img
-              src='/assets/image.png'
-              alt='Table header background'
-              className='w-[140px] xs:w-[160px] sm:w-[180px] md:w-[200px] lg:w-[240px] xl:w-[280px] h-auto rounded-md'
-            />
-            <div className='absolute top-0 left-0 w-full h-full flex flex-col items-center justify-center p-1 xs:p-1.5 sm:p-2 md:p-2.5 lg:p-3'>
-              <h3 className='text-[#DEBE83] font-bold text-[10px] xs:text-xs sm:text-sm md:text-base lg:text-lg xl:text-xl font-[questrial] mb-0.5 xs:mb-1 text-center leading-tight'>
-                Bets
-              </h3>
-              <div className='text-white text-center'>
-                <div className='table-number text-[#DEBE83] text-[7px] xs:text-[8px] sm:text-[9px] md:text-xs lg:text-sm xl:text-base antialiased tracking-wide font-light leading-tight'>
+            {/* Right Side - Betting Info */}
+            <div className='w-16 h-16 xs:w-20 xs:h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 lg:w-32 lg:h-32 relative flex flex-col items-center justify-center overflow-hidden'>
+              <div className='text-center'>
+                <div className='text-[#DEBE83] font-bold text-[8px] xs:text-[9px] sm:text-xs md:text-sm lg:text-base font-[questrial] mb-0.5'>
+                  Bets
+                </div>
+                <div className='text-yellow-300 text-[7px] xs:text-[8px] sm:text-[9px] md:text-xs lg:text-sm'>
                   Max: {gameState.max_bet.toLocaleString()}
                 </div>
-                <div className='table-number text-[#DEBE83] text-[7px] xs:text-[8px] sm:text-[9px] md:text-xs lg:text-sm xl:text-base antialiased tracking-wide font-light leading-tight'>
+                <div className='text-yellow-300 text-[7px] xs:text-[8px] sm:text-[9px] md:text-xs lg:text-sm'>
                   Min: {gameState.min_bet.toLocaleString()}
                 </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
+      </nav>
 
       {/* Notifications */}
       <AnimatePresence>
@@ -525,16 +512,16 @@ export default function PlayerPage () {
               {/* Original Dealer Card */}
               <div className='flex flex-col items-center'>
                 {gameState.dealer_card
-                  ? renderCard(gameState.dealer_card, 'medium')
-                  : renderCardBack('medium')}
+                  ? renderCard(gameState.dealer_card, 'large')
+                  : renderCardBack('large')}
               </div>
 
               {/* Dealer War Card - Only show if war data exists */}
               {hasWarData && (
                 <div className='flex flex-col items-center'>
                   {gameState.war_round?.dealer_card
-                    ? renderCard(gameState.war_round.dealer_card, 'medium')
-                    : renderCardBack('medium')}
+                    ? renderCard(gameState.war_round.dealer_card, 'large')
+                    : renderCardBack('large')}
                 </div>
               )}
             </div>
@@ -565,8 +552,8 @@ export default function PlayerPage () {
                   {/* Original Player Card */}
                   <div className='flex flex-col items-center'>
                     {playerData.card
-                      ? renderCard(playerData.card, 'medium')
-                      : renderCardBack('medium')}
+                      ? renderCard(playerData.card, 'large')
+                      : renderCardBack('large')}
                   </div>
 
                   {/* Player War Card - Show if player has war card OR war data exists for this player */}
@@ -574,13 +561,13 @@ export default function PlayerPage () {
                     (hasWarData && gameState.war_round?.players[playerId])) && (
                     <div className='flex flex-col items-center'>
                       {playerData.war_card
-                        ? renderCard(playerData.war_card, 'medium')
+                        ? renderCard(playerData.war_card, 'large')
                         : gameState.war_round?.players[playerId]
                         ? renderCard(
                             gameState.war_round.players[playerId],
-                            'medium'
+                            'large'
                           )
-                        : renderCardBack('medium')}
+                        : renderCardBack('large')}
                     </div>
                   )}
                 </div>
@@ -661,71 +648,71 @@ export default function PlayerPage () {
           height: 60px;
           position: relative;
         }
-        
+
         @media (min-width: 375px) {
           .wood-header {
             height: 70px;
           }
         }
-        
+
         @media (min-width: 480px) {
           .wood-header {
             height: 80px;
           }
         }
-        
+
         @media (min-width: 640px) {
           .wood-header {
             height: 90px;
           }
         }
-        
+
         @media (min-width: 768px) {
           .wood-header {
             height: 100px;
           }
         }
-        
+
         @media (min-width: 1024px) {
           .wood-header {
             height: 110px;
           }
         }
-        
+
         @media (min-width: 1280px) {
           .wood-header {
             height: 130px;
           }
         }
-        
+
         /* Specific optimization for 800x1112 dimension */
         @media (min-width: 800px) and (max-width: 850px) {
           .wood-header {
             height: 105px;
           }
         }
-        
+
         .logo-container {
           filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.6));
           transition: all 0.2s ease;
         }
-        
+
         @media (max-width: 640px) {
           .logo-container img {
             max-width: 100%;
           }
         }
-        
+
         .table-number {
           text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
         }
-        
+
         /* Ensure content stays within bounds */
         .wood-header .flex {
           height: 100%;
           overflow: hidden;
         }
-        
+
         /* Custom breakpoint for xs (375px) */
         @media (min-width: 375px) {
           .xs\\:w-\\[160px\\] {
