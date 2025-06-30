@@ -1141,7 +1141,7 @@ export default function DealerPage () {
 
                 {/* War Card Assignment Controls */}
                 <div className='mt-6 p-4 bg-black/30 rounded-lg'>
-                  <h4 className='text-lg font-semibold text-casino-gold mb-3'>
+                  {/* <h4 className='text-lg font-semibold text-casino-gold mb-3'>
                     Assign War Cards
                   </h4>
                   <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
@@ -1217,7 +1217,7 @@ export default function DealerPage () {
                         Assign
                       </button>
                     </div>
-                  </div>
+                  </div> */}
 
                   <button
                     onClick={() =>

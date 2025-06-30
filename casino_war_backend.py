@@ -385,6 +385,66 @@ async def deal_cards_internal(increment_round=True):
     await evaluate_round()
     return True
 
+async def start_war_round(war_players):
+    """Starts a war round for the given players."""
+    game_state["war_round_active"] = True
+    game_state["war_round"] = {
+        "dealer_card": None,
+        "players": {pid: None for pid in war_players},
+        "original_cards": {
+            "dealer_card": game_state["dealer_card"],
+            "players": {pid: game_state["players"][pid]["card"] for pid in game_state["players"]}
+        }
+    }
+    print(f"[WAR ROUND STARTED] war_round_active={game_state['war_round_active']} war_round={game_state['war_round']}")
+    await broadcast_to_all({
+        "action": "war_round_started",
+        "players": war_players,
+        "war_round": game_state["war_round"]
+    })
+
+async def evaluate_war_round():
+    """Evaluates the war round using assigned war cards."""
+    war = game_state.get("war_round")
+    if not war or not game_state.get("war_round_active"):
+        await broadcast_to_dealers({"action": "error", "message": "No active war round to evaluate."})
+        return
+    dealer_card = war.get("dealer_card")
+    player_cards = war.get("players", {})
+    # PATCH: Check for missing war cards (None) after undo
+    if not dealer_card or any(card is None for card in player_cards.values()):
+        await broadcast_to_dealers({"action": "error", "message": "Not all war cards assigned."})
+        return
+    # Evaluate results for each war player
+    for pid, card in player_cards.items():
+        result = compare_cards(card, dealer_card)
+        game_state["players"][pid]["result"] = result
+        game_state["players"][pid]["status"] = "finished"
+        game_state["players"][pid]["war_card"] = card
+        game_state["player_results"][pid] = result
+    # PATCH: Preserve original_cards after evaluation
+    original_cards = war.get("original_cards")
+    game_state["war_round_active"] = False
+    game_state["war_round"] = {
+        "dealer_card": dealer_card,
+        "players": dict(player_cards),
+        "original_cards": original_cards  # Always preserve
+    }
+    print(f"[WAR ROUND EVALUATED] war_round_active={game_state['war_round_active']} war_round={game_state['war_round']}")
+    # Broadcast war round evaluated
+    await broadcast_to_all({
+        "action": "war_round_evaluated",
+        "dealer_card": dealer_card,
+        "players": {pid: game_state["players"][pid] for pid in player_cards},
+        "player_results": dict(game_state["player_results"]),
+        "war_round": game_state["war_round"],
+        "message": "War round evaluated"
+    })
+    # Complete round if all finished
+    all_finished = all(p["status"] == "finished" for p in game_state["players"].values())
+    if all_finished:
+        await complete_round()
+
 async def evaluate_round():
     """Evaluates the round results and handles ties."""
     tie_players = []
@@ -398,6 +458,7 @@ async def evaluate_round():
             player_data["result"] = result
             player_data["status"] = "finished"
             game_state["player_results"][player_id] = result
+    print(f"[MAIN ROUND EVALUATED] tie_players={tie_players} round_number={game_state['round_number']} war_round_active={game_state.get('war_round_active', False)}")
     await broadcast_to_all({
         "action": "round_dealt",
         "round_number": game_state["round_number"],
@@ -453,22 +514,6 @@ async def handle_player_choice(player_id, choice):
         else:
             await complete_round()
 
-async def start_war_round(war_players):
-    """Starts a war round for the given players."""
-    game_state["war_round_active"] = True
-    game_state["war_round"] = {
-        "dealer_card": None,
-        "players": {pid: None for pid in war_players},
-        "original_cards": {
-            "dealer_card": game_state["dealer_card"],
-            "players": {pid: game_state["players"][pid]["card"] for pid in game_state["players"]}
-        }
-    }
-    await broadcast_to_all({
-        "action": "war_round_started",
-        "players": war_players,
-        "war_round": game_state["war_round"]
-    })
 
 async def assign_and_evaluate_war_round(war_players):
     """Automatically assign war cards to dealer and war players, then evaluate only new cards for war participants."""
@@ -547,49 +592,11 @@ async def handle_assign_war_card(target, card, player_id=None):
         "card": card,
         "player_id": player_id
     })
+    
+    # Check if all war cards assigned and auto-evaluate
+    if war.get("dealer_card") and all(card is not None for card in war.get("players", {}).values()):
+        await evaluate_war_round()
 
-async def evaluate_war_round():
-    """Evaluates the war round using assigned war cards."""
-    war = game_state.get("war_round")
-    if not war or not game_state.get("war_round_active"):
-        await broadcast_to_dealers({"action": "error", "message": "No active war round to evaluate."})
-        return
-    dealer_card = war.get("dealer_card")
-    player_cards = war.get("players", {})
-    # PATCH: Check for missing war cards (None) after undo
-    if not dealer_card or any(card is None for card in player_cards.values()):
-        await broadcast_to_dealers({"action": "error", "message": "Not all war cards assigned."})
-        return
-    # Evaluate results for each war player
-    for pid, card in player_cards.items():
-        result = compare_cards(card, dealer_card)
-        game_state["players"][pid]["result"] = result
-        game_state["players"][pid]["status"] = "finished"
-        game_state["players"][pid]["war_card"] = card
-        game_state["player_results"][pid] = result
-    # PATCH: Preserve original_cards after evaluation
-    original_cards = war.get("original_cards")
-    game_state["war_round_active"] = False
-    game_state["war_round"] = {
-        "dealer_card": dealer_card,
-        "players": dict(player_cards),
-        "original_cards": original_cards  # Always preserve
-    }
-    # Broadcast war round evaluated
-    await broadcast_to_all({
-        "action": "war_round_evaluated",
-        "dealer_card": dealer_card,
-        "players": {pid: game_state["players"][pid] for pid in player_cards},
-        "player_results": dict(game_state["player_results"]),
-        "war_round": game_state["war_round"],
-        "message": "War round evaluated"
-    })
-    # Complete round if all finished
-    all_finished = all(p["status"] == "finished" for p in game_state["players"].values())
-    if all_finished:
-        await complete_round()
-
-# PATCH: In complete_round, do not overwrite results for players who already have a result
 async def complete_round():
     """Completes the current round and saves results."""
     game_state["round_active"] = False
@@ -894,25 +901,8 @@ def is_card_available(card):
 
 
 # --- SERIAL CARD READER INTEGRATION (COMPATIBLE WITH BACKEND ASSIGNMENT LOGIC) ---
-import re
 
-# def get_next_war_card_assignment_target():
-#     """Returns the next war card assignment target: (target_type, player_id or None)."""
-#     war = game_state.get("war_round", {})
-#     if not war:
-#         return (None, None)
-#     # Find lowest-numbered war player without a war card
-#     war_players = [pid for pid, card in war.get("players", {}).items() if card is None]
-#     if war_players:
-#         try:
-#             next_pid = sorted(war_players, key=lambda x: int(x))[0]
-#         except Exception:
-#             next_pid = sorted(war_players)[0]
-#         return ("player", next_pid)
-#     # If all war players have cards, assign to dealer if not assigned
-#     if war.get("dealer_card") is None:
-#         return ("dealer", None)
-#     return (None, None)
+
 
 # Helper to get next war card assignment target
 def get_next_war_card_assignment_target():
@@ -1047,6 +1037,11 @@ async def handle_manual_deal_card(target, card, player_id=None):
             "game_state": game_state,
             "deck_count": len(game_state["deck"])
         })
+        
+        # Check if all main round cards assigned and auto-evaluate
+        if all(pdata.get("card") is not None for pdata in game_state["players"].values()):
+            await evaluate_round()
+            
     elif target == "player":
         if not player_id or player_id not in game_state["players"]:
             await broadcast_to_dealers({
@@ -1071,6 +1066,10 @@ async def handle_manual_deal_card(target, card, player_id=None):
             "game_state": game_state,
             "deck_count": len(game_state["deck"])
         })
+        
+        # Check if all main round cards assigned and auto-evaluate
+        if game_state["dealer_card"] and all(pdata.get("card") is not None for pdata in game_state["players"].values()):
+            await evaluate_round()
 
 async def broadcast_to_all(message):
     """Broadcasts message to all connected clients."""
@@ -1177,6 +1176,7 @@ def extract_card_value(input_string):
 async def handle_card_from_shoe(card):
     try:
         if game_state.get("war_round_active"):
+            print(f"[SHOE] Routing card {card} to WAR round assignment (war_round_active={game_state['war_round_active']})")
             # War round: assign to next war target
             target, player_id = get_next_war_card_assignment_target()
             if target == "player":
@@ -1186,6 +1186,7 @@ async def handle_card_from_shoe(card):
             else:
                 print("[SHOE] All war cards assigned.")
         else:
+            print(f"[SHOE] Routing card {card} to MAIN round assignment (war_round_active={game_state.get('war_round_active', False)})")
             # Main round: assign to next available player or dealer
             target, player_id = get_next_card_assignment_target()
             if target == "player":
