@@ -242,29 +242,48 @@ async def handle_connection(websocket, path=None):
                 await handle_assign_war_card(data["target"], data["card"], data.get("player_id"))
             elif data["action"] == "evaluate_war_round":
                 await evaluate_war_round()
+            
+            # --- MANUAL WIN/LOSE ASSIGNMENT ---
+            elif data["action"] == "manual_assign_result":
+                player_id = data["player_id"]
+                result = data["result"]  # 'win' or 'lose'
+                await handle_manual_assign_result(player_id, result)
                 
-            elif data["action"] == "manual_deal_card":
-                await handle_manual_deal_card(data["target"], data["card"], data.get("player_id"))
-#new handle connection for manual evalatuation            elif data["action"] == "evaluate_round":
-                # Check that every active (added) player has a card assigned AND dealer has a card.
-                incomplete = [pid for pid, pdata in game_state["players"].items() if pdata.get("card") is None]
-                dealer_missing = game_state["dealer_card"] is None
-                if incomplete or dealer_missing:
-                    missing_msg = ""
-                    if incomplete:
-                        missing_msg += f"Players {', '.join(incomplete)} have not been assigned a card. "
-                    if dealer_missing:
-                        missing_msg += "Dealer has not been assigned a card."
-                    await broadcast_to_dealers({
-                        "action": "error",
-                        "message": missing_msg.strip()
-                    })
-                else:
-                    await evaluate_round()
             elif data["action"] == "start_auto_round":
                 await handle_start_auto_round()
             elif data["action"] == "clear_round":
                 await handle_clear_round()
+                
+            elif data["action"] == "start_round":
+                # Called when a new round starts in live mode
+                if game_state["game_mode"] == "live":
+                    burning_active = True
+            elif data["action"] == "stop_burning":
+                burning_active = False
+                await broadcast_to_dealers({"action": "burning_stopped"})
+                
+            # Example: handle card from shoereader
+            elif data["action"] == "shoereader_card":
+                card = data["card"]
+                # Only burn the first card detected in each round, then assign as normal
+                if game_state["game_mode"] == "live":
+                    if not game_state.get("shoe_first_card_burned", False):
+                        if card in game_state["deck"]:
+                            game_state["deck"].remove(card)
+                            game_state["burned_cards"].append(card)
+                        game_state["shoe_first_card_burned"] = True
+                        await broadcast_to_all({
+                            "action": "card_burned",
+                            "burned_card": card,
+                            "deck_count": len(game_state["deck"]),
+                            "burned_cards_count": len(game_state["burned_cards"]),
+                            "message": f"First card {card} burned from shoe reader (live mode)"
+                        })
+                    else:
+                        await handle_card_from_shoe(card)
+                else:
+                    # In non-live modes, just assign as normal
+                    await handle_card_from_shoe(card)
                 
     except websockets.ConnectionClosed:
         print(f"Client disconnected: {websocket.remote_address}")
@@ -1071,6 +1090,43 @@ async def handle_manual_deal_card(target, card, player_id=None):
         if game_state["dealer_card"] and all(pdata.get("card") is not None for pdata in game_state["players"].values()):
             await evaluate_round()
 
+def result_popup_message(result):
+    if result == "win":
+        return "You Win!"
+    elif result == "lose":
+        return "You Lose!"
+    elif result == "surrender":
+        return "You Surrendered."
+    elif result == "tie":
+        return "It's a Tie!"
+    return ""
+
+async def handle_manual_assign_result(player_id, result):
+    """Manually assign win/lose to a player in manual mode."""
+    if game_state["game_mode"] != "manual":
+        await broadcast_to_dealers({"action": "error", "message": "Manual result assignment only allowed in manual mode."})
+        return
+    if player_id not in game_state["players"]:
+        await broadcast_to_dealers({"action": "error", "message": f"Player {player_id} not found."})
+        return
+    if result not in ("win", "lose"):
+        await broadcast_to_dealers({"action": "error", "message": f"Invalid result: {result}"})
+        return
+    game_state["players"][player_id]["result"] = result
+    game_state["players"][player_id]["status"] = "finished"
+    game_state["player_results"][player_id] = result
+    # Optionally: mark round as complete if all players finished
+    all_finished = all(p["status"] == "finished" for p in game_state["players"].values())
+    await broadcast_to_all({
+        "action": "manual_result_assigned",
+        "player_id": player_id,
+        "result": result,
+        "player_results": dict(game_state["player_results"]),
+        "players": game_state["players"]
+    })
+    if all_finished:
+        await complete_round()
+
 async def broadcast_to_all(message):
     """Broadcasts message to all connected clients."""
     print(f"[BROADCAST_TO_ALL] {json.dumps(message)}")  # LOG every broadcast
@@ -1175,9 +1231,9 @@ def extract_card_value(input_string):
 # Unified handler for shoe reader cards (assigns to main or war round as needed)
 async def handle_card_from_shoe(card):
     try:
+        # If in war round, assign as war card as before
         if game_state.get("war_round_active"):
             print(f"[SHOE] Routing card {card} to WAR round assignment (war_round_active={game_state['war_round_active']})")
-            # War round: assign to next war target
             target, player_id = get_next_war_card_assignment_target()
             if target == "player":
                 await handle_assign_war_card("player", card, player_id)
@@ -1186,8 +1242,22 @@ async def handle_card_from_shoe(card):
             else:
                 print("[SHOE] All war cards assigned.")
         else:
+            # Only burn the first card detected in each round in live mode
+            if game_state["game_mode"] == "live" and not game_state.get("shoe_first_card_burned", False):
+                if card in game_state["deck"]:
+                    game_state["deck"].remove(card)
+                    game_state["burned_cards"].append(card)
+                game_state["shoe_first_card_burned"] = True
+                await broadcast_to_all({
+                    "action": "card_burned",
+                    "burned_card": card,
+                    "deck_count": len(game_state["deck"]),
+                    "burned_cards_count": len(game_state["burned_cards"]),
+                    "message": f"First card {card} burned from shoe reader (live mode)"
+                })
+                return
+            # After first burn, assign as normal
             print(f"[SHOE] Routing card {card} to MAIN round assignment (war_round_active={game_state.get('war_round_active', False)})")
-            # Main round: assign to next available player or dealer
             target, player_id = get_next_card_assignment_target()
             if target == "player":
                 await handle_manual_deal_card("player", card, player_id)

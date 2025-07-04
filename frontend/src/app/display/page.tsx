@@ -65,6 +65,9 @@ export default function DisplayPage() {
   const [statsLoaded, setStatsLoaded] = useState(false);
   const [sessionStats, setSessionStats] = useState<Record<string, any>>({});
 
+  const [resultPopups, setResultPopups] = useState<Record<string, string | null>>({})
+  const resultTimeoutRefs = useRef<Record<string, NodeJS.Timeout>>({})
+
   const wsRef = useRef<WebSocket | null>(null)
 
   useEffect(() => {
@@ -265,6 +268,26 @@ export default function DisplayPage() {
         break
     }
   }
+
+  // --- Real-time WIN/LOSE popups for each player ---
+  // Watch for player result changes and show popup
+  useEffect(() => {
+    Object.entries(gameState.players).forEach(([playerId, playerData]) => {
+      if (playerData.result && (playerData.result === 'win' || playerData.result === 'lose')) {
+        setResultPopups(prev => {
+          if (prev[playerId] === playerData.result) return prev
+          // Show popup
+          return { ...prev, [playerId]: playerData.result }
+        })
+        // Clear any previous timeout
+        if (resultTimeoutRefs.current[playerId]) clearTimeout(resultTimeoutRefs.current[playerId])
+        // Hide popup after 3 seconds
+        resultTimeoutRefs.current[playerId] = setTimeout(() => {
+          setResultPopups(prev => ({ ...prev, [playerId]: null }))
+        }, 3000)
+      }
+    })
+  }, [gameState.players])
 
   const renderCard = (card: string | null, size: 'small' | 'medium' | 'large' = 'small') => {
     if (!card) return null
@@ -589,6 +612,29 @@ export default function DisplayPage() {
           </div>
         </div>
       </motion.div>
+
+      {/* WIN/LOSE POPUPS */}
+      <AnimatePresence>
+        {Object.entries(resultPopups).map(([playerId, result]) =>
+          result ? (
+            <motion.div
+              key={playerId}
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none"
+            >
+              <div
+                className={`px-10 py-8 rounded-2xl shadow-2xl text-4xl font-extrabold flex items-center justify-center gap-4
+                  ${result === 'win' ? 'bg-green-600/95 text-yellow-200' : 'bg-red-700/95 text-white'}`}
+                style={{ border: '6px solid #d4af37', minWidth: 320 }}
+              >
+                Player {playerId}: {result === 'win' ? '🏆 WIN!' : '❌ LOSE'}
+              </div>
+            </motion.div>
+          ) : null
+        )}
+      </AnimatePresence>
     </div>
   )
 }

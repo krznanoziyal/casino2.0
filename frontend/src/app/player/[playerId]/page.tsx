@@ -59,6 +59,9 @@ export default function PlayerPage () {
     >
   >({})
 
+  const [resultPopup, setResultPopup] = useState<string | null>(null)
+  const resultTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
   const wsRef = useRef<WebSocket | null>(null)
 
   useEffect(() => {
@@ -392,6 +395,17 @@ export default function PlayerPage () {
     gameState.war_round &&
     (gameState.war_round.dealer_card || gameState.war_round.players[playerId])
 
+  // Show popup when result changes
+  useEffect(() => {
+    if (!playerId) return
+    const playerData = gameState.players[playerId]
+    if (playerData && playerData.result && (playerData.result === 'win' || playerData.result === 'lose')) {
+      setResultPopup(playerData.result)
+      if (resultTimeoutRef.current) clearTimeout(resultTimeoutRef.current)
+      resultTimeoutRef.current = setTimeout(() => setResultPopup(null), 3000)
+    }
+  }, [gameState.players[playerId]?.result])
+
   return (
     <div className='min-h-screen bg-[#450a03]'>
       {/* Header with wood background */}
@@ -642,6 +656,26 @@ export default function PlayerPage () {
           </div>
         </div>
       </div>
+
+      {/* Result Popup */}
+      <AnimatePresence>
+        {resultPopup && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            className={`fixed inset-0 z-50 flex items-center justify-center pointer-events-none`}
+          >
+            <div
+              className={`px-10 py-8 rounded-2xl shadow-2xl text-4xl font-extrabold flex items-center justify-center gap-4
+                ${resultPopup === 'win' ? 'bg-green-600/95 text-yellow-200' : 'bg-red-700/95 text-white'}`}
+              style={{ border: '6px solid #d4af37', minWidth: 320 }}
+            >
+              {resultPopup === 'win' ? '🏆 YOU WIN!' : '❌ YOU LOSE'}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <style jsx>{`
         .wood-header {

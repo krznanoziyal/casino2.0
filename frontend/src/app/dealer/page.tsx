@@ -450,6 +450,15 @@ export default function DealerPage () {
     prevPlayerStatusesRef.current = currStatuses
   }, [gameState.players])
 
+  // --- Manual WIN/LOSE assignment for each player in manual mode ---
+  const assignManualResult = (playerId: string, result: 'win' | 'lose') => {
+    sendMessage({
+      action: 'manual_assign_result',
+      player_id: playerId,
+      result
+    })
+  }
+
   return (
     <div className='min-h-screen max-h-screen overflow-hidden flex flex-col'>
       {/* Header Section - Reduce height */}
@@ -659,6 +668,20 @@ export default function DealerPage () {
                       >
                         Deal Cards
                       </button>
+                      {/* --- STOP BURNING BUTTON --- */}
+                      {/* <button
+                        className='rounded-lg shadow text-xl font-bold flex items-center justify-center'
+                        style={{
+                          width: 250,
+                          height: 49,
+                          backgroundColor: '#911606',
+                          color: '#fff',
+                          marginTop: 12
+                        }}
+                        onClick={() => sendMessage({ action: 'stop_burning' })}
+                      >
+                        🛑 Stop Burning
+                      </button> */}
                     </div>
                     <div className='flex flex-col items-center gap-2'>
                       <button
@@ -911,50 +934,41 @@ export default function DealerPage () {
                         </button>
                       </div>
                     </div>
-                    {[1, 2, 3, 4, 5, 6].map(playerNum => (
-                      <div
-                        key={playerNum}
-                        className={`bg-[#911606] h-28 w-52 ${
-                          playerNum === 1 || playerNum === 4
-                            ? 'row-start-2 row-end-2 col-start-1 col-end-1'
-                            : playerNum === 2 || playerNum === 5
-                            ? 'row-start-2 row-end-2 col-start-2 col-end-2'
-                            : 'row-start-2 row-end-2 col-start-3 col-end-3'
-                        } ${
-                          playerNum > 3 ? 'row-start-3 row-end-3' : ''
-                        } m-2 rounded-lg flex flex-col justify-center items-center`}
-                      >
-                        <div className='text-lg font-bold mb-2 text-[#F0DEAD]'>
-                          PLAYER {playerNum}
+                    {[1, 2, 3, 4, 5, 6].map(playerNum => {
+                      const playerId = playerNum.toString()
+                      return (
+                        <div
+                          key={playerNum}
+                          className={`bg-[#911606] h-28 w-52 ${
+                            playerNum === 1 || playerNum === 4
+                              ? 'row-start-2 row-end-2 col-start-1 col-end-1'
+                              : playerNum === 2 || playerNum === 5
+                              ? 'row-start-2 row-end-2 col-start-2 col-end-2'
+                              : 'row-start-2 row-end-2 col-start-3 col-end-3'
+                          } ${
+                            playerNum > 3 ? 'row-start-3 row-end-3' : ''
+                          } m-2 rounded-lg flex flex-col justify-center items-center`}
+                        >
+                          <div className='text-lg font-bold mb-2 text-[#F0DEAD]'>
+                            PLAYER {playerNum}
+                          </div>
+                          <div className='flex flex-row gap-2'>
+                            <button
+                              className='px-4 rounded text-[#741003] bg-[#F0DEAD]'
+                              onClick={() => assignManualResult(playerId, 'win')}
+                            >
+                              WIN
+                            </button>
+                            <button
+                              className='px-4 py-2 rounded bg-[#450A03] text-[#F0DEAD]'
+                              onClick={() => assignManualResult(playerId, 'lose')}
+                            >
+                              LOSE
+                            </button>
+                          </div>
                         </div>
-                        <div className='flex flex-row gap-2'>
-                          <button
-                            className='px-4 rounded text-[#741003] bg-[#F0DEAD]'
-                            onClick={() =>
-                              sendMessage({
-                                action: 'manual_set_result',
-                                player: `player${playerNum}`,
-                                result: 'win'
-                              })
-                            }
-                          >
-                            WIN
-                          </button>
-                          <button
-                            className='px-4 py-2 rounded bg-[#450A03] text-[#F0DEAD]'
-                            onClick={() =>
-                              sendMessage({
-                                action: 'manual_set_result',
-                                player: `player${playerNum}`,
-                                result: 'lose'
-                              })
-                            }
-                          >
-                            LOSE
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 </div>
               ) : (
