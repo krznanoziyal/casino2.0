@@ -355,6 +355,7 @@ export default function DealerPage () {
         setGameState(prev => ({ ...prev, table_number: data.table_number }))
         addNotification(`Table number updated: ${data.table_number}`)
         break
+        
       default:
         if (data.message) {
           addNotification(data.message)
@@ -887,25 +888,21 @@ export default function DealerPage () {
                       <div className='flex flex-row gap-2'>
                         <button
                           className='px-4 rounded text-[#741003] bg-[#F0DEAD]'
-                          onClick={() =>
-                            sendMessage({
-                              action: 'manual_set_result',
-                              player: 'dealer',
-                              result: 'win'
-                            })
-                          }
+                          onClick={() => sendMessage({
+                            action: 'manual_assign_result',
+                            player_id: 'dealer',
+                            result: 'win'
+                          })}
                         >
                           WIN
                         </button>
                         <button
                           className='px-4 py-2 rounded bg-[#450A03] text-[#F0DEAD]'
-                          onClick={() =>
-                            sendMessage({
-                              action: 'manual_set_result',
-                              player: 'dealer',
-                              result: 'lose'
-                            })
-                          }
+                          onClick={() => sendMessage({
+                            action: 'manual_assign_result',
+                            player_id: 'dealer',
+                            result: 'lose'
+                          })}
                         >
                           LOSE
                         </button>
@@ -930,25 +927,21 @@ export default function DealerPage () {
                         <div className='flex flex-row gap-2'>
                           <button
                             className='px-4 rounded text-[#741003] bg-[#F0DEAD]'
-                            onClick={() =>
-                              sendMessage({
-                                action: 'manual_set_result',
-                                player: `player${playerNum}`,
-                                result: 'win'
-                              })
-                            }
+                            onClick={() => sendMessage({
+                              action: 'manual_assign_result',
+                              player_id: playerNum.toString(),
+                              result: 'win'
+                            })}
                           >
                             WIN
                           </button>
                           <button
                             className='px-4 py-2 rounded bg-[#450A03] text-[#F0DEAD]'
-                            onClick={() =>
-                              sendMessage({
-                                action: 'manual_set_result',
-                                player: `player${playerNum}`,
-                                result: 'lose'
-                              })
-                            }
+                            onClick={() => sendMessage({
+                              action: 'manual_assign_result',
+                              player_id: playerNum.toString(),
+                              result: 'lose'
+                            })}
                           >
                             LOSE
                           </button>
@@ -1533,7 +1526,7 @@ export default function DealerPage () {
                         {playerData.result && (
                           <div
                             className={`text-center mt-2 px-3 py-1 rounded-lg text-xs font-bold
-                            transform transition-all duration-200 shadow-lg border ${
+                            transform transition-all duration-200 shadow ${
                               playerData.result === 'win'
                                 ? 'bg-gradient-to-r from-green-700/80 to-green-500/80 text-white border-green-400 shadow-green-900/50'
                                 : playerData.result === 'lose'

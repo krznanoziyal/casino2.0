@@ -305,6 +305,45 @@ export default function PlayerPage () {
           addNotification('You have been removed from the table.')
         }
         break
+      case 'manual_result_assigned': {
+        // If this is for this player, update result and show popup
+        if (data.player_id === playerId) {
+          setGameState(prev => ({
+            ...prev,
+            players: {
+              ...prev.players,
+              [playerId]: {
+                ...prev.players[playerId],
+                result: data.result,
+                status: 'finished'
+              }
+            },
+            player_results: {
+              ...prev.player_results,
+              [playerId]: data.result
+            }
+          }))
+          addNotification(data.result === 'win' ? 'You WIN!' : 'You LOSE!')
+        } else {
+          // Update other players' results for display
+          setGameState(prev => ({
+            ...prev,
+            players: {
+              ...prev.players,
+              [data.player_id]: {
+                ...prev.players[data.player_id],
+                result: data.result,
+                status: 'finished'
+              }
+            },
+            player_results: {
+              ...prev.player_results,
+              [data.player_id]: data.result
+            }
+          }))
+        }
+        break
+      }
       default:
         if (data.message) {
           addNotification(data.message)

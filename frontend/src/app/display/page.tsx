@@ -263,6 +263,26 @@ export default function DisplayPage() {
           setStatsLoaded(true);
         }
         break
+      case 'manual_result_assigned': {
+        // Update the affected player's result in the display grid
+        setGameState(prev => ({
+          ...prev,
+          players: {
+            ...prev.players,
+            [data.player_id]: {
+              ...prev.players[data.player_id],
+              result: data.result,
+              status: 'finished'
+            }
+          },
+          player_results: {
+            ...prev.player_results,
+            [data.player_id]: data.result
+          }
+        }))
+        addNotification(`Player ${data.player_id} assigned result: ${data.result.toUpperCase()}`)
+        break
+      }
     }
   }
 
