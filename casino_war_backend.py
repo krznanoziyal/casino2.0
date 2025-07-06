@@ -1219,20 +1219,20 @@ async def handle_card_from_shoe(card):
                 print("[SHOE] All war cards assigned.")
         else:
             print(f"[SHOE] Routing card {card} to MAIN round assignment (war_round_active={game_state.get('war_round_active', False)})")
-            # # --- Burn first card of each main round in live mode ---
-            # if game_state.get("game_mode") == "live" and not game_state.get("shoe_first_card_burned", False):
-            #     if card in game_state["deck"]:
-            #         game_state["deck"].remove(card)
-            #         game_state["burned_cards"].append(card)
-            #     game_state["shoe_first_card_burned"] = True
-            #     await broadcast_to_all({
-            #         "action": "card_burned",
-            #         "burned_card": card,
-            #         "deck_count": len(game_state["deck"]),
-            #         "burned_cards_count": len(game_state["burned_cards"]),
-            #         "message": f"First card {card} burned from shoe reader"
-            #     })
-            #     return
+            # --- Burn first card of each main round in live mode ---
+            if game_state.get("game_mode") == "live" and not game_state.get("shoe_first_card_burned", False):
+                if card in game_state["deck"]:
+                    game_state["deck"].remove(card)
+                    game_state["burned_cards"].append(card)
+                game_state["shoe_first_card_burned"] = True
+                await broadcast_to_all({
+                    "action": "card_burned",
+                    "burned_card": card,
+                    "deck_count": len(game_state["deck"]),
+                    "burned_cards_count": len(game_state["burned_cards"]),
+                    "message": f"First card {card} burned from shoe reader"
+                })
+                return
             # Main round: assign to next available player or dealer
             target, player_id = get_next_card_assignment_target()
             if target == "player":
