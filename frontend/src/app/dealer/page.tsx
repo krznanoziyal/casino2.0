@@ -93,7 +93,7 @@ export default function DealerPage () {
 
   const connectWebSocket = () => {
     try {
-      wsRef.current = new WebSocket('ws://localhost:6789')
+      wsRef.current = new WebSocket('ws://192.168.1.7:6789')
 
       wsRef.current.onopen = () => {
         setConnected(true)
@@ -1138,7 +1138,7 @@ export default function DealerPage () {
                                 border: '2px solid #741003'
                               }}
                               onClick={() =>
-                                sendMessage({ action: 'reset_game' })
+                                sendMessage({ action: 'clear_round' })
                               }
                             >
                               RESET GAME
