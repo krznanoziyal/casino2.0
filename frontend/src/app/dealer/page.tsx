@@ -676,7 +676,7 @@ export default function DealerPage () {
                       >
                         Delete Last Win
                       </button>
-                      <button
+                      {/* <button
                         className='rounded-lg shadow text-xl font-bold flex items-center justify-center'
                         style={{
                           width: 250,
@@ -687,7 +687,7 @@ export default function DealerPage () {
                         onClick={() => sendMessage({ action: 'reset_game' })}
                       >
                         Clear All Records
-                      </button>
+                      </button> */}
                       <button
                         className='rounded-lg shadow text-xl font-bold flex items-center justify-center'
                         style={{
