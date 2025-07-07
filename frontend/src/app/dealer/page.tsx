@@ -1138,10 +1138,10 @@ export default function DealerPage () {
                               border: '2px solid #741003'
                             }}
                             onClick={() =>
-                              sendMessage({ action: 'reset_game' })
+                              sendMessage({ action: 'clear_round' })
                             }
                           >
-                            RESET GAME
+                            NEW GAME
                           </button>
                         </div>
                       </div>
