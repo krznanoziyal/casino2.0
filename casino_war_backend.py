@@ -1047,6 +1047,14 @@ def assign_card_if_available(card, error_context="assignment"):
 
 # PATCH: handle_manual_deal_card (covers manual override and live/shoereader)
 async def handle_manual_deal_card(target, card, player_id=None):
+    # Validation: must have at least one player added
+    if not game_state["players"] or len(game_state["players"]) == 0:
+        await broadcast_to_dealers({
+            "action": "error",
+            "message": "Add a player before assigning cards."
+        })
+        print("[MANUAL] Card ignored: no players added.")
+        return
     # Allow assignment to any unassigned player or dealer (not just next in order)
     if not assign_card_if_available(card, "manual assignment"):
         return
@@ -1216,6 +1224,14 @@ async def handle_card_from_shoe(card):
                 print("[SHOE] All war cards assigned.")
         else:
             print(f"[SHOE] Routing card {card} to MAIN round assignment (war_round_active={game_state.get('war_round_active', False)})")
+            # Validation: must have at least one player added
+            if not game_state["players"] or len(game_state["players"]) == 0:
+                await broadcast_to_dealers({
+                    "action": "error",
+                    "message": "Add a player before assigning cards."
+                })
+                print("[SHOE] Card ignored: no players added.")
+                return
             # Main round: assign to next available player or dealer
             target, player_id = get_next_card_assignment_target()
             if target == "player":
