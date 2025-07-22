@@ -1282,11 +1282,11 @@ async def read_from_serial(ser):
 
 async def main():
     """Starts the WebSocket server."""  
-    # async with websockets.serve(handle_connection, "localhost", 6789):
-    #     print("WebSocket server running on ws://localhost:6789")
-    async with websockets.serve(handle_connection, "0.0.0.0", 6789):
-        print("WebSocket server running on ws://0.0.0.0:6789")
-        await asyncio.Future()
+    async with websockets.serve(handle_connection, "localhost", 6789):
+        print("WebSocket server running on ws://localhost:6789")
+    # async with websockets.serve(handle_connection, "0.0.0.0", 6789):
+    #     print("WebSocket server running on ws://0.0.0.0:6789")
+    #     await asyncio.Future()
 
 # --- MAIN ENTRY POINT ---
 if __name__ == "__main__":
