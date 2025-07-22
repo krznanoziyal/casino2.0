@@ -764,6 +764,17 @@ export default function DisplayPage () {
             alt='Casino Wars Logo'
             className='relative z-10 h-[18vh] object-contain'
           />
+          <div className='absolute right-8 flex flex-col items-center justify-center z-10'>
+            <div className='text-3xl text-[#d4af37] font-bold font-[questrial] tracking-widest mb-0.5'>
+              BETS
+            </div>
+            <div className='text-lg text-[#d4af37] font-semibold font-[questrial] tracking-wide'>
+              Max: ₹{gameState.max_bet}
+            </div>
+            <div className='text-lg text-[#d4af37] font-semibold font-[questrial] tracking-wide'>
+              Min: ₹{gameState.min_bet}
+            </div>
+          </div>
         </nav>
 
         {/* Main game grid */}
@@ -803,15 +814,13 @@ export default function DisplayPage () {
                 <div className='flex items-center gap-1'>
                   {/* Regular dealer card */}
                   {gameState.dealer_card && (
-                    <div className='transform scale-75'>
-                      {renderCard(gameState.dealer_card, 'medium')}
-                    </div>
+                    <div>{renderCard(gameState.dealer_card, 'large')}</div>
                   )}
 
                   {/* Dealer war card */}
                   {gameState.war_round?.dealer_card && (
-                    <div className='transform scale-75'>
-                      {renderCard(gameState.war_round.dealer_card, 'medium')}
+                    <div>
+                      {renderCard(gameState.war_round.dealer_card, 'large')}
                     </div>
                   )}
                 </div>
@@ -823,7 +832,7 @@ export default function DisplayPage () {
               <img
                 src='/assets/ocean7-logo.png'
                 alt='Ocean7 Logo'
-                className='w-24 h-24 object-contain'
+                className='w-36 h-36 object-contain'
               />
             </div>
           </div>
@@ -835,9 +844,9 @@ export default function DisplayPage () {
 
             // Position cards to the LEFT of each player button - adjusted for 1112x800
             const cardPositions = {
-              1: 'absolute top-[35%] left-[9%] transform -translate-y-1/2 z-30', // Cards to left of Player 1
-              2: 'absolute top-[58%] left-[14%] transform -translate-y-1/2 z-30', // Cards to left of Player 2
-              3: 'absolute top-[71%] left-[24%] transform -translate-y-1/2 z-30' // Cards to left of Player 3
+              1: 'absolute top-[35%] left-[11%] transform -translate-y-1/2 z-30', // Cards to left of Player 1
+              2: 'absolute top-[58%] left-[16.25%] transform -translate-y-1/2 z-30', // Cards to left of Player 2
+              3: 'absolute top-[71%] left-[26.75%] transform -translate-y-1/2 z-30' // Cards to left of Player 3
             }
 
             return (
@@ -850,17 +859,15 @@ export default function DisplayPage () {
                 <div className='flex'>
                   {/* Regular card */}
                   {player.card && (
-                    <div className='transform scale-[0.65]'>
-                      {renderCard(player.card, 'medium')}
-                    </div>
+                    <div className=''>{renderCard(player.card, 'large')}</div>
                   )}
 
                   {/* War round card */}
                   {gameState.war_round?.players?.[playerNum.toString()] && (
-                    <div className='transform scale-[0.65]'>
+                    <div className=''>
                       {renderCard(
                         gameState.war_round.players[playerNum.toString()],
-                        'medium'
+                        'large'
                       )}
                     </div>
                   )}
@@ -876,9 +883,9 @@ export default function DisplayPage () {
 
             // Position cards to the RIGHT of each player button - adjusted for 1112x800
             const cardPositions = {
-              4: 'absolute top-[71%] right-[24%] transform -translate-y-1/2 z-30', // Cards to right of Player 4
-              5: 'absolute top-[58%] right-[13%] transform -translate-y-1/2 z-30', // Cards to right of Player 5
-              6: 'absolute top-[35%] right-[8%] transform -translate-y-1/2 z-30' // Cards to right of Player 6
+              4: 'absolute top-[71%] right-[26.75%] transform -translate-y-1/2 z-30', // Cards to right of Player 4
+              5: 'absolute top-[58%] right-[16.25%] transform -translate-y-1/2 z-30', // Cards to right of Player 5
+              6: 'absolute top-[35%] right-[11%] transform -translate-y-1/2 z-30' // Cards to right of Player 6
             }
 
             return (
@@ -891,17 +898,15 @@ export default function DisplayPage () {
                 <div className='flex'>
                   {/* Regular card */}
                   {player.card && (
-                    <div className='transform scale-[0.65]'>
-                      {renderCard(player.card, 'medium')}
-                    </div>
+                    <div className=''>{renderCard(player.card, 'large')}</div>
                   )}
 
                   {/* War round card */}
                   {gameState.war_round?.players?.[playerNum.toString()] && (
-                    <div className='transform scale-[0.65]'>
+                    <div className=''>
                       {renderCard(
                         gameState.war_round.players[playerNum.toString()],
-                        'medium'
+                        'large'
                       )}
                     </div>
                   )}
@@ -944,22 +949,11 @@ export default function DisplayPage () {
               alt='Wood Background'
               className='absolute inset-0 w-full h-full object-cover rotate-180 z-0'
             />
-            <div className='relative top-1 flex items-center justify-between w-full max-w-5xl px-3 z-10'>
-              <div className='text-lg font-bold text-[#d4af37] font-[questrial] tracking-wider'>
+            <div className='relative top-1 flex items-center justify-between w-full px-8 z-10'>
+              <div className='text-4xl font-bold text-[#d4af37] font-[questrial] tracking-wider'>
                 Games: {gameState.round_number}
               </div>
-              <div className='flex flex-col items-center justify-center z-10'>
-                <div className='text-2xl text-[#d4af37] font-bold font-[questrial] tracking-widest mb-0.5'>
-                  BETS
-                </div>
-                <div className='text-sm text-[#d4af37] font-semibold font-[questrial] tracking-wide'>
-                  Max: ${gameState.max_bet}
-                </div>
-                <div className='text-sm text-[#d4af37] font-semibold font-[questrial] tracking-wide'>
-                  Min: ${gameState.min_bet}
-                </div>
-              </div>
-              <div className='text-lg font-bold text-[#d4af37] font-[questrial] tracking-wider'>
+              <div className='text-4xl font-bold text-[#d4af37] font-[questrial] tracking-wider'>
                 Table: {gameState.table_number}
               </div>
             </div>
@@ -968,7 +962,7 @@ export default function DisplayPage () {
       </div>
 
       {/* Bottom disclaimer */}
-      <div className='absolute bottom-0 text-center text-black text-xs'>
+      <div className='absolute bottom-0 text-center text-black text-lg'>
         This is the result display screen. All table results and managements
         decision will be final.
       </div>

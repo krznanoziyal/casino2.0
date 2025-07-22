@@ -1227,7 +1227,7 @@ export default function DealerPage () {
                 </div>
                 <div className='mb-3 p-2'>
                   <div className='text-yellow-300 font-semibold text-base'>
-                    Betting: ${gameState.min_bet} - ${gameState.max_bet}
+                    Betting: ₹{gameState.min_bet} - ₹{gameState.max_bet}
                   </div>
                 </div>
                 <div className='mb-3 p-2'>
