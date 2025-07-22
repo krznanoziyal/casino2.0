@@ -1,4 +1,4 @@
-('C:\\Users\\Krishna\\Desktop\\casino2.0\\build\\run_script\\PYZ-00.pyz',
+('C:\\Users\\Krishna\\Desktop\\casino2.0\\build\\run_script_my_pc\\PYZ-00.pyz',
  [('__future__',
    'C:\\Users\\Krishna\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\__future__.py',
    'PYMODULE'),
