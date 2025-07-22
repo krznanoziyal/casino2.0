@@ -58,10 +58,9 @@ def start_servers():
             shell=True
         )
     if python_proc is None or python_proc.poll() is not None:
+        backend_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "casino_war_backend.py")
         python_proc = subprocess.Popen(
-            # f'"{VENV_PYTHON}" server.py',
-            "python casino_war_backend.py", 
-            cwd=os.getcwd(),
+            f'python "{backend_path}"',
             shell=True
         )
 
