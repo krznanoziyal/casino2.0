@@ -28,7 +28,7 @@ WEB_URL = "http://192.168.2.190:3000"
 # status_node.set("Node App: Not running")
 # status_python.set("Python Server: Not running")
 
-SERIAL_PORT = "COM1"  # Match with casino_war_backend.py
+SERIAL_PORT = "COM1"  # Match with server.py
 BAUD_RATE = 9600
 
 # --- Chrome detection ---
@@ -51,19 +51,17 @@ def find_chrome_path():
 # --- Server management ---
 def start_servers():
     global node_proc, python_proc
-    project_dir = r"C:/Users/Krishna/Desktop/casino2.0"
-    frontend_dir = os.path.join(project_dir, "frontend")
     if node_proc is None or node_proc.poll() is not None:
+        frontend_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "frontend")
         node_proc = subprocess.Popen(
-            "npx next dev --port 3000 --hostname 0.0.0.0",
-            cwd=frontend_dir,
+            f'cd /d "{frontend_dir}" && npx next dev --port 3000 --hostname 0.0.0.0',
             shell=True
         )
     if python_proc is None or python_proc.poll() is not None:
         python_proc = subprocess.Popen(
-            # f'"{VENV_PYTHON}" casino_war_backend.py',
+            # f'"{VENV_PYTHON}" server.py',
             "python casino_war_backend.py", 
-            cwd=project_dir,
+            cwd=os.getcwd(),
             shell=True
         )
 
