@@ -74,8 +74,9 @@ export default function PlayerPage () {
 
   const connectWebSocket = () => {
     try {
-      wsRef.current = new WebSocket('ws://192.168.2.190:6789')
-
+      // wsRef.current = new WebSocket('ws://192.168.2.190:6789')
+      wsRef.current = new WebSocket('ws://localhost:6789')
+      
       wsRef.current.onopen = () => {
         setConnected(true)
         sendMessage({ action: 'register_player', player_id: playerId })
