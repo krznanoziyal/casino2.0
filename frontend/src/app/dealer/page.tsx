@@ -624,7 +624,7 @@ export default function DealerPage () {
                   {/* Second column */}
                   <div className='flex-1 flex flex-col h-full min-h-full'>
                     <div className='flex flex-col items-center gap-2 mb-16'>
-                      <button
+                      {/* <button
                         className='rounded-lg shadow text-xl font-bold flex items-center justify-center'
                         style={{
                           width: 250,
@@ -635,8 +635,8 @@ export default function DealerPage () {
                         onClick={() => sendMessage({ action: 'shuffle_deck' })}
                       >
                         Shuffle Deck ({gameState.deck_count} Cards)
-                      </button>
-                      <button
+                      </button> */}
+                      {/* <button
                         className='rounded-lg shadow text-xl font-bold flex items-center justify-center'
                         style={{
                           width: 250,
@@ -647,8 +647,8 @@ export default function DealerPage () {
                         onClick={() => sendMessage({ action: 'burn_card' })}
                       >
                         Burn Card
-                      </button>
-                      <button
+                      </button> */}
+                      {/* <button
                         className='rounded-lg shadow text-xl font-bold flex items-center justify-center'
                         style={{
                           width: 250,
@@ -659,10 +659,10 @@ export default function DealerPage () {
                         onClick={() => sendMessage({ action: 'deal_cards' })}
                       >
                         Deal Cards
-                      </button>
+                      </button> */}
                     </div>
                     <div className='flex flex-col items-center gap-2'>
-                      <button
+                      {/* <button
                         className='rounded-lg shadow text-xl font-bold flex items-center justify-center'
                         style={{
                           width: 250,
@@ -675,8 +675,8 @@ export default function DealerPage () {
                         // }
                       >
                         Delete Last Win
-                      </button>
-                      <button
+                      </button> */}
+                      {/* <button
                         className='rounded-lg shadow text-xl font-bold flex items-center justify-center'
                         style={{
                           width: 250,
@@ -687,7 +687,7 @@ export default function DealerPage () {
                         onClick={() => sendMessage({ action: 'reset_game' })}
                       >
                         Clear All Records
-                      </button>
+                      </button> */}
                       <button
                         className='rounded-lg shadow text-xl font-bold flex items-center justify-center'
                         style={{
@@ -1256,7 +1256,7 @@ export default function DealerPage () {
                         renderCard(gameState.war_round.dealer_card, 'medium')
                       ) : (
                         <div className='w-12 h-16 card-back rounded-lg flex items-center justify-center'>
-                          <span className='text-white'>🎴</span>
+                          <span className='text-white'>?</span>
                         </div>
                       )}
                     </div>
@@ -1284,7 +1284,7 @@ export default function DealerPage () {
                                 ) : (
                                   <div className='w-8 h-12 card-back rounded flex items-center justify-center'>
                                     <span className='text-white text-xs'>
-                                      🎴
+                                      ?
                                     </span>
                                   </div>
                                 )}
