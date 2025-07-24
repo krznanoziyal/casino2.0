@@ -93,8 +93,8 @@ export default function DealerPage () {
 
   const connectWebSocket = () => {
     try {
-      // wsRef.current = new WebSocket('ws://192.168.2.190:6789')
-      wsRef.current = new WebSocket('ws://localhost:6789') // Use this for local testing
+      wsRef.current = new WebSocket('ws://192.168.2.190:6789')
+      // wsRef.current = new WebSocket('ws://localhost:6789') // Use this for local testing
       wsRef.current.onopen = () => {
         setConnected(true)
         sendMessage({ action: 'register_dealer' })
@@ -135,6 +135,57 @@ export default function DealerPage () {
     }, 5000)
   }
 
+  const [cardQueue, setCardQueue] = useState<any[]>([]);
+  const [isAssigningCards, setIsAssigningCards] = useState(false);
+
+  useEffect(() => {
+    if (cardQueue.length > 0 && !isAssigningCards) {
+      setIsAssigningCards(true);
+      const processNext = () => {
+        setCardQueue(q => {
+          const next = q[0];
+          if (!next) {
+            setIsAssigningCards(false);
+            return [];
+          }
+          if (next.target === 'player' && next.player_id) {
+            setGameState(prev => ({
+              ...prev,
+              players: {
+                ...prev.players,
+                [next.player_id]: {
+                  ...prev.players[next.player_id],
+                  card: next.card,
+                  status: 'active'
+                }
+              },
+              deck_count: typeof next.deck_count === 'number' ? next.deck_count : prev.deck_count
+            }));
+            addNotification(`Card assigned to player ${next.player_id}`);
+          } else if (next.target === 'dealer') {
+            setGameState(prev => ({
+              ...prev,
+              dealer_card: next.card,
+              deck_count: typeof next.deck_count === 'number' ? next.deck_count : prev.deck_count
+            }));
+            addNotification(`Card assigned to dealer`);
+          }
+          // Remove the assigned card from the queue
+          return q.slice(1);
+        });
+        setTimeout(() => {
+          // Use latest cardQueue from state
+          if (cardQueue.length > 1) {
+            processNext();
+          } else {
+            setIsAssigningCards(false);
+          }
+        }, 1000);
+      };
+      processNext();
+    }
+  }, [cardQueue, isAssigningCards]);
+
   const handleServerMessage = (data: any) => {
     switch (data.action) {
       case 'game_state_update':
@@ -170,6 +221,14 @@ export default function DealerPage () {
           player_results: data.player_results
         }))
         addNotification(`Player ${data.player_id} removed from game`)
+        break
+      case 'manual_result_assigned':
+        setGameState(prev => ({
+          ...prev,
+          player_results: data.player_results,
+          players: { ...prev.players, ...data.players }
+        }))
+        addNotification(data.message || 'Player result assigned')
         break
       case 'round_dealt':
         setGameState(prev => ({
@@ -214,8 +273,8 @@ export default function DealerPage () {
           war_round_active: false,
           war_round: {
             ...prev.war_round,
-            dealer_card: null,
-            players: {},
+            dealer_card: data.dealer_card, // <-- ensure dealer war card is updated
+            players: { ...prev.war_round?.players, ...data.war_round?.players },
             // Keep original_cards for display
             original_cards: prev.war_round?.original_cards
           },
@@ -355,6 +414,11 @@ export default function DealerPage () {
         setGameState(prev => ({ ...prev, table_number: data.table_number }))
         addNotification(`Table number updated: ${data.table_number}`)
         break
+
+      case 'card_assigned': {
+        setCardQueue(q => [...q, data]);
+        break;
+      }
         
       default:
         if (data.message) {
@@ -880,53 +944,26 @@ export default function DealerPage () {
                 </div>
               ) : gameState.game_mode === 'manual' ? (
                 <div className='flex flex-col items-center justify-center w-full h-full mt-8'>
-                  <div className='grid grid-cols-3 grid-rows-3 w-fit'>
-                    <div className='bg-[#D6AB5D] h-28 w-52 row-start-1 row-end-1 col-start-2 col-end-2 m-2 rounded-lg flex flex-col justify-center items-center'>
-                      <div className='text-lg font-bold mb-2 text-[#911606]'>
-                        DEALER
-                      </div>
-                      {/* <div className='flex flex-row gap-2'>
-                        <button
-                          className='px-4 rounded text-[#741003] bg-[#F0DEAD]'
-                          onClick={() => sendMessage({
-                            action: 'manual_assign_result',
-                            player_id: 'dealer',
-                            result: 'win'
-                          })}
-                        >
-                          WIN
-                        </button>
-                        <button
-                          className='px-4 py-2 rounded bg-[#450A03] text-[#F0DEAD]'
-                          onClick={() => sendMessage({
-                            action: 'manual_assign_result',
-                            player_id: 'dealer',
-                            result: 'lose'
-                          })}
-                        >
-                          LOSE
-                        </button>
-                      </div> */}
-                    </div>
+                  <button
+                    className='mb-4 px-6 py-3 rounded-lg text-xl font-bold shadow text-white bg-[#911606] hover:bg-[#741003] transition-colors'
+                    style={{ maxWidth: 260 }}
+                    onClick={() => sendMessage({ action: 'reset_game' })}
+                  >
+                    RESET GAME
+                  </button>
+                  <div className='grid grid-cols-3 grid-rows-2 gap-4 w-fit'>
                     {[1, 2, 3, 4, 5, 6].map(playerNum => (
                       <div
                         key={playerNum}
-                        className={`bg-[#911606] h-28 w-52 ${
-                          playerNum === 1 || playerNum === 4
-                            ? 'row-start-2 row-end-2 col-start-1 col-end-1'
-                            : playerNum === 2 || playerNum === 5
-                            ? 'row-start-2 row-end-2 col-start-2 col-end-2'
-                            : 'row-start-2 row-end-2 col-start-3 col-end-3'
-                        } ${
-                          playerNum > 3 ? 'row-start-3 row-end-3' : ''
-                        } m-2 rounded-lg flex flex-col justify-center items-center`}
+                        className='bg-[#911606] h-28 w-56 rounded-lg flex flex-col justify-center items-center p-3'
+                        style={{ margin: '8px' }}
                       >
                         <div className='text-lg font-bold mb-2 text-[#F0DEAD]'>
                           PLAYER {playerNum}
                         </div>
                         <div className='flex flex-row gap-2'>
                           <button
-                            className='px-4 rounded text-[#741003] bg-[#F0DEAD]'
+                            className='px-4 py-2 rounded text-[#741003] bg-[#F0DEAD] text-base font-semibold'
                             onClick={() => sendMessage({
                               action: 'manual_assign_result',
                               player_id: playerNum.toString(),
@@ -936,7 +973,7 @@ export default function DealerPage () {
                             WIN
                           </button>
                           <button
-                            className='px-4 py-2 rounded bg-[#450A03] text-[#F0DEAD]'
+                            className='px-4 py-2 rounded bg-[#450A03] text-[#F0DEAD] text-base font-semibold'
                             onClick={() => sendMessage({
                               action: 'manual_assign_result',
                               player_id: playerNum.toString(),
@@ -952,12 +989,12 @@ export default function DealerPage () {
                 </div>
               ) : (
                 <div className='flex flex-col items-center justify-center w-full h-full'>
-                  <button
+                  {/* <button
                     onClick={() => sendMessage({ action: 'shuffle_deck' })}
                     className='m-4 px-5 py-3 rounded-lg text-xl font-bold shadow text-white bg-[#911606] hover:bg-[#741003] transition-colors'
                   >
                     🔄 Shuffle Deck ({gameState.deck_count} cards)
-                  </button>
+                  </button> */}
                   <button
                     className='m-4 px-5 py-3 rounded-lg text-xl font-bold shadow text-white bg-[#911606] hover:bg-[#741003] transition-colors'
                     onClick={() => {
@@ -983,7 +1020,7 @@ export default function DealerPage () {
                     className='m-4 px-5 py-3 rounded-lg text-xl font-bold shadow text-white bg-[#911606] hover:bg-[#741003] transition-colors'
                     onClick={() => sendMessage({ action: 'reset_game' })}
                   >
-                    Clear All Records
+                    RESET GAME
                   </button>
                 </div>
               )}
@@ -1141,7 +1178,7 @@ export default function DealerPage () {
                               sendMessage({ action: 'clear_round' })
                             }
                           >
-                            RESET GAME
+                            NEW GAME
                           </button>
                         </div>
                       </div>

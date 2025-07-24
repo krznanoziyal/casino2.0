@@ -9,7 +9,7 @@ import re
 import urllib.parse
 import serial
 
-# ser = serial.Serial("COM1", 9600, timeout=0.1)  # Adjust baud rate if necessary
+ser = serial.Serial("COM1", 9600, timeout=0.1)  # Adjust baud rate if necessary
 
 # MongoDB setup
 MONGO_URI = "mongodb://localhost:27017"
@@ -388,31 +388,58 @@ async def deal_cards_internal(increment_round=True):
     if not game_state["deck"]:
         await broadcast_to_dealers({"action": "error", "message": "No cards left in deck"})
         return False
-    
     if len(game_state["deck"]) < len(game_state["players"]) + 1:
         await broadcast_to_dealers({"action": "error", "message": "Not enough cards for all players and dealer"})
         return False
-    
     if increment_round:
         game_state["round_number"] += 1
     game_state["round_active"] = True
-    
-    # Deal cards to players
-    for player_id in game_state["players"]:
+
+    is_automatic = game_state.get("game_mode") == "automatic"
+    # Sort player IDs numerically if possible, else lexicographically
+    player_ids = list(game_state["players"].keys())
+    try:
+        player_ids.sort(key=lambda x: int(x))
+    except Exception:
+        player_ids.sort()
+
+    # Assign cards to players one by one in order
+    for player_id in player_ids:
         if game_state["deck"]:
             card = game_state["deck"].pop(0)
             game_state["players"][player_id]["card"] = card
             game_state["players"][player_id]["status"] = "active"
             game_state["players"][player_id]["result"] = None
             game_state["players"][player_id]["war_card"] = None
-            # Track the card assignment order
             game_state.setdefault("assignment_order", []).append({"player_id": player_id, "card": card, "type": "player"})
-    # Deal card to dealer
+            if is_automatic:
+                await broadcast_to_all({
+                    "action": "card_assigned",
+                    "target": "player",
+                    "player_id": player_id,
+                    "card": card,
+                    "players": game_state["players"],
+                    "dealer_card": game_state["dealer_card"],
+                    "deck_count": len(game_state["deck"])
+                })
+                await asyncio.sleep(0.5)
+
+    # Assign card to dealer at the end
     if game_state["deck"]:
-        game_state["dealer_card"] = game_state["deck"].pop(0)
-        # Track the card assignment order
-        game_state["assignment_order"].append({"card": game_state["dealer_card"], "type": "dealer"})
-    
+        dealer_card = game_state["deck"].pop(0)
+        game_state["dealer_card"] = dealer_card
+        game_state["assignment_order"].append({"card": dealer_card, "type": "dealer"})
+        if is_automatic:
+            await broadcast_to_all({
+                "action": "card_assigned",
+                "target": "dealer",
+                "card": dealer_card,
+                "players": game_state["players"],
+                "dealer_card": dealer_card,
+                "deck_count": len(game_state["deck"])
+            })
+            await asyncio.sleep(0.5)
+
     # Evaluate results
     await evaluate_round()
     return True
@@ -1274,37 +1301,37 @@ async def read_from_serial(ser):
             # Optionally: await broadcast_to_dealers({"action": "error", "message": f"Serial error: {e}"})
             await asyncio.sleep(1)  # Prevent tight error loop
 
-# async def main():
-#     print("Connected to:", ser.name)
-#     async with websockets.serve(handle_connection, "0.0.0.0", 6789):
-#         print("WebSocket server running on ws://localhost:6789")
-#         await asyncio.gather(
-#             read_from_serial(ser),
-#             asyncio.Future()  # Keeps the server running forever
-#         )
-
-# if __name__ == "__main__":
-#     import sys
-#     if sys.platform.startswith("win"):
-#         asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
-#     asyncio.run(main())
-
-# MY FUNCSSS
-
 async def main():
-    """Starts the WebSocket server."""  
-    async with websockets.serve(handle_connection, "localhost", 6789):
-        print("WebSocket server running on ws://localhost:6789")
-    # async with websockets.serve(handle_connection, "0.0.0.0", 6789):
-    #     print("WebSocket server running on ws://0.0.0.0:6789")
-        await asyncio.Future()
+    print("Connected to:", ser.name)
+    async with websockets.serve(handle_connection, "0.0.0.0", 6789):
+        print("WebSocket server running on ws://0.0.0.0:6789")
+        await asyncio.gather(
+            read_from_serial(ser),
+            asyncio.Future()  # Keeps the server running forever
+        )
 
-# --- MAIN ENTRY POINT ---
 if __name__ == "__main__":
     import sys
     if sys.platform.startswith("win"):
         asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
     asyncio.run(main())
+
+# MY FUNCSSS
+
+# async def main():
+#     """Starts the WebSocket server."""  
+#     async with websockets.serve(handle_connection, "localhost", 6789):
+#         print("WebSocket server running on ws://localhost:6789")
+#     # async with websockets.serve(handle_connection, "0.0.0.0", 6789):
+#     #     print("WebSocket server running on ws://0.0.0.0:6789")
+#         await asyncio.Future()
+
+# # --- MAIN ENTRY POINT ---
+# if __name__ == "__main__":
+#     import sys
+#     if sys.platform.startswith("win"):
+#         asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+#     asyncio.run(main())
 
 # Usage:
 #   - For main round: await read_from_serial(ser, war_mode=False)
