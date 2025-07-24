@@ -613,8 +613,21 @@ async def handle_assign_war_card(target, card, player_id=None):
     game_state["deck"].remove(card)
     if target == "dealer":
         war["dealer_card"] = card
+        # Track war card assignment order for undo
+        game_state.setdefault("assignment_order", []).append({
+            "card": card,
+            "type": "dealer",
+            "war_round": True
+        })
     elif target == "player" and player_id:
         war["players"][player_id] = card
+        # Track war card assignment order for undo
+        game_state.setdefault("assignment_order", []).append({
+            "player_id": player_id,
+            "card": card,
+            "type": "player",
+            "war_round": True
+        })
     else:
         await broadcast_to_dealers({"action": "error", "message": "Invalid war card assignment target."})
         return
