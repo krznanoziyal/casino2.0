@@ -885,7 +885,7 @@ export default function DealerPage () {
                       <div className='text-lg font-bold mb-2 text-[#911606]'>
                         DEALER
                       </div>
-                      <div className='flex flex-row gap-2'>
+                      {/* <div className='flex flex-row gap-2'>
                         <button
                           className='px-4 rounded text-[#741003] bg-[#F0DEAD]'
                           onClick={() => sendMessage({
@@ -906,7 +906,7 @@ export default function DealerPage () {
                         >
                           LOSE
                         </button>
-                      </div>
+                      </div> */}
                     </div>
                     {[1, 2, 3, 4, 5, 6].map(playerNum => (
                       <div
@@ -1212,31 +1212,31 @@ export default function DealerPage () {
                 )}
               </div>
 
-              {/* Right side - Game information - More compact */}
-              <div className='lg:w-1/3 flex flex-col justify-start items-end'>
-                <div className='mb-3 p-2'>
-                  <h2 className='text-xl font-bold text-yellow-300'>
-                    Round {gameState.round_number}{' '}
-                    {gameState.round_active ? '(Active)' : ''}
-                  </h2>
-                </div>
-                <div className='mb-3 p-2'>
-                  <div className='text-yellow-300 font-semibold text-base'>
-                    Table: {gameState.table_number}
+                {/* Right side - Game information - More compact */}
+                <div className='lg:w-1/3 flex flex-col justify-start items-end'>
+                  <div className='mb-3 p-2'>
+                    <h2 className='text-xl font-bold text-yellow-300'>
+                      Round {gameState.round_number}{' '}
+                      {gameState.round_active ? '(Active)' : ''}
+                    </h2>
                   </div>
-                </div>
-                <div className='mb-3 p-2'>
-                  <div className='text-yellow-300 font-semibold text-base'>
-                    Betting: ${gameState.min_bet} - ${gameState.max_bet}
+                  <div className='mb-3 p-2'>
+                    <div className='text-yellow-300 font-semibold text-base'>
+                      Table no: {gameState.table_number}
+                    </div>
                   </div>
-                </div>
-                <div className='mb-3 p-2'>
-                  <div className='text-yellow-300 font-semibold text-base'>
-                    Players: {Object.keys(gameState.players).length}/6
+                  <div className='mb-3 p-2'>
+                    <div className='text-yellow-300 font-semibold text-base'>
+                      Betting: ₹{gameState.min_bet} - ₹{gameState.max_bet}
+                    </div>
+                  </div>
+                  <div className='mb-3 p-2'>
+                    <div className='text-yellow-300 font-semibold text-base'>
+                      Players: {Object.keys(gameState.players).length}/6
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
 
             {/* War Round Section - More compact */}
             {gameState.war_round_active && (

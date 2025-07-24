@@ -733,7 +733,7 @@ export default function DisplayPage () {
     lost: '/assets/btn3.png',
     surrender: '/assets/btn4.png',
     tie: '/assets/btn4.png',
-    active: '/assets/btn6.png'
+    active: '/assets/btn5.png'
   }
 
   const stateToOverlay: Record<string, string> = {
@@ -753,17 +753,33 @@ export default function DisplayPage () {
     <div className='min-h-screen bg-[#d6ab5d] flex flex-col items-center justify-center'>
       <div className='h-[94vh] w-[96vw] m-3 bg-[#971909] flex flex-col'>
         {/* Header with wood background and logo */}
-        <nav className='w-full h-[15vh] relative flex items-center justify-center'>
+        <nav className='w-full h-[15vh] relative flex items-center justify-between px-8'>
+          <div className='text-2xl z-10 font-bold text-[#d4af37] font-[questrial] tracking-wider'>
+            Table no: {gameState.table_number}
+          </div>
           <img
             src='/assets/wood.png'
             alt='Wood Background'
             className='absolute inset-0 w-full h-full object-cover'
           />
-          <img
-            src='/assets/logo.png'
-            alt='Casino Wars Logo'
-            className='relative z-10 h-[18vh] object-contain'
-          />
+          <div className='relative z-10 flex-1 flex justify-center'>
+            <img
+              src='/assets/logo.png'
+              alt='Casino Wars Logo'
+              className='h-[18vh] object-contain'
+            />
+          </div>
+          <div className='relative z-10 flex flex-col items-center justify-center'>
+            <div className='text-2xl text-[#d4af37] font-bold font-[questrial] tracking-widest mb-0.5'>
+              BETS
+            </div>
+            <div className='text-sm text-[#d4af37] font-semibold font-[questrial] tracking-wide'>
+              Max: ₹{gameState.max_bet}
+            </div>
+            <div className='text-sm text-[#d4af37] font-semibold font-[questrial] tracking-wide'>
+              Min: ₹{gameState.min_bet}
+            </div>
+          </div>
         </nav>
 
         {/* Main game grid */}
@@ -944,24 +960,24 @@ export default function DisplayPage () {
               alt='Wood Background'
               className='absolute inset-0 w-full h-full object-cover rotate-180 z-0'
             />
-            <div className='relative top-1 flex items-center justify-between w-full max-w-5xl px-3 z-10'>
-              <div className='text-lg font-bold text-[#d4af37] font-[questrial] tracking-wider'>
+            <div className='relative top-1 flex items-center w-full ml-10 z-10'>
+              <div className='text-2xl font-bold text-[#d4af37] font-[questrial] tracking-wider'>
                 Games: {gameState.round_number}
               </div>
-              <div className='flex flex-col items-center justify-center z-10'>
+              {/* <div className='flex flex-col items-center justify-center z-10'>
                 <div className='text-2xl text-[#d4af37] font-bold font-[questrial] tracking-widest mb-0.5'>
                   BETS
                 </div>
                 <div className='text-sm text-[#d4af37] font-semibold font-[questrial] tracking-wide'>
-                  Max: ${gameState.max_bet}
+                  Max: ₹{gameState.max_bet}
                 </div>
                 <div className='text-sm text-[#d4af37] font-semibold font-[questrial] tracking-wide'>
-                  Min: ${gameState.min_bet}
+                  Min: ₹{gameState.min_bet}
                 </div>
-              </div>
-              <div className='text-lg font-bold text-[#d4af37] font-[questrial] tracking-wider'>
+              </div> */}
+              {/* <div className='text-lg font-bold text-[#d4af37] font-[questrial] tracking-wider'>
                 Table: {gameState.table_number}
-              </div>
+              </div> */}
             </div>
           </footer>
         </div>
