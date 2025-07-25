@@ -93,7 +93,7 @@ export default function DealerPage () {
 
   const connectWebSocket = () => {
     try {
-      wsRef.current = new WebSocket('ws://192.168.2.190:6789')
+      wsRef.current = new WebSocket('ws://localhost:6789')
       // wsRef.current = new WebSocket('ws://localhost:6789') // Use this for local testing
       wsRef.current.onopen = () => {
         setConnected(true)
@@ -764,7 +764,7 @@ export default function DealerPage () {
                           sendMessage({ action: 'clear_round' })
                         }}
                       >
-                        Reset Hands
+                        NEW GAME
                       </button>
                       <button
                         className='rounded-lg shadow text-xl font-bold flex items-center justify-center'
