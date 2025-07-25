@@ -750,11 +750,11 @@ export default function DisplayPage () {
   }
 
   return (
-    <div className='min-h-screen bg-[#d6ab5d] flex flex-col items-center justify-center'>
-      <div className='h-[94vh] w-[96vw] m-3 bg-[#971909] flex flex-col'>
+    <div className='min-h-screen bg-[#d6ab5d] flex flex-col items-center justify-center p-1 sm:p-2'>
+      <div className='h-[94vh] w-[98vw] sm:w-[96vw] m-1 sm:m-3 bg-[#971909] flex flex-col'>
         {/* Header with wood background and logo */}
-        <nav className='w-full h-[15vh] relative flex items-center justify-between px-8'>
-          <div className='text-2xl z-10 font-bold text-[#d4af37] font-[questrial] tracking-wider'>
+        <nav className='w-full h-[15vh] relative flex items-center justify-between px-4 sm:px-6 md:px-8'>
+          <div className='text-lg sm:text-xl md:text-2xl z-10 font-bold text-[#d4af37] font-[questrial] tracking-wider'>
             Table no: {gameState.table_number}
           </div>
           <img
@@ -766,24 +766,24 @@ export default function DisplayPage () {
             <img
               src='/assets/logo.png'
               alt='Casino Wars Logo'
-              className='h-[18vh] object-contain'
+              className='h-[16vh] sm:h-[17vh] md:h-[18vh] object-contain'
             />
           </div>
           <div className='relative z-10 flex flex-col items-center justify-center'>
-            <div className='text-2xl text-[#d4af37] font-bold font-[questrial] tracking-widest mb-0.5'>
+            <div className='text-lg sm:text-xl md:text-2xl text-[#d4af37] font-bold font-[questrial] tracking-widest mb-0.5'>
               BETS
             </div>
-            <div className='text-sm text-[#d4af37] font-semibold font-[questrial] tracking-wide'>
+            <div className='text-xs sm:text-sm md:text-base text-[#d4af37] font-semibold font-[questrial] tracking-wide'>
               Max: ₹{gameState.max_bet}
             </div>
-            <div className='text-sm text-[#d4af37] font-semibold font-[questrial] tracking-wide'>
+            <div className='text-xs sm:text-sm md:text-base text-[#d4af37] font-semibold font-[questrial] tracking-wide'>
               Min: ₹{gameState.min_bet}
             </div>
           </div>
         </nav>
 
         {/* Main game grid */}
-        <div className='flex-1 grid grid-cols-9 grid-rows-9 w-[96vw] h-[79vh]'>
+        <div className='flex-1 grid grid-cols-9 grid-rows-9 w-[98vw] sm:w-[96vw] h-[79vh]'>
           {/* Left side design */}
           <div className='col-start-1 col-end-2 row-start-2 row-end-8 flex items-center justify-center z-10'>
             <img
@@ -816,17 +816,17 @@ export default function DisplayPage () {
             {/* Dealer Cards - positioned in center with flex layout */}
             {(gameState.dealer_card || gameState.war_round?.dealer_card) && (
               <div className='absolute top-[70%] left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-30'>
-                <div className='flex items-center gap-1'>
+                <div className='flex items-center gap-1 sm:gap-2'>
                   {/* Regular dealer card */}
                   {gameState.dealer_card && (
-                    <div className='transform scale-75'>
+                    <div className='transform scale-90 sm:scale-100 md:scale-110 lg:scale-125'>
                       {renderCard(gameState.dealer_card, 'medium')}
                     </div>
                   )}
 
                   {/* Dealer war card */}
                   {gameState.war_round?.dealer_card && (
-                    <div className='transform scale-75'>
+                    <div className='transform scale-90 sm:scale-100 md:scale-110 lg:scale-125'>
                       {renderCard(gameState.war_round.dealer_card, 'medium')}
                     </div>
                   )}
@@ -849,11 +849,11 @@ export default function DisplayPage () {
             const player = gameState.players[playerNum.toString()]
             if (!player) return null
 
-            // Position cards to the LEFT of each player button - adjusted for 1112x800
+            // Responsive position cards to the LEFT of each player button
             const cardPositions = {
-              1: 'absolute top-[35%] left-[9%] transform -translate-y-1/2 z-30', // Cards to left of Player 1
-              2: 'absolute top-[58%] left-[14%] transform -translate-y-1/2 z-30', // Cards to left of Player 2
-              3: 'absolute top-[71%] left-[24%] transform -translate-y-1/2 z-30' // Cards to left of Player 3
+              1: 'absolute top-[30%] sm:top-[32%] md:top-[35%] left-[6%] sm:left-[8%] md:left-[9%] transform -translate-y-1/2 z-30',
+              2: 'absolute top-[55%] sm:top-[56%] md:top-[58%] left-[10%] sm:left-[12%] md:left-[14%] transform -translate-y-1/2 z-30',
+              3: 'absolute top-[68%] sm:top-[69%] md:top-[71%] left-[20%] sm:left-[22%] md:left-[24%] transform -translate-y-1/2 z-30'
             }
 
             return (
@@ -863,17 +863,17 @@ export default function DisplayPage () {
                   cardPositions[playerNum as keyof typeof cardPositions]
                 }
               >
-                <div className='flex'>
+                <div className='flex gap-1'>
                   {/* Regular card */}
                   {player.card && (
-                    <div className='transform scale-[0.65]'>
+                    <div className='transform scale-75 sm:scale-85 md:scale-95 lg:scale-105'>
                       {renderCard(player.card, 'medium')}
                     </div>
                   )}
 
                   {/* War round card */}
                   {gameState.war_round?.players?.[playerNum.toString()] && (
-                    <div className='transform scale-[0.65]'>
+                    <div className='transform scale-75 sm:scale-85 md:scale-95 lg:scale-105'>
                       {renderCard(
                         gameState.war_round.players[playerNum.toString()],
                         'medium'
@@ -890,11 +890,11 @@ export default function DisplayPage () {
             const player = gameState.players[playerNum.toString()]
             if (!player) return null
 
-            // Position cards to the RIGHT of each player button - adjusted for 1112x800
+            // Responsive position cards to the RIGHT of each player button
             const cardPositions = {
-              4: 'absolute top-[71%] right-[24%] transform -translate-y-1/2 z-30', // Cards to right of Player 4
-              5: 'absolute top-[58%] right-[13%] transform -translate-y-1/2 z-30', // Cards to right of Player 5
-              6: 'absolute top-[35%] right-[8%] transform -translate-y-1/2 z-30' // Cards to right of Player 6
+              4: 'absolute top-[68%] sm:top-[69%] md:top-[71%] right-[20%] sm:right-[22%] md:right-[24%] transform -translate-y-1/2 z-30',
+              5: 'absolute top-[55%] sm:top-[56%] md:top-[58%] right-[10%] sm:right-[11%] md:right-[13%] transform -translate-y-1/2 z-30',
+              6: 'absolute top-[30%] sm:top-[32%] md:top-[35%] right-[6%] sm:right-[7%] md:right-[8%] transform -translate-y-1/2 z-30'
             }
 
             return (
@@ -904,17 +904,17 @@ export default function DisplayPage () {
                   cardPositions[playerNum as keyof typeof cardPositions]
                 }
               >
-                <div className='flex'>
+                <div className='flex gap-1'>
                   {/* Regular card */}
                   {player.card && (
-                    <div className='transform scale-[0.65]'>
+                    <div className='transform scale-75 sm:scale-85 md:scale-95 lg:scale-105'>
                       {renderCard(player.card, 'medium')}
                     </div>
                   )}
 
                   {/* War round card */}
                   {gameState.war_round?.players?.[playerNum.toString()] && (
-                    <div className='transform scale-[0.65]'>
+                    <div className='transform scale-75 sm:scale-85 md:scale-95 lg:scale-105'>
                       {renderCard(
                         gameState.war_round.players[playerNum.toString()],
                         'medium'
@@ -935,18 +935,22 @@ export default function DisplayPage () {
 
             return (
               <div key={playerId} className={gridClass}>
-                {/* Player button only - adjusted size for 1112x800 */}
-                <div className='relative w-[12vw] h-[12vh] flex items-center justify-center'>
+                {/* Player button with responsive sizing */}
+                <div className='relative w-[10vw] h-[10vh] sm:w-[11vw] sm:h-[11vh] md:w-[12vw] md:h-[12vh] lg:w-[13vw] lg:h-[13vh] flex items-center justify-center'>
                   <img
                     src={imgSrc}
                     alt='Player Position'
                     className='w-full h-full object-contain'
                   />
                   <div
-                    className={`absolute top-1/2 left-1/2 -translate-y-1/2 -translate-x-1/2 ${colorClass} px-2 py-1 text-xl flex flex-col items-center`}
+                    className={`absolute top-1/2 left-1/2 -translate-y-1/2 -translate-x-1/2 ${colorClass} px-1 sm:px-2 py-1 text-lg sm:text-xl md:text-2xl flex flex-col items-center`}
                   >
-                    <div className='font-medium text-2xl'>{idx + 1}</div>
-                    <div className='text-xs font-medium'>{overlay}</div>
+                    <div className='font-medium text-xl sm:text-2xl md:text-3xl'>
+                      {idx + 1}
+                    </div>
+                    <div className='text-[10px] sm:text-xs md:text-sm font-medium'>
+                      {overlay}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -960,8 +964,8 @@ export default function DisplayPage () {
               alt='Wood Background'
               className='absolute inset-0 w-full h-full object-cover rotate-180 z-0'
             />
-            <div className='relative top-1 flex items-center w-full ml-10 z-10'>
-              <div className='text-2xl font-bold text-[#d4af37] font-[questrial] tracking-wider'>
+            <div className='relative top-1 flex items-center w-full ml-6 sm:ml-8 md:ml-10 z-10'>
+              <div className='text-lg sm:text-xl md:text-2xl font-bold text-[#d4af37] font-[questrial] tracking-wider'>
                 Games: {gameState.round_number}
               </div>
               {/* <div className='flex flex-col items-center justify-center z-10'>
@@ -984,9 +988,9 @@ export default function DisplayPage () {
       </div>
 
       {/* Bottom disclaimer */}
-      <div className='absolute bottom-0 text-center text-black text-xs'>
-        This is the result display screen. All table results and managements
-        decision will be final.
+      <div className='absolute bottom-0 text-center text-black text-[10px] sm:text-xs px-2'>
+        THIS IS AN ELECTRONIC GAME INCASE OF ANY GRIEVANCES THE MANAGEMENT
+        DECISION WILL BE FINAL
       </div>
 
       {/* WIN/LOSE POPUPS */}
@@ -1001,13 +1005,13 @@ export default function DisplayPage () {
               className='fixed inset-0 z-50 flex items-center justify-center pointer-events-none'
             >
               <div
-                className={`px-8 py-6 rounded-2xl shadow-2xl text-2xl font-extrabold flex items-center justify-center gap-3
-                  ${
-                    result === 'win'
-                      ? 'bg-green-600/95 text-yellow-200'
-                      : 'bg-red-700/95 text-white'
-                  }`}
-                style={{ border: '4px solid #d4af37', minWidth: 250 }}
+                className={`px-4 sm:px-6 md:px-8 py-4 sm:py-5 md:py-6 rounded-2xl shadow-2xl text-lg sm:text-xl md:text-2xl font-extrabold flex items-center justify-center gap-2 sm:gap-3
+                ${
+                  result === 'win'
+                    ? 'bg-green-600/95 text-yellow-200'
+                    : 'bg-red-700/95 text-white'
+                }`}
+                style={{ border: '3px solid #d4af37', minWidth: '200px' }}
               >
                 Player {playerId}: {result === 'win' ? '🏆 WIN!' : '❌ LOSE'}
               </div>
