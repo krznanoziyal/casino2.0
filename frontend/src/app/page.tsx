@@ -1,4 +1,8 @@
 // app/display/page.tsx
+
+//CHANGES 
+
+
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
