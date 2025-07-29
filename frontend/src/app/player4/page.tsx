@@ -375,9 +375,9 @@ export default function Player4Page () {
     const isRed = suit === 'H' || suit === 'D'
 
     const sizeClasses = {
-      small: 'w-12 h-16 text-xs',
-      medium: 'w-16 h-20 text-sm',
-      large: 'w-20 h-28 text-base'
+      small: 'w-16 h-24 text-base',
+      medium: 'w-24 h-32 text-lg',
+      large: 'w-32 h-44 text-xl'
     }
 
     return (
@@ -401,9 +401,9 @@ export default function Player4Page () {
 
   const renderCardBack = (size: 'small' | 'medium' | 'large' = 'medium') => {
     const sizeClasses = {
-      small: 'w-12 h-16 text-xs',
-      medium: 'w-16 h-20 text-sm',
-      large: 'w-20 h-28 text-base'
+      small: 'w-16 h-24 text-base',
+      medium: 'w-24 h-32 text-lg',
+      large: 'w-32 h-44 text-xl'
     }
 
     return (

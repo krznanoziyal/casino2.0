@@ -445,9 +445,9 @@ export default function DealerPage () {
     const suitSymbol = { S: '♠', H: '♥', D: '♦', C: '♣' }[suit] || suit
     const isRed = suit === 'H' || suit === 'D'
     const sizeClasses = {
-      small: 'w-12 h-16 text-xs',
-      medium: 'w-16 h-20 text-sm',
-      large: 'w-20 h-28 text-base'
+      small: 'w-16 h-24 text-base',
+      medium: 'w-24 h-32 text-lg',
+      large: 'w-32 h-44 text-xl'
     }
 
     return (
@@ -649,7 +649,7 @@ export default function DealerPage () {
                     }, 200)
                   }}
                 >
-                  Live Mode
+                  Manual Mode
                 </button>
                 <button
                   className='px-3 py-1.5 rounded-lg text-xl font-semibold shadow text-white transition-colors whitespace-nowrap'
@@ -686,7 +686,7 @@ export default function DealerPage () {
                     }, 200)
                   }}
                 >
-                  Manual Mode
+                  Live Mode
                 </button>
               </div>
               {gameState.game_mode === 'live' ? (
@@ -1352,7 +1352,7 @@ export default function DealerPage () {
                   </div>
 
                   {/* War Card Assignment Controls - More compact */}
-                  <div className='mt-5 p-3 bg-black/30 rounded-lg'>
+                  {/* <div className='mt-5 p-3 bg-black/30 rounded-lg'> */}
                     {/* <h4 className='text-lg font-semibold text-casino-gold mb-3'>
                   Assign War Cards
                 </h4>
@@ -1430,15 +1430,15 @@ export default function DealerPage () {
                     </button>
                   </div>
                 </div> */}
-                    <button
+                    {/* <button
                       onClick={() =>
                         sendMessage({ action: 'evaluate_war_round' })
                       }
                       className='w-full bg-red-600 hover:bg-red-700 text-white px-4 py-3 rounded-lg transition-colors font-semibold text-base'
                     >
                       ⚖️ Evaluate War Round
-                    </button>
-                  </div>
+                    </button> */}
+                  {/* </div> */}
                 </div>
               )}
 
