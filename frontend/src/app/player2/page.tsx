@@ -428,9 +428,9 @@ export default function Player2Page () {
     (gameState.war_round.dealer_card || gameState.war_round.players[playerId])
 
   return (
-    <div className='min-h-screen bg-[#450a03]'>
+    <div className='min-h-screen bg-[#450a03] pb-12'>
       {/* Header with wood background */}
-      <nav className='relative h-[15vh] w-full overflow-hidden mb-6'>
+      <nav className='relative h-[15vh] w-full overflow-hidden'>
         <img
           src='/assets/wood.png'
           alt='Wood Background'
@@ -504,7 +504,7 @@ export default function Player2Page () {
       </AnimatePresence>
 
       {/* Game Area */}
-      <div className='mx-auto max-w-7xl px-4 sm:px-6 py-6 sm:py-8 md:py-10'>
+      <div className='mx-auto max-w-7xl px-4 sm:px-6 py-6 sm:py-8 md:py-10 min-h-[calc(100vh-15vh-3rem)]'>
         <div className='bg-[#911606] border-4 border-[#d4af37] p-4 sm:p-6 md:p-8 w-full grow flex flex-col rounded-lg shadow-xl'>
           {/* Player Number and Status */}
           <div className='text-center mb-6 sm:mb-8'>
@@ -641,7 +641,7 @@ export default function Player2Page () {
 
                 {/* Choice Buttons */}
                 {playerData.status === 'waiting_choice' && (
-                  <div className='flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center mt-4 sm:mt-6'>
+                  <div className='flex flex-col sm:flex-row gap-20 justify-center mt-4 sm:mt-6'>
                     <motion.button
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
@@ -779,6 +779,20 @@ export default function Player2Page () {
           }
         }
       `}</style>
+      {/* Bottom disclaimer - Fixed Footer */}
+      <div className='fixed bottom-0 left-0 right-0 w-full bg-[#450a03] text-white text-[10px] sm:text-xs py-2 overflow-hidden z-40'>
+        <div className='whitespace-nowrap animate-marquee'>
+          THIS IS AN ELECTRONIC GAME INCASE OF ANY GRIEVANCES THE MANAGEMENT
+          DECISION WILL BE FINAL &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; •
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; THIS IS AN ELECTRONIC GAME INCASE OF
+          ANY GRIEVANCES THE MANAGEMENT DECISION WILL BE FINAL
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; • &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; THIS
+          IS AN ELECTRONIC GAME INCASE OF ANY GRIEVANCES THE MANAGEMENT DECISION
+          WILL BE FINAL &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; •
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; THIS IS AN ELECTRONIC GAME INCASE OF
+          ANY GRIEVANCES THE MANAGEMENT DECISION WILL BE FINAL
+        </div>
+      </div>
     </div>
   )
 }

@@ -758,7 +758,7 @@ export default function DisplayPage () {
       <div className='h-[94vh] w-[98vw] sm:w-[96vw] m-1 sm:m-3 bg-[#971909] flex flex-col'>
         {/* Header with wood background and logo */}
         <nav className='w-full h-[15vh] relative flex items-center justify-between px-4 sm:px-6 md:px-8'>
-          <div className='text-lg sm:text-xl md:text-2xl z-10 font-bold text-[#d4af37] font-[questrial] tracking-wider'>
+          <div className='text-xl sm:text-2xl md:text-4xl z-10 font-bold text-[#d4af37] font-[questrial] tracking-wider'>
             Table no: {gameState.table_number}
           </div>
           <img
@@ -774,13 +774,13 @@ export default function DisplayPage () {
             />
           </div>
           <div className='relative z-10 flex flex-col items-center justify-center'>
-            <div className='text-lg sm:text-xl md:text-2xl text-[#d4af37] font-bold font-[questrial] tracking-widest mb-0.5'>
+            <div className='text-xl sm:text-2xl md:text-4xl text-[#d4af37] font-bold font-[questrial] tracking-widest mb-0.5'>
               BETS
             </div>
-            <div className='text-xs sm:text-sm md:text-base text-[#d4af37] font-semibold font-[questrial] tracking-wide'>
+            <div className='text-lg sm:text-xl md:text-2xl text-[#d4af37] font-semibold font-[questrial] tracking-wide'>
               Max: ₹{gameState.max_bet}
             </div>
-            <div className='text-xs sm:text-sm md:text-base text-[#d4af37] font-semibold font-[questrial] tracking-wide'>
+            <div className='text-lg sm:text-xl md:text-2xl text-[#d4af37] font-semibold font-[questrial] tracking-wide'>
               Min: ₹{gameState.min_bet}
             </div>
           </div>
@@ -820,7 +820,7 @@ export default function DisplayPage () {
             {/* Dealer Cards - positioned in center with flex layout */}
             {(gameState.dealer_card || gameState.war_round?.dealer_card) && (
               <div className='absolute top-[70%] left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-30'>
-                <div className='flex items-center gap-1 sm:gap-2'>
+                <div className='flex items-center gap-3 sm:gap-4 md:gap-5'>
                   {/* Regular dealer card */}
                   {gameState.dealer_card && (
                     <div className='transform scale-90 sm:scale-100 md:scale-110 lg:scale-125'>
@@ -839,11 +839,11 @@ export default function DisplayPage () {
             )}
 
             {/* Ocean7 Logo in center */}
-            <div className='absolute z-20 top-10'>
+            <div className='absolute z-20 top-1'>
               <img
                 src='/assets/ocean7-logo.png'
                 alt='Ocean7 Logo'
-                className='w-24 h-24 object-contain'
+                className='w-48 h-48 object-contain'
               />
             </div>
           </div>
@@ -969,7 +969,7 @@ export default function DisplayPage () {
               className='absolute inset-0 w-full h-full object-cover rotate-180 z-0'
             />
             <div className='relative top-1 flex items-center w-full ml-6 sm:ml-8 md:ml-10 z-10'>
-              <div className='text-lg sm:text-xl md:text-2xl font-bold text-[#d4af37] font-[questrial] tracking-wider'>
+              <div className='text-xl sm:text-2xl md:text-4xl font-bold text-[#d4af37] font-[questrial] tracking-wider'>
                 Games: {gameState.round_number}
               </div>
               {/* <div className='flex flex-col items-center justify-center z-10'>
@@ -991,10 +991,19 @@ export default function DisplayPage () {
         </div>
       </div>
 
-      {/* Bottom disclaimer */}
-      <div className='absolute bottom-0 text-center text-black text-[10px] sm:text-xs px-2'>
-        THIS IS AN ELECTRONIC GAME INCASE OF ANY GRIEVANCES THE MANAGEMENT
-        DECISION WILL BE FINAL
+      {/* Bottom disclaimer - Marquee */}
+      <div className='absolute bottom-0 w-full text-xl py-1 overflow-hidden'>
+        <div className='whitespace-nowrap animate-marquee'>
+          THIS IS AN ELECTRONIC GAME INCASE OF ANY GRIEVANCES THE MANAGEMENT
+          DECISION WILL BE FINAL &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; •
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; THIS IS AN ELECTRONIC GAME INCASE OF
+          ANY GRIEVANCES THE MANAGEMENT DECISION WILL BE FINAL
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; • &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; THIS
+          IS AN ELECTRONIC GAME INCASE OF ANY GRIEVANCES THE MANAGEMENT DECISION
+          WILL BE FINAL &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; •
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; THIS IS AN ELECTRONIC GAME INCASE OF
+          ANY GRIEVANCES THE MANAGEMENT DECISION WILL BE FINAL
+        </div>
       </div>
 
       {/* WIN/LOSE POPUPS */}

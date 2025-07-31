@@ -1353,7 +1353,7 @@ export default function DealerPage () {
 
                   {/* War Card Assignment Controls - More compact */}
                   {/* <div className='mt-5 p-3 bg-black/30 rounded-lg'> */}
-                    {/* <h4 className='text-lg font-semibold text-casino-gold mb-3'>
+                  {/* <h4 className='text-lg font-semibold text-casino-gold mb-3'>
                   Assign War Cards
                 </h4>
                 <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
@@ -1430,7 +1430,7 @@ export default function DealerPage () {
                     </button>
                   </div>
                 </div> */}
-                    {/* <button
+                  {/* <button
                       onClick={() =>
                         sendMessage({ action: 'evaluate_war_round' })
                       }
@@ -1441,7 +1441,7 @@ export default function DealerPage () {
                   {/* </div> */}
                 </div>
               )}
-//hello
+
               {/* Original Cards Section - More compact */}
               {gameState.war_round_active &&
                 gameState.war_round?.original_cards && (
@@ -1523,7 +1523,7 @@ export default function DealerPage () {
                             )}
                           </div>
                           <div className='flex flex-col items-center mb-3 gap-2'>
-                            {/* Player cards - Use small/medium size */}
+                            {/* Player cards - Use small/medium size with scale-125 */}
                             {isActive && (
                               <>
                                 {!gameState.war_round_active &&
@@ -1532,7 +1532,7 @@ export default function DealerPage () {
                                 ] ? (
                                   <div className='flex justify-center items-center gap-3'>
                                     <div className='text-center mb-3'>
-                                      <div className='flex justify-center'>
+                                      <div className='flex justify-center transform scale-125'>
                                         {renderCard(
                                           gameState.war_round?.original_cards
                                             ?.players?.[playerId],
@@ -1542,7 +1542,7 @@ export default function DealerPage () {
                                     </div>
                                     {playerData.war_card && (
                                       <div className='text-center mb-3'>
-                                        <div className='flex justify-center'>
+                                        <div className='flex justify-center transform scale-125'>
                                           {renderCard(
                                             playerData.war_card,
                                             'small'
@@ -1552,9 +1552,11 @@ export default function DealerPage () {
                                     )}
                                   </div>
                                 ) : playerData.card ? (
-                                  renderCard(playerData.card, 'small')
+                                  <div className='transform scale-125'>
+                                    {renderCard(playerData.card, 'small')}
+                                  </div>
                                 ) : (
-                                  <div className='w-12 h-16 bg-black/15 rounded-lg flex items-center justify-center'>
+                                  <div className='w-12 h-16 bg-black/15 rounded-lg flex items-center justify-center transform scale-125'>
                                     <span className='text-white text-lg'>
                                       ?
                                     </span>
@@ -1563,7 +1565,7 @@ export default function DealerPage () {
                               </>
                             )}
                             {!isActive && (
-                              <div className='w-12 h-16 bg-black/15 rounded-lg flex items-center justify-center'>
+                              <div className='w-12 h-16 bg-black/15 rounded-lg flex items-center justify-center transform scale-125'>
                                 <span className='text-white text-lg'>?</span>
                               </div>
                             )}
@@ -1701,6 +1703,18 @@ export default function DealerPage () {
           transform: translateY(-2px);
           filter: drop-shadow(0 10px 14px rgba(0, 0, 0, 0.7));
         }
+        @keyframes marquee {
+          0% {
+            transform: translateX(100%);
+          }
+          100% {
+            transform: translateX(-100%);
+          }
+        }
+
+        .animate-marquee {
+          animation: marquee 30s linear infinite;
+        }
       `}</style>
       <style jsx global>{`
         body {
@@ -1708,6 +1722,21 @@ export default function DealerPage () {
           color: #fff;
         }
       `}</style>
+
+      {/* Bottom disclaimer - Marquee */}
+      <div className='absolute bottom-0 w-full bg-[#450a03] text-white text-xl sm:text-xs py-1 overflow-hidden'>
+        <div className='whitespace-nowrap animate-marquee'>
+          THIS IS AN ELECTRONIC GAME INCASE OF ANY GRIEVANCES THE MANAGEMENT
+          DECISION WILL BE FINAL &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; •
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; THIS IS AN ELECTRONIC GAME INCASE OF
+          ANY GRIEVANCES THE MANAGEMENT DECISION WILL BE FINAL
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; • &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; THIS
+          IS AN ELECTRONIC GAME INCASE OF ANY GRIEVANCES THE MANAGEMENT DECISION
+          WILL BE FINAL &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; •
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; THIS IS AN ELECTRONIC GAME INCASE OF
+          ANY GRIEVANCES THE MANAGEMENT DECISION WILL BE FINAL
+        </div>
+      </div>
     </div>
   )
 }
