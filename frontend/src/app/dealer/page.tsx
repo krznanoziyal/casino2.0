@@ -137,17 +137,34 @@ export default function DealerPage () {
 
   const [cardQueue, setCardQueue] = useState<any[]>([])
   const [isAssigningCards, setIsAssigningCards] = useState(false)
+  const [currentRoundNumber, setCurrentRoundNumber] = useState(0)
 
   useEffect(() => {
     if (cardQueue.length > 0 && !isAssigningCards) {
       setIsAssigningCards(true)
       const processNext = () => {
         setCardQueue(q => {
-          const next = q[0]
+          const currentQueue = [...q] // Use current queue state
+          const next = currentQueue[0]
           if (!next) {
             setIsAssigningCards(false)
             return []
           }
+          
+          // Skip if card is already assigned (prevents duplicate assignment)
+          if (next.target === 'player' && next.player_id) {
+            const currentPlayer = gameState.players[next.player_id]
+            if (currentPlayer && currentPlayer.card === next.card) {
+              console.log(`[QUEUE] Skipping duplicate assignment for player ${next.player_id}, card already assigned`)
+              return currentQueue.slice(1) // Remove from queue but don't process
+            }
+          } else if (next.target === 'dealer') {
+            if (gameState.dealer_card === next.card) {
+              console.log(`[QUEUE] Skipping duplicate assignment for dealer, card already assigned`)
+              return currentQueue.slice(1) // Remove from queue but don't process
+            }
+          }
+          
           if (next.target === 'player' && next.player_id) {
             setGameState(prev => ({
               ...prev,
@@ -177,24 +194,42 @@ export default function DealerPage () {
             addNotification(`Card assigned to dealer`)
           }
           // Remove the assigned card from the queue
-          return q.slice(1)
+          return currentQueue.slice(1)
         })
+        
         setTimeout(() => {
-          // Use latest cardQueue from state
-          if (cardQueue.length > 1) {
-            processNext()
-          } else {
-            setIsAssigningCards(false)
-          }
+          // Check current queue length directly instead of using stale closure
+          setCardQueue(currentQueue => {
+            if (currentQueue.length > 0) {
+              processNext()
+            } else {
+              setIsAssigningCards(false)
+            }
+            return currentQueue
+          })
         }, 1000)
       }
       processNext()
     }
-  }, [cardQueue, isAssigningCards])
+  }, [cardQueue, isAssigningCards, gameState.players, gameState.dealer_card])
+
+  // Clear card queue when round changes or game state resets
+  useEffect(() => {
+    if (gameState.round_number !== currentRoundNumber) {
+      console.log(`[QUEUE] Round changed from ${currentRoundNumber} to ${gameState.round_number}, clearing card queue`)
+      setCardQueue([])
+      setIsAssigningCards(false)
+      setCurrentRoundNumber(gameState.round_number)
+    }
+  }, [gameState.round_number, currentRoundNumber])
 
   const handleServerMessage = (data: any) => {
     switch (data.action) {
       case 'game_state_update':
+        // Clear card queue when complete game state is updated to prevent stale assignments
+        console.log('[QUEUE] Game state updated, clearing card queue')
+        setCardQueue([])
+        setIsAssigningCards(false)
         setGameState(data.game_state)
         break
       case 'deck_shuffled':
@@ -237,6 +272,10 @@ export default function DealerPage () {
         addNotification(data.message || 'Player result assigned')
         break
       case 'round_dealt':
+        // Clear card queue since round evaluation is complete
+        console.log('[QUEUE] Round dealt (evaluation complete), clearing card queue')
+        setCardQueue([])
+        setIsAssigningCards(false)
         setGameState(prev => ({
           ...prev,
           dealer_card: data.dealer_card,
@@ -306,6 +345,9 @@ export default function DealerPage () {
         break
       case 'game_reset':
         // Update the UI using the new game state from the server.
+        console.log('[QUEUE] Game reset, clearing card queue')
+        setCardQueue([])
+        setIsAssigningCards(false)
         setGameState(data.game_state)
         addNotification('Game has been reset')
         break
@@ -422,9 +464,115 @@ export default function DealerPage () {
         break
 
       case 'card_assigned': {
+        // Check if this assignment is already processed to prevent duplicates
+        const isAlreadyAssigned = data.target === 'player' && data.player_id 
+          ? gameState.players[data.player_id]?.card === data.card
+          : data.target === 'dealer' && gameState.dealer_card === data.card
+        
+        if (isAlreadyAssigned) {
+          console.log(`[QUEUE] Skipping duplicate card_assigned message for ${data.target} ${data.player_id || 'dealer'}`)
+          break
+        }
+        
         setCardQueue(q => [...q, data])
         break
       }
+
+      case 'player_status_update':
+        // Instant status update when player chooses war/surrender
+        setGameState(prev => ({
+          ...prev,
+          players: {
+            ...prev.players,
+            [data.player_id]: {
+              ...prev.players[data.player_id],
+              status: data.status
+            }
+          }
+        }))
+        addNotification(`Player ${data.player_id} chose ${data.choice}`)
+        break
+
+      case 'war_card_assigned_auto':
+        // Instant war card display in automatic mode
+        if (data.target === 'dealer') {
+          setGameState(prev => ({
+            ...prev,
+            war_round: prev.war_round ? {
+              ...prev.war_round,
+              dealer_card: data.card
+            } : {
+              dealer_card: data.card,
+              players: {},
+              original_cards: {
+                dealer_card: prev.dealer_card,
+                players: Object.fromEntries(
+                  Object.keys(prev.players).map(pid => [pid, prev.players[pid]?.card || null])
+                )
+              }
+            },
+            deck_count: typeof data.deck_count === 'number' ? data.deck_count : prev.deck_count
+          }))
+          addNotification(`War card assigned to dealer: ${data.card}`)
+        } else if (data.target === 'player' && data.player_id) {
+          setGameState(prev => ({
+            ...prev,
+            players: {
+              ...prev.players,
+              [data.player_id]: {
+                ...prev.players[data.player_id],
+                war_card: data.card
+              }
+            },
+            war_round: prev.war_round ? {
+              ...prev.war_round,
+              players: {
+                ...prev.war_round.players,
+                [data.player_id]: data.card
+              }
+            } : {
+              dealer_card: null,
+              players: { [data.player_id]: data.card },
+              original_cards: {
+                dealer_card: prev.dealer_card,
+                players: Object.fromEntries(
+                  Object.keys(prev.players).map(pid => [pid, prev.players[pid]?.card || null])
+                )
+              }
+            },
+            deck_count: typeof data.deck_count === 'number' ? data.deck_count : prev.deck_count
+          }))
+          addNotification(`War card assigned to player ${data.player_id}: ${data.card}`)
+        }
+        break
+
+      case 'war_round_complete':
+        // Final war round state update for automatic mode
+        setGameState(prev => ({
+          ...prev,
+          war_round: prev.war_round ? {
+            ...prev.war_round,
+            dealer_card: data.dealer_war_card,
+            players: { ...prev.war_round.players, ...data.war_round?.players }
+          } : {
+            dealer_card: data.dealer_war_card,
+            players: data.war_round?.players || {}
+          },
+          players: { ...prev.players, ...data.war_players },
+          player_results: data.player_results
+        }))
+        addNotification('War round evaluation complete')
+        break
+
+      case 'player_choice_made':
+        // Handle player war/surrender choice
+        setGameState(prev => ({
+          ...prev,
+          players: data.players,
+          player_results: data.player_results
+        }))
+        addNotification(`Player ${data.player_id} chose ${data.choice}`)
+        break
 
       default:
         if (data.message) {
@@ -1007,6 +1155,12 @@ export default function DealerPage () {
                 </div>
               ) : (
                 <div className='flex flex-col items-center justify-center w-full h-full'>
+                  {/* DECK COUNT DISPLAY - AUTOMATIC MODE */}
+                  {/* <div className='mb-4 mt-6 p-3 bg-white rounded-lg border-2 border-[#741003]'>
+                    <div className='text-[#741003] font-bold text-lg text-center'>
+                      Deck Count: {gameState.deck_count} cards
+                    </div>
+                  </div> */}
                   {/* <button
                     onClick={() => sendMessage({ action: 'shuffle_deck' })}
                     className='m-4 px-5 py-3 rounded-lg text-xl font-bold shadow text-white bg-[#911606] hover:bg-[#741003] transition-colors'

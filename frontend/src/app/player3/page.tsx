@@ -423,9 +423,10 @@ export default function Player3Page () {
   const isInWar =
     gameState.war_round_active &&
     gameState.war_round?.players[playerId] !== undefined
+  // Only show war data if this specific player participated in war
   const hasWarData =
     gameState.war_round &&
-    (gameState.war_round.dealer_card || gameState.war_round.players[playerId])
+    gameState.war_round.players[playerId] !== undefined
 
   return (
     <div className='min-h-screen bg-[#450a03] pb-12'>
@@ -551,7 +552,7 @@ export default function Player3Page () {
                   : renderCardBack('large')}
               </div>
 
-              {/* Dealer War Card - Only show if war data exists */}
+              {/* Dealer War Card - Only show if this player participated in war */}
               {hasWarData && (
                 <div className='flex flex-col items-center'>
                   {gameState.war_round?.dealer_card
@@ -591,9 +592,8 @@ export default function Player3Page () {
                       : renderCardBack('large')}
                   </div>
 
-                  {/* Player War Card - Show if player has war card OR war data exists for this player */}
-                  {(playerData.war_card ||
-                    (hasWarData && gameState.war_round?.players[playerId])) && (
+                  {/* Player War Card - Show only if this player participated in war */}
+                  {(playerData.war_card || hasWarData) && (
                     <div className='flex flex-col items-center'>
                       {playerData.war_card
                         ? renderCard(playerData.war_card, 'large')
