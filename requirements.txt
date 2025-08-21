@@ -1,0 +1,5 @@
+websockets
+motor
+pymongo
+python-dotenv
+pyserial
