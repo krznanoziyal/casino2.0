@@ -1313,6 +1313,11 @@ def extract_card_value(input_string):
 # Unified handler for shoe reader cards (assigns to main or war round as needed)
 async def handle_card_from_shoe(card):
     try:
+        # Only process serial cards in LIVE mode - ignore in manual/automatic modes
+        if game_state["game_mode"] != "live":
+            print(f"[SHOE] Card {card} ignored - serial reader only active in LIVE mode (current: {game_state['game_mode']})")
+            return
+            
         if game_state.get("war_round_active"):
             print(f"[SHOE] Routing card {card} to WAR round assignment (war_round_active={game_state['war_round_active']})")
             # War round: assign to next war target
