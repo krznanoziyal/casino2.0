@@ -397,25 +397,28 @@ export default function Player1Page () {
       </motion.div>
     )
   }
-// Need to fix the card back image path
+  
   const renderCardBack = (size: 'small' | 'medium' | 'large' = 'medium') => {
     const sizeClasses = {
-      small: 'w-16 h-24 text-base',
-      medium: 'w-24 h-32 text-lg',
-      large: 'w-32 h-44 text-xl'
+      small: 'w-16 h-24 text-2xl',
+      medium: 'w-24 h-32 text-4xl',
+      large: 'w-32 h-44 text-6xl'
     }
 
     return (
       <div
-        className={`${sizeClasses[size]} relative rounded-lg shadow-lg overflow-hidden`}
+        className={`${sizeClasses[size]} relative bg-gradient-to-br from-red-800 to-red-900 rounded-lg shadow-2xl overflow-hidden`}
       >
-        <Image
-          src='/cards/BB.png'
-          alt='Card Back'
-          fill
-          className='object-cover rounded-lg'
-          sizes='(max-width: 640px) 64px, (max-width: 768px) 80px, 96px'
-        />
+        {/* Subtle texture overlay */}
+        <div className='absolute inset-0 opacity-10 bg-gradient-to-b from-transparent via-black to-transparent'></div>
+
+        {/* Question mark - centered */}
+        <div className='absolute inset-0 flex items-center justify-center'>
+          <div className='text-white font-bold'>?</div>
+        </div>
+
+        {/* Card shine effect */}
+        <div className='absolute inset-0 bg-gradient-to-tr from-transparent via-white to-transparent opacity-5'></div>
       </div>
     )
   }
@@ -426,8 +429,30 @@ export default function Player1Page () {
     gameState.war_round?.players[playerId] !== undefined
   // Only show war data if this specific player participated in war
   const hasWarData =
-    gameState.war_round &&
-    gameState.war_round.players[playerId] !== undefined
+    gameState.war_round && gameState.war_round.players[playerId] !== undefined
+
+  const isActive = gameState.players[playerId] !== undefined
+
+  // If player is not active, show video
+  if (!isActive) {
+    return (
+      <div className='min-h-screen bg-[#450a03] flex items-center justify-center'>
+        {/* Full screen video */}
+        <div className='relative w-full h-screen overflow-hidden'>
+          <video
+            className='absolute inset-0 w-full h-full object-cover'
+            autoPlay
+            loop
+            muted
+            playsInline
+          >
+            <source src='/assets/ocean7vid.mp4' type='video/mp4' />
+            Your browser does not support the video tag.
+          </video>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className='min-h-screen bg-[#450a03] pb-12'>
