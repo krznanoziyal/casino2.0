@@ -397,7 +397,7 @@ export default function Player1Page () {
       </motion.div>
     )
   }
-
+// Need to fix the card back image path
   const renderCardBack = (size: 'small' | 'medium' | 'large' = 'medium') => {
     const sizeClasses = {
       small: 'w-16 h-24 text-base',
