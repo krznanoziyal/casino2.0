@@ -2,14 +2,15 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { FaBars, FaTimes, FaMoneyBillWave } from 'react-icons/fa'
+import Image from 'next/image'
 
 // Use FaBars, FaTimes, and FaMoneyBillWave as JSX components with .default if needed
 // @ts-ignore
-const FaBarsIcon = (FaBars as any).default || FaBars;
+const FaBarsIcon = (FaBars as any).default || FaBars
 // @ts-ignore
-const FaTimesIcon = (FaTimes as any).default || FaTimes;
+const FaTimesIcon = (FaTimes as any).default || FaTimes
 // @ts-ignore
-const FaMoneyIcon = (FaMoneyBillWave as any).default || FaMoneyBillWave;
+const FaMoneyIcon = (FaMoneyBillWave as any).default || FaMoneyBillWave
 
 interface GameState {
   deck_count: number
@@ -41,7 +42,7 @@ interface PlayerData {
   war_card: string | null
 }
 
-export default function DealerPage() {
+export default function DealerPage () {
   const [gameState, setGameState] = useState<GameState>({
     deck_count: 0,
     burned_cards_count: 0,
@@ -55,7 +56,7 @@ export default function DealerPage() {
     max_bet: 1000,
     player_results: {}
   })
-  
+
   const [connected, setConnected] = useState(false)
   const [newPlayerId, setNewPlayerId] = useState('')
   const [minBet, setMinBet] = useState(10)
@@ -63,7 +64,9 @@ export default function DealerPage() {
   const [tableNumber, setTableNumber] = useState(1)
   const [manualCard, setManualCard] = useState('')
   const [notifications, setNotifications] = useState<string[]>([])
-  const [warCardTarget, setWarCardTarget] = useState<'dealer' | 'player'>('dealer')
+  const [warCardTarget, setWarCardTarget] = useState<'dealer' | 'player'>(
+    'dealer'
+  )
   const [warCardValue, setWarCardValue] = useState('')
   const [warPlayerId, setWarPlayerId] = useState('')
   const [menuOpen, setMenuOpen] = useState(false)
@@ -72,10 +75,12 @@ export default function DealerPage() {
   const [betMenuOpen, setBetMenuOpen] = useState(false)
   const [pendingMinBet, setPendingMinBet] = useState(gameState.min_bet)
   const [pendingMaxBet, setPendingMaxBet] = useState(gameState.max_bet)
-  const [pendingTableNumber, setPendingTableNumber] = useState(gameState.table_number)
-  
+  const [pendingTableNumber, setPendingTableNumber] = useState(
+    gameState.table_number
+  )
+
   const wsRef = useRef<WebSocket | null>(null)
-  const prevPlayerStatusesRef = useRef<Record<string, string>>({});
+  const prevPlayerStatusesRef = useRef<Record<string, string>>({})
 
   useEffect(() => {
     connectWebSocket()
@@ -88,22 +93,22 @@ export default function DealerPage() {
 
   const connectWebSocket = () => {
     try {
-      wsRef.current = new WebSocket('ws://localhost:6789')
-      
+      wsRef.current = new WebSocket('ws://192.168.2.190:6789')
+      // wsRef.current = new WebSocket('ws://localhost:6789') // Use this for local testing
       wsRef.current.onopen = () => {
         setConnected(true)
         sendMessage({ action: 'register_dealer' })
         addNotification('Connected to game server')
       }
-      
+
       wsRef.current.onclose = () => {
         setConnected(false)
         addNotification('Disconnected from server')
         // Attempt to reconnect after 3 seconds
         setTimeout(connectWebSocket, 3000)
       }
-      
-      wsRef.current.onmessage = (event) => {
+
+      wsRef.current.onmessage = event => {
         const data = JSON.parse(event.data)
         handleServerMessage(data)
       }
@@ -122,49 +127,157 @@ export default function DealerPage() {
   // Deduplicated notification function
   const addNotification = (message: string) => {
     setNotifications(prev => {
-      if (prev[prev.length - 1] === message) return prev; // Prevent duplicate
-      return [...prev.slice(-4), message];
-    });
+      if (prev[prev.length - 1] === message) return prev // Prevent duplicate
+      return [...prev.slice(-4), message]
+    })
     setTimeout(() => {
       setNotifications(prev => prev.slice(1))
     }, 5000)
   }
 
+  const [cardQueue, setCardQueue] = useState<any[]>([])
+  const [isAssigningCards, setIsAssigningCards] = useState(false)
+  const [currentRoundNumber, setCurrentRoundNumber] = useState(0)
+
+  useEffect(() => {
+    if (cardQueue.length > 0 && !isAssigningCards) {
+      setIsAssigningCards(true)
+      const processNext = () => {
+        setCardQueue(q => {
+          const currentQueue = [...q] // Use current queue state
+          const next = currentQueue[0]
+          if (!next) {
+            setIsAssigningCards(false)
+            return []
+          }
+          
+          // Skip if card is already assigned (prevents duplicate assignment)
+          if (next.target === 'player' && next.player_id) {
+            const currentPlayer = gameState.players[next.player_id]
+            if (currentPlayer && currentPlayer.card === next.card) {
+              console.log(`[QUEUE] Skipping duplicate assignment for player ${next.player_id}, card already assigned`)
+              return currentQueue.slice(1) // Remove from queue but don't process
+            }
+          } else if (next.target === 'dealer') {
+            if (gameState.dealer_card === next.card) {
+              console.log(`[QUEUE] Skipping duplicate assignment for dealer, card already assigned`)
+              return currentQueue.slice(1) // Remove from queue but don't process
+            }
+          }
+          
+          if (next.target === 'player' && next.player_id) {
+            setGameState(prev => ({
+              ...prev,
+              players: {
+                ...prev.players,
+                [next.player_id]: {
+                  ...prev.players[next.player_id],
+                  card: next.card,
+                  status: 'active'
+                }
+              },
+              deck_count:
+                typeof next.deck_count === 'number'
+                  ? next.deck_count
+                  : prev.deck_count
+            }))
+            addNotification(`Card assigned to player ${next.player_id}`)
+          } else if (next.target === 'dealer') {
+            setGameState(prev => ({
+              ...prev,
+              dealer_card: next.card,
+              deck_count:
+                typeof next.deck_count === 'number'
+                  ? next.deck_count
+                  : prev.deck_count
+            }))
+            addNotification(`Card assigned to dealer`)
+          }
+          // Remove the assigned card from the queue
+          return currentQueue.slice(1)
+        })
+        
+        setTimeout(() => {
+          // Check current queue length directly instead of using stale closure
+          setCardQueue(currentQueue => {
+            if (currentQueue.length > 0) {
+              processNext()
+            } else {
+              setIsAssigningCards(false)
+            }
+            return currentQueue
+          })
+        }, 1000)
+      }
+      processNext()
+    }
+  }, [cardQueue, isAssigningCards, gameState.players, gameState.dealer_card])
+
+  // Clear card queue when round changes or game state resets
+  useEffect(() => {
+    if (gameState.round_number !== currentRoundNumber) {
+      console.log(`[QUEUE] Round changed from ${currentRoundNumber} to ${gameState.round_number}, clearing card queue`)
+      setCardQueue([])
+      setIsAssigningCards(false)
+      setCurrentRoundNumber(gameState.round_number)
+    }
+  }, [gameState.round_number, currentRoundNumber])
+
   const handleServerMessage = (data: any) => {
-    switch (data.action) {      case 'game_state_update':
+    switch (data.action) {
+      case 'game_state_update':
+        // Clear card queue when complete game state is updated to prevent stale assignments
+        console.log('[QUEUE] Game state updated, clearing card queue')
+        setCardQueue([])
+        setIsAssigningCards(false)
         setGameState(data.game_state)
         break
       case 'deck_shuffled':
-        setGameState(prev => ({ 
-          ...prev, 
+        setGameState(prev => ({
+          ...prev,
           deck_count: data.deck_count,
-          burned_cards_count: data.burned_cards_count 
+          burned_cards_count: data.burned_cards_count
         }))
         addNotification(`Deck shuffled - ${data.deck_count} cards remaining`)
         break
       case 'card_burned':
-        setGameState(prev => ({ 
-          ...prev, 
+        setGameState(prev => ({
+          ...prev,
           deck_count: data.deck_count,
-          burned_cards_count: data.burned_cards_count 
+          burned_cards_count: data.burned_cards_count
         }))
-        addNotification(data.message || `Card ${data.burned_card} burned - ${data.deck_count} cards remaining`)
+        addNotification(
+          data.message ||
+            `Card ${data.burned_card} burned - ${data.deck_count} cards remaining`
+        )
         break
       case 'player_added':
         setGameState(prev => ({ ...prev, players: data.players }))
         addNotification(`Player ${data.player_id} added to game`)
         break
       case 'player_removed':
-        setGameState(prev => ({ 
-          ...prev, 
+        setGameState(prev => ({
+          ...prev,
           players: data.players,
-          player_results: data.player_results 
+          player_results: data.player_results
         }))
         addNotification(`Player ${data.player_id} removed from game`)
         break
+      case 'manual_result_assigned':
+        setGameState(prev => ({
+          ...prev,
+          player_results: data.player_results,
+          players: { ...prev.players, ...data.players }
+        }))
+        addNotification(data.message || 'Player result assigned')
+        break
       case 'round_dealt':
-        setGameState(prev => ({ 
-          ...prev, 
+        // Clear card queue since round evaluation is complete
+        console.log('[QUEUE] Round dealt (evaluation complete), clearing card queue')
+        setCardQueue([])
+        setIsAssigningCards(false)
+        setGameState(prev => ({
+          ...prev,
           dealer_card: data.dealer_card,
           players: data.players,
           round_number: data.round_number,
@@ -172,7 +285,11 @@ export default function DealerPage() {
           player_results: data.player_results
         }))
         if (data.tie_players?.length > 0) {
-          addNotification(`Tie with players: ${data.tie_players.join(', ')} - Choose War or Surrender`)
+          addNotification(
+            `Tie with players: ${data.tie_players.join(
+              ', '
+            )} - Choose War or Surrender`
+          )
         }
         break
       case 'war_round_started':
@@ -185,7 +302,10 @@ export default function DealerPage() {
             original_cards: {
               dealer_card: prev.dealer_card,
               players: Object.fromEntries(
-                ((data.players || []) as string[]).map((pid: string) => [pid, prev.players[pid]?.card || null])
+                ((data.players || []) as string[]).map((pid: string) => [
+                  pid,
+                  prev.players[pid]?.card || null
+                ])
               )
             }
           }
@@ -198,8 +318,8 @@ export default function DealerPage() {
           war_round_active: false,
           war_round: {
             ...prev.war_round,
-            dealer_card: null,
-            players: {},
+            dealer_card: data.dealer_card, // <-- ensure dealer war card is updated
+            players: { ...prev.war_round?.players, ...data.war_round?.players },
             // Keep original_cards for display
             original_cards: prev.war_round?.original_cards
           },
@@ -209,8 +329,8 @@ export default function DealerPage() {
         addNotification('War round completed')
         break
       case 'round_completed':
-        setGameState(prev => ({ 
-          ...prev, 
+        setGameState(prev => ({
+          ...prev,
           round_active: false,
           player_results: data.player_results
         }))
@@ -225,76 +345,235 @@ export default function DealerPage() {
         break
       case 'game_reset':
         // Update the UI using the new game state from the server.
+        console.log('[QUEUE] Game reset, clearing card queue')
+        setCardQueue([])
+        setIsAssigningCards(false)
         setGameState(data.game_state)
-        addNotification("Game has been reset")
+        addNotification('Game has been reset')
         break
       case 'dealer_card_set':
-        setGameState(prev => ({ 
-          ...prev, 
+        setGameState(prev => ({
+          ...prev,
           dealer_card: data.card,
-          deck_count: typeof data.game_state?.deck_count === 'number' ? data.game_state.deck_count : (typeof data.deck_count === 'number' ? data.deck_count : prev.deck_count)
+          deck_count:
+            typeof data.game_state?.deck_count === 'number'
+              ? data.game_state.deck_count
+              : typeof data.deck_count === 'number'
+              ? data.deck_count
+              : prev.deck_count
         }))
         addNotification(`Dealer card manually set to ${data.card}`)
         break
       case 'player_card_set':
-        setGameState(prev => ({ 
-          ...prev, 
-          players: { 
-            ...prev.players, 
-            [data.player_id]: { 
-              ...prev.players[data.player_id], 
-              card: data.card, 
-              status: 'active' 
-            } 
+        setGameState(prev => ({
+          ...prev,
+          players: {
+            ...prev.players,
+            [data.player_id]: {
+              ...prev.players[data.player_id],
+              card: data.card,
+              status: 'active'
+            }
           },
-          deck_count: typeof data.game_state?.deck_count === 'number' ? data.game_state.deck_count : (typeof data.deck_count === 'number' ? data.deck_count : prev.deck_count)        }))
+          deck_count:
+            typeof data.game_state?.deck_count === 'number'
+              ? data.game_state.deck_count
+              : typeof data.deck_count === 'number'
+              ? data.deck_count
+              : prev.deck_count
+        }))
         addNotification(`Card manually assigned to player ${data.player_id}`)
         break
       case 'war_card_assigned':
-          setGameState(prev => ({
-            ...prev,
-            // Always use the complete war_round from backend to ensure live state sync
-            war_round: data.war_round || {
-              dealer_card: data.target === 'dealer' ? data.card : (prev.war_round?.dealer_card ?? null),
-              players: {
-                ...prev.war_round?.players,
-                ...(data.target === 'player' && data.player_id ? { [data.player_id]: data.card } : {})
-              },
-              ...(prev.war_round?.original_cards ? { original_cards: prev.war_round.original_cards } : {})
+        setGameState(prev => ({
+          ...prev,
+          // Always use the complete war_round from backend to ensure live state sync
+          war_round: data.war_round || {
+            dealer_card:
+              data.target === 'dealer'
+                ? data.card
+                : prev.war_round?.dealer_card ?? null,
+            players: {
+              ...prev.war_round?.players,
+              ...(data.target === 'player' && data.player_id
+                ? { [data.player_id]: data.card }
+                : {})
             },
-            deck_count: typeof data.deck_count === 'number' ? data.deck_count : prev.deck_count
-          }));
-          addNotification(
-            `War card ${data.card} assigned to ${data.target === 'dealer' ? 'Dealer' : 'Player ' + data.player_id}`
-          );
-        break;
+            ...(prev.war_round?.original_cards
+              ? { original_cards: prev.war_round.original_cards }
+              : {})
+          },
+          deck_count:
+            typeof data.deck_count === 'number'
+              ? data.deck_count
+              : prev.deck_count
+        }))
+        addNotification(
+          `War card ${data.card} assigned to ${
+            data.target === 'dealer' ? 'Dealer' : 'Player ' + data.player_id
+          }`
+        )
+        break
       case 'cards_undone':
         setGameState(prev => {
-          setWarCardValue('');
-          setWarPlayerId('');
+          setWarCardValue('')
+          setWarPlayerId('')
           // Debug: log war_round received from backend
-          console.log('Received war_round from backend after undo:', data.war_round);
+          console.log(
+            'Received war_round from backend after undo:',
+            data.war_round
+          )
           const newState = {
             ...prev,
-            deck_count: typeof data.deck_count === 'number' ? data.deck_count : prev.deck_count,
-            war_round: data.hasOwnProperty('war_round') ? data.war_round : prev.war_round,
-            players: data.hasOwnProperty('players') ? data.players : prev.players,
-            dealer_card: data.hasOwnProperty('dealer_card') ? data.dealer_card : prev.dealer_card
-          };
+            deck_count:
+              typeof data.deck_count === 'number'
+                ? data.deck_count
+                : prev.deck_count,
+            war_round: data.hasOwnProperty('war_round')
+              ? data.war_round
+              : prev.war_round,
+            players: data.hasOwnProperty('players')
+              ? data.players
+              : prev.players,
+            dealer_card: data.hasOwnProperty('dealer_card')
+              ? data.dealer_card
+              : prev.dealer_card
+          }
           // Debug: log new war_round in state
-          console.log('Updated war_round in state after undo:', newState.war_round);
-          return newState;
-        });
-        if (data.message) addNotification(data.message);
+          console.log(
+            'Updated war_round in state after undo:',
+            newState.war_round
+          )
+          return newState
+        })
+        if (data.message) addNotification(data.message)
         break
       case 'bets_changed':
-        setGameState(prev => ({ ...prev, min_bet: data.min_bet, max_bet: data.max_bet }));
-        addNotification(`Betting range updated: $${data.min_bet} - $${data.max_bet}`);
-        break;
+        setGameState(prev => ({
+          ...prev,
+          min_bet: data.min_bet,
+          max_bet: data.max_bet
+        }))
+        addNotification(
+          `Betting range updated: $${data.min_bet} - $${data.max_bet}`
+        )
+        break
       case 'table_changed':
-        setGameState(prev => ({ ...prev, table_number: data.table_number }));
-        addNotification(`Table number updated: ${data.table_number}`);
-        break;
+        setGameState(prev => ({ ...prev, table_number: data.table_number }))
+        addNotification(`Table number updated: ${data.table_number}`)
+        break
+
+      case 'card_assigned': {
+        // Check if this assignment is already processed to prevent duplicates
+        const isAlreadyAssigned = data.target === 'player' && data.player_id 
+          ? gameState.players[data.player_id]?.card === data.card
+          : data.target === 'dealer' && gameState.dealer_card === data.card
+        
+        if (isAlreadyAssigned) {
+          console.log(`[QUEUE] Skipping duplicate card_assigned message for ${data.target} ${data.player_id || 'dealer'}`)
+          break
+        }
+        
+        setCardQueue(q => [...q, data])
+        break
+      }
+
+      case 'player_status_update':
+        // Instant status update when player chooses war/surrender
+        setGameState(prev => ({
+          ...prev,
+          players: {
+            ...prev.players,
+            [data.player_id]: {
+              ...prev.players[data.player_id],
+              status: data.status
+            }
+          }
+        }))
+        addNotification(`Player ${data.player_id} chose ${data.choice}`)
+        break
+
+      case 'war_card_assigned_auto':
+        // Instant war card display in automatic mode
+        if (data.target === 'dealer') {
+          setGameState(prev => ({
+            ...prev,
+            war_round: prev.war_round ? {
+              ...prev.war_round,
+              dealer_card: data.card
+            } : {
+              dealer_card: data.card,
+              players: {},
+              original_cards: {
+                dealer_card: prev.dealer_card,
+                players: Object.fromEntries(
+                  Object.keys(prev.players).map(pid => [pid, prev.players[pid]?.card || null])
+                )
+              }
+            },
+            deck_count: typeof data.deck_count === 'number' ? data.deck_count : prev.deck_count
+          }))
+          addNotification(`War card assigned to dealer: ${data.card}`)
+        } else if (data.target === 'player' && data.player_id) {
+          setGameState(prev => ({
+            ...prev,
+            players: {
+              ...prev.players,
+              [data.player_id]: {
+                ...prev.players[data.player_id],
+                war_card: data.card
+              }
+            },
+            war_round: prev.war_round ? {
+              ...prev.war_round,
+              players: {
+                ...prev.war_round.players,
+                [data.player_id]: data.card
+              }
+            } : {
+              dealer_card: null,
+              players: { [data.player_id]: data.card },
+              original_cards: {
+                dealer_card: prev.dealer_card,
+                players: Object.fromEntries(
+                  Object.keys(prev.players).map(pid => [pid, prev.players[pid]?.card || null])
+                )
+              }
+            },
+            deck_count: typeof data.deck_count === 'number' ? data.deck_count : prev.deck_count
+          }))
+          addNotification(`War card assigned to player ${data.player_id}: ${data.card}`)
+        }
+        break
+
+      case 'war_round_complete':
+        // Final war round state update for automatic mode
+        setGameState(prev => ({
+          ...prev,
+          war_round: prev.war_round ? {
+            ...prev.war_round,
+            dealer_card: data.dealer_war_card,
+            players: { ...prev.war_round.players, ...data.war_round?.players }
+          } : {
+            dealer_card: data.dealer_war_card,
+            players: data.war_round?.players || {}
+          },
+          players: { ...prev.players, ...data.war_players },
+          player_results: data.player_results
+        }))
+        addNotification('War round evaluation complete')
+        break
+
+      case 'player_choice_made':
+        // Handle player war/surrender choice
+        setGameState(prev => ({
+          ...prev,
+          players: data.players,
+          player_results: data.player_results
+        }))
+        addNotification(`Player ${data.player_id} chose ${data.choice}`)
+        break
+
       default:
         if (data.message) {
           addNotification(data.message)
@@ -302,530 +581,728 @@ export default function DealerPage() {
     }
   }
 
-  const renderCard = (card: string | null, size: 'small' | 'medium' | 'large' = 'medium') => {
+  const renderCard = (
+    card: string | null,
+    size: 'small' | 'medium' | 'large' = 'medium'
+  ) => {
     if (!card) return null
-    
+
     const rank = card[0]
     const suit = card[1]
-    const suitSymbol = { 'S': '♠', 'H': '♥', 'D': '♦', 'C': '♣' }[suit] || suit
+
+    const suitSymbol = { S: '♠', H: '♥', D: '♦', C: '♣' }[suit] || suit
     const isRed = suit === 'H' || suit === 'D'
-    
     const sizeClasses = {
-      small: 'w-12 h-16 text-xs',
-      medium: 'w-16 h-22 text-sm',
-      large: 'w-20 h-28 text-base'
+      small: 'w-16 h-24 text-base',
+      medium: 'w-24 h-32 text-lg',
+      large: 'w-32 h-44 text-xl'
     }
-    
+
     return (
       <motion.div
         initial={{ rotateY: 180, scale: 0.8 }}
         animate={{ rotateY: 0, scale: 1 }}
         transition={{ duration: 0.6 }}
-        className={`card ${sizeClasses[size]} ${isRed ? 'text-red-600' : 'text-black'} flex flex-col justify-between p-1`}
+        className={`${sizeClasses[size]} relative rounded-lg shadow-lg overflow-hidden`}
       >
-        <div className="text-left">
-          <div className="font-bold">{rank}</div>
-          <div className="text-lg leading-none">{suitSymbol}</div>
-        </div>
-        <div className="text-center text-2xl">{suitSymbol}</div>
-        <div className="text-right rotate-180">
-          <div className="font-bold">{rank}</div>
-          <div className="text-lg leading-none">{suitSymbol}</div>
-        </div>
+        <Image
+          src={`/cards/${rank}${suit}.png`}
+          alt={`${rank} of ${suit}`}
+          fill
+          className='object-contain rounded-lg'
+          sizes='(max-width: 640px) 64px, (max-width: 768px) 80px, 96px'
+        />
       </motion.div>
     )
   }
-  
+
   //THIS CODE SNIPPET CHANGE MADE SURE WAR PLAYERS ARE LISTED IN THE DROP DOWN
-  const warPlayers = gameState.war_round && gameState.war_round.players
-  ? Object.entries(gameState.war_round.players)
-  : [];
+  const warPlayers =
+    gameState.war_round && gameState.war_round.players
+      ? Object.entries(gameState.war_round.players)
+      : []
 
   // Card validation regex for all manual assignments
-  const validCardPattern = /^(10|[2-9]|[JQKA])[SHDC]$/;
+  const validCardPattern = /^(10|[2-9]|[JQKA])[SHDC]$/
 
   // Helper: are all players and dealer assigned? To prevent over-assignment
   const allAssigned = useMemo(() => {
     if (gameState.war_round_active) {
-      const wr = gameState.war_round;
-      if (!wr || !wr.players || typeof wr.dealer_card === 'undefined') return false;
-      const playerCardsAssigned = Object.values(wr.players).length > 0 && Object.values(wr.players).every(card => card !== null && card !== undefined);
-      const dealerCardAssigned = !!wr.dealer_card;
-      return playerCardsAssigned && dealerCardAssigned;
+      const wr = gameState.war_round
+      if (!wr || !wr.players || typeof wr.dealer_card === 'undefined')
+        return false
+      const playerCardsAssigned =
+        Object.values(wr.players).length > 0 &&
+        Object.values(wr.players).every(
+          card => card !== null && card !== undefined
+        )
+      const dealerCardAssigned = !!wr.dealer_card
+      return playerCardsAssigned && dealerCardAssigned
     } else {
       return (
-        Object.values(gameState.players).filter(p => p).every(p => p.card !== null) &&
-        !!gameState.dealer_card
-      );
+        Object.values(gameState.players)
+          .filter(p => p)
+          .every(p => p.card !== null) && !!gameState.dealer_card
+      )
     }
-  }, [gameState.war_round_active, gameState.war_round, gameState.war_round?.players, gameState.war_round?.dealer_card, gameState.players, gameState.dealer_card]);
+  }, [
+    gameState.war_round_active,
+    gameState.war_round,
+    gameState.war_round?.players,
+    gameState.war_round?.dealer_card,
+    gameState.players,
+    gameState.dealer_card
+  ])
 
   useEffect(() => {
     // Compare previous and current player statuses
-    const prevStatuses = prevPlayerStatusesRef.current;
-    const currStatuses: Record<string, string> = {};
+    const prevStatuses = prevPlayerStatusesRef.current
+    const currStatuses: Record<string, string> = {}
     Object.entries(gameState.players).forEach(([pid, pdata]) => {
-      currStatuses[pid] = pdata.status;
+      currStatuses[pid] = pdata.status
       if (prevStatuses[pid] && prevStatuses[pid] !== pdata.status) {
-        addNotification(`DEBUG: Player ${pid} status changed: ${prevStatuses[pid]} → ${pdata.status}`);
+        addNotification(
+          `DEBUG: Player ${pid} status changed: ${prevStatuses[pid]} → ${pdata.status}`
+        )
       }
-    });
-    prevPlayerStatusesRef.current = currStatuses;
-  }, [gameState.players]);
+    })
+    prevPlayerStatusesRef.current = currStatuses
+  }, [gameState.players])
 
   return (
-    <div className="min-h-screen p-6">
-      {/* Menu Button in top right */}
-      <div className="absolute top-4 right-4 z-20">
-        <button
-          className="bg-black/60 border border-casino-gold rounded-full p-3 hover:bg-black/80 transition"
-          onClick={() => setMenuOpen(true)}
-          aria-label="Open Game Controls Menu"
-        >
-          <FaBarsIcon className="text-casino-gold text-2xl" />
-        </button>
-      </div>
+    <div className='min-h-screen max-h-screen overflow-hidden flex flex-col'>
+      {/* Header Section - Reduce height */}
+      <nav className='relative h-[12vh] w-full overflow-hidden mb-2'>
+        <img
+          src='/assets/wood.png'
+          alt='Wood Background'
+          className='absolute inset-0 object-cover w-full h-full'
+        />
+        <div className='relative h-full'>
+          <div className='flex items-center justify-between -mt-1 xs:-mt-2 sm:-mt-3 px-2 xs:px-4 sm:px-6 md:px-8'>
+            {/* Left Logo - Reduce size */}
+            <div
+              className='w-12 h-12 xs:w-16 xs:h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 lg:w-28 lg:h-28 relative flex flex-col items-center justify-center cursor-pointer hover:scale-105 transition-transform overflow-hidden -mt-2'
+              onClick={() => setBetMenuOpen(true)}
+              aria-label='Open Bet/Table Menu'
+            >
+              <div className='relative w-10 h-10 xs:w-12 xs:h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 lg:w-20 lg:h-20 xl:w-24 xl:h-24'>
+                <Image
+                  src='/assets/logo.png'
+                  alt='Casino Wars Logo'
+                  fill
+                  className='object-contain'
+                  sizes='(max-width: 375px) 40px, (max-width: 640px) 48px, (max-width: 768px) 56px, (max-width: 1024px) 64px, (max-width: 1280px) 80px, 96px'
+                  priority
+                />
+              </div>
+              <span className='text-yellow-300 pb-4 -mt-4'>
+                Table: {gameState.table_number}
+              </span>
+            </div>
 
-      {/* Bet/Table Menu Button in top left */}
-      <div className="absolute top-4 left-4 z-20">
-        <button
-          className="bg-black/60 border border-casino-gold rounded-full p-3 hover:bg-black/80 transition"
-          onClick={() => setBetMenuOpen(true)}
-          aria-label="Open Bet/Table Menu"
-        >
-          <FaMoneyIcon className="text-casino-gold text-2xl" />
-        </button>
-      </div>
+            {/* Center Hats - Reduce size */}
+            <div className='flex items-center justify-center gap-1 xs:gap-2 sm:gap-2 md:gap-3 lg:gap-4'>
+              {Array.from({ length: 6 }, (_, i) => i + 1).map(seatNumber => {
+                const playerId = seatNumber.toString()
+                const isActive = gameState.players[playerId] !== undefined
+                return (
+                  <div
+                    key={seatNumber}
+                    className='w-6 h-6 xs:w-8 xs:h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 lg:w-16 lg:h-16 xl:w-18 xl:h-18 relative flex items-center justify-center cursor-pointer hover:scale-105 transition-transform'
+                    onClick={() => {
+                      if (isActive) {
+                        sendMessage({
+                          action: 'remove_player',
+                          player_id: playerId
+                        })
+                        addNotification(`Seat ${seatNumber} deactivated`)
+                      } else {
+                        sendMessage({
+                          action: 'add_player',
+                          player_id: playerId
+                        })
+                        addNotification(`Seat ${seatNumber} activated`)
+                      }
+                    }}
+                  >
+                    <div className='relative w-5 h-5 xs:w-6 xs:h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 lg:w-12 lg:h-12 xl:w-14 xl:h-14'>
+                      <Image
+                        src={
+                          isActive
+                            ? '/assets/whitehat.png'
+                            : '/assets/redhat.png'
+                        }
+                        alt={isActive ? 'Active Player' : 'Inactive Player'}
+                        fill
+                        className='object-contain'
+                        sizes='(max-width: 375px) 20px, (max-width: 640px) 24px, (max-width: 768px) 32px, (max-width: 1024px) 40px, (max-width: 1280px) 48px, 56px'
+                      />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Right Logo - Reduce size */}
+            <div
+              className='w-12 h-12 xs:w-16 xs:h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 lg:w-28 lg:h-28 relative flex items-center justify-center cursor-pointer hover:scale-105 transition-transform overflow-hidden'
+              onClick={() => setMenuOpen(true)}
+              aria-label='Open Game Menu'
+            >
+              <div className='relative w-10 h-10 xs:w-12 xs:h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 lg:w-20 lg:h-20 xl:w-24 xl:h-24'>
+                <Image
+                  src='/assets/menu.png'
+                  alt='Menu Icon'
+                  fill
+                  className='object-contain'
+                  sizes='(max-width: 375px) 40px, (max-width: 640px) 48px, (max-width: 768px) 56px, (max-width: 1024px) 64px, (max-width: 1280px) 80px, 96px'
+                  priority
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </nav>
 
       {/* Game Controls Modal */}
       <AnimatePresence>
         {menuOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
-          >
-            <motion.div
-              initial={{ scale: 0.9, y: -40 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.9, y: -40 }}
-              className="bg-black/90 border-2 border-casino-gold rounded-2xl p-8 w-full max-w-md relative shadow-2xl"
+          <div className='fixed top-0 left-0 h-full w-full z-50 flex items-center justify-center bg-black bg-opacity-60 overflow-y-auto p-4'>
+            <div
+              className='rounded-lg shadow-lg p-8 relative min-w-[320px] min-h-[200px] max-w-[90vw] my-8 flex flex-col items-center justify-center'
+              style={{ backgroundColor: '#F0DEAD' }}
             >
               <button
-                className="absolute top-4 right-4 text-casino-gold hover:text-white text-2xl"
                 onClick={() => setMenuOpen(false)}
-                aria-label="Close Menu"
+                className='absolute top-3 right-3 text-gray-500 hover:text-gray-700 text-2xl font-bold focus:outline-none'
+                aria-label='Close'
               >
-                <FaTimesIcon />
+                ×
               </button>
-              <h2 className="text-2xl font-bold text-casino-gold mb-4 text-center">Game Controls</h2>
-                {/* Deck Management */}
-              <div className="space-y-3 mb-6">
-                {gameState.game_mode === 'live' ? (
-                    <div className="dealer-button w-full text-center bg-black/60 border border-casino-gold rounded-lg py-2 font-bold text-black">
-                    🃏 Deck Status: {gameState.deck_count} cards left
-                    </div>
-                ) : gameState.game_mode === 'automatic' ? (
-                  <>
-                    <button onClick={() => sendMessage({ action: 'shuffle_deck' })} className="dealer-button w-full">
-                      🔄 Shuffle Deck ({gameState.deck_count} cards)
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button onClick={() => sendMessage({ action: 'shuffle_deck' })} className="dealer-button w-full">
-                      🔄 Shuffle Deck ({gameState.deck_count} cards)
-                    </button>
-                    <button onClick={() => sendMessage({ action: 'burn_card' })} className="w-full bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg transition-colors">
-                      🔥 Burn Card ({gameState.burned_cards_count} burned)
-                    </button>
-                  </>
-                )}
-              </div>
-
-              {/* Game Mode */}
-              <div className="mb-6">
-                <label className="block text-casino-gold font-semibold mb-2">Game Mode</label>
-                <select 
-                  value={gameState.game_mode} 
-                  onChange={async (e) => {
-                    const newMode = e.target.value;
-                    sendMessage({ action: 'set_game_mode', mode: newMode });
-                    // Wait a short moment to ensure backend processes mode change before reset
-                    setTimeout(() => {
-                      sendMessage({ action: 'reset_game' });
-                    }, 200);
+              <div className='flex flex-row items-center justify-center gap-6 w-full h-full'>
+                <button
+                  className='px-3 py-1.5 rounded-lg text-xl font-semibold shadow text-white transition-colors'
+                  style={{
+                    width: 166,
+                    height: 49,
+                    backgroundColor:
+                      gameState.game_mode === 'live' ? '#741003' : '#911606'
                   }}
-                  className="w-full bg-black border border-casino-gold rounded-lg px-3 py-2 text-white"
+                  onClick={() => {
+                    const newMode = 'live'
+                    sendMessage({ action: 'set_game_mode', mode: newMode })
+                    setTimeout(() => {
+                      sendMessage({ action: 'reset_game' })
+                    }, 200)
+                  }}
                 >
-                  <option value="manual">Manual</option>
-                  <option value="automatic">Automatic</option>
-                  <option value="live">Live</option>
-                </select>
+                  Manual Mode
+                </button>
+                <button
+                  className='px-3 py-1.5 rounded-lg text-xl font-semibold shadow text-white transition-colors whitespace-nowrap'
+                  style={{
+                    height: 49,
+                    backgroundColor:
+                      gameState.game_mode === 'automatic'
+                        ? '#741003'
+                        : '#911606'
+                  }}
+                  onClick={() => {
+                    const newMode = 'automatic'
+                    sendMessage({ action: 'set_game_mode', mode: newMode })
+                    setTimeout(() => {
+                      sendMessage({ action: 'reset_game' })
+                    }, 200)
+                  }}
+                >
+                  Automatic Mode
+                </button>
+                <button
+                  className='px-3 py-1.5 rounded-lg text-xl font-semibold shadow text-white transition-colors'
+                  style={{
+                    width: 166,
+                    height: 49,
+                    backgroundColor:
+                      gameState.game_mode === 'manual' ? '#741003' : '#911606'
+                  }}
+                  onClick={() => {
+                    const newMode = 'manual'
+                    sendMessage({ action: 'set_game_mode', mode: newMode })
+                    setTimeout(() => {
+                      sendMessage({ action: 'reset_game' })
+                    }, 200)
+                  }}
+                >
+                  Live Mode
+                </button>
               </div>
-
-              {/* Deal Cards */}
-              {/* <button 
-                onClick={() => sendMessage({ action: 'deal_cards' })} 
-                disabled={gameState.round_active || Object.keys(gameState.players).length === 0}
-                className="dealer-button w-full mb-4 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                🎴 Deal Cards
-              </button> */}
-
-              {/* AUTOMATIC MODE: START and NEW ROUND BUTTONS */}
-              {gameState.game_mode === 'automatic' && !gameState.round_active && Object.keys(gameState.players).length > 0 && (
-                <div className="flex flex-col gap-2 mb-4">
+              {gameState.game_mode === 'live' ? (
+                <div className='flex flex-row w-full gap-6 justify-center items-center mt-8'>
+                  {/* Second column */}
+                  <div className='flex-1 flex flex-col h-full min-h-full'>
+                    <div className='flex flex-col items-center gap-2 mb-16'>
+                      {/* <button
+                        className='rounded-lg shadow text-xl font-bold flex items-center justify-center'
+                        style={{
+                          width: 250,
+                          height: 49,
+                          backgroundColor: '#fff',
+                          color: '#741003'
+                        }}
+                        onClick={() => sendMessage({ action: 'shuffle_deck' })}
+                      >
+                        Shuffle Deck ({gameState.deck_count} Cards)
+                      </button> */}
+                      {/* <button
+                        className='rounded-lg shadow text-xl font-bold flex items-center justify-center'
+                        style={{
+                          width: 250,
+                          height: 49,
+                          backgroundColor: '#fff',
+                          color: '#741003'
+                        }}
+                        onClick={() => sendMessage({ action: 'burn_card' })}
+                      >
+                        Burn Card
+                      </button> */}
+                      {/* <button
+                        className='rounded-lg shadow text-xl font-bold flex items-center justify-center'
+                        style={{
+                          width: 250,
+                          height: 49,
+                          backgroundColor: '#fff',
+                          color: '#741003'
+                        }}
+                        onClick={() => sendMessage({ action: 'deal_cards' })}
+                      >
+                        Deal Cards
+                      </button> */}
+                    </div>
+                    <div className='flex flex-col items-center gap-2'>
+                      {/* <button
+                        className='rounded-lg shadow text-xl font-bold flex items-center justify-center'
+                        style={{
+                          width: 250,
+                          height: 49,
+                          backgroundColor: '#fff',
+                          color: '#741003'
+                        }}
+                        // onClick={() =>
+                        //   sendMessage({ action: 'delete_last_win' })
+                        // }
+                      >
+                        Delete Last Win
+                      </button> */}
+                      {/* <button
+                        className='rounded-lg shadow text-xl font-bold flex items-center justify-center'
+                        style={{
+                          width: 250,
+                          height: 49,
+                          backgroundColor: '#fff',
+                          color: '#741003'
+                        }}
+                        onClick={() => sendMessage({ action: 'reset_game' })}
+                      >
+                        Clear All Records
+                      </button> */}
+                      <button
+                        className='rounded-lg shadow text-xl font-bold flex items-center justify-center'
+                        style={{
+                          width: 250,
+                          height: 49,
+                          backgroundColor: '#fff',
+                          color: '#741003'
+                        }}
+                        onClick={() => {
+                          sendMessage({ action: 'clear_round' })
+                        }}
+                      >
+                        NEW GAME
+                      </button>
+                      <button
+                        className='rounded-lg shadow text-xl font-bold flex items-center justify-center'
+                        style={{
+                          width: 250,
+                          height: 49,
+                          backgroundColor: '#911606',
+                          color: '#fff'
+                        }}
+                        onClick={() => sendMessage({ action: 'reset_game' })}
+                      >
+                        RESET GAME
+                      </button>
+                    </div>
+                  </div>
+                  {/* Third column */}
+                  <div className='flex-1 flex flex-col h-full min-h-full'>
+                    {/* First group: 3x4 grid for ranks */}
+                    <div className='grid grid-cols-3 grid-rows-4 gap-4 mb-10 place-items-center'>
+                      <div />
+                      <button
+                        className={`rounded-lg shadow text-xl font-bold flex items-center justify-center ${
+                          manualCard[0] === 'A'
+                            ? 'bg-[#741003] text-white'
+                            : 'bg-white text-[#741003]'
+                        }`}
+                        style={{ width: 80, height: 44 }}
+                        onClick={() =>
+                          setManualCard('A' + (manualCard[1] || ''))
+                        }
+                      >
+                        A
+                      </button>
+                      <div />
+                      {[
+                        '2',
+                        '3',
+                        '4',
+                        '5',
+                        '6',
+                        '7',
+                        '8',
+                        '9',
+                        'T',
+                        'J',
+                        'Q',
+                        'K'
+                      ].map(rank => (
+                        <button
+                          key={`grid-btn-${rank}`}
+                          className={`rounded-lg shadow text-xl font-bold flex items-center justify-center ${
+                            manualCard[0] === rank
+                              ? 'bg-[#741003] text-white'
+                              : 'bg-white text-[#741003]'
+                          }`}
+                          style={{ width: 80, height: 44 }}
+                          onClick={() =>
+                            setManualCard(rank + (manualCard[1] || ''))
+                          }
+                        >
+                          {rank}
+                        </button>
+                      ))}
+                    </div>
+                    {/* Second group: 2x2 grid for suits */}
+                    <div className='grid grid-cols-2 grid-rows-2 gap-4 mb-10 place-items-center'>
+                      {[
+                        { symbol: '♠', value: 'S' },
+                        { symbol: '♥', value: 'H' },
+                        { symbol: '♦', value: 'D' },
+                        { symbol: '♣', value: 'C' }
+                      ].map(suit => (
+                        <button
+                          key={`suit-btn-${suit.value}`}
+                          className={`rounded-lg shadow text-xl font-bold flex items-center justify-center ${
+                            manualCard[1] === suit.value
+                              ? 'bg-[#741003] text-white'
+                              : 'bg-white text-[#741003]'
+                          } ${
+                            suit.value === 'H' || suit.value === 'D'
+                              ? 'text-red-600'
+                              : 'text-black'
+                          }`}
+                          style={{ width: 110, height: 44 }}
+                          onClick={() =>
+                            setManualCard((manualCard[0] || '') + suit.value)
+                          }
+                        >
+                          {suit.symbol}
+                        </button>
+                      ))}
+                    </div>
+                    {/* Third group: Send and Undo buttons */}
+                    <div className='flex flex-row gap-4 items-center justify-center'>
+                      <button
+                        className={`rounded-lg shadow text-xl font-bold flex items-center justify-center ${
+                          manualCard.length === 2
+                            ? 'bg-[#D6AB5D] text-white'
+                            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        }`}
+                        style={{ width: 110, height: 44 }}
+                        onClick={() => {
+                          if (manualCard.length !== 2) return
+                          if (gameState.war_round_active) {
+                            const warPlayerIds = gameState.war_round
+                              ? Object.keys(gameState.war_round.players)
+                                  .filter(
+                                    pid =>
+                                      gameState.war_round &&
+                                      (gameState.war_round.players[pid] ===
+                                        null ||
+                                        gameState.war_round.players[pid] ===
+                                          undefined)
+                                  )
+                                  .sort((a, b) => Number(a) - Number(b))
+                              : []
+                            if (warPlayerIds.length > 0) {
+                              sendMessage({
+                                action: 'assign_war_card',
+                                target: 'player',
+                                card: manualCard,
+                                player_id: warPlayerIds[0]
+                              })
+                              setManualCard('')
+                            } else if (
+                              gameState.war_round &&
+                              !gameState.war_round.dealer_card
+                            ) {
+                              sendMessage({
+                                action: 'assign_war_card',
+                                target: 'dealer',
+                                card: manualCard
+                              })
+                              setManualCard('')
+                            }
+                          } else {
+                            const playerIds = Object.keys(gameState.players)
+                              .filter(
+                                pid =>
+                                  gameState.players[pid] &&
+                                  gameState.players[pid].card === null
+                              )
+                              .sort((a, b) => Number(a) - Number(b))
+                            if (playerIds.length > 0) {
+                              sendMessage({
+                                action: 'manual_deal_card',
+                                target: 'player',
+                                card: manualCard,
+                                player_id: playerIds[0]
+                              })
+                              setManualCard('')
+                            } else if (!gameState.dealer_card) {
+                              sendMessage({
+                                action: 'manual_deal_card',
+                                target: 'dealer',
+                                card: manualCard
+                              })
+                              setManualCard('')
+                            }
+                          }
+                        }}
+                        disabled={manualCard.length !== 2}
+                      >
+                        Send card
+                      </button>
+                      <button
+                        className='rounded-lg shadow text-xl font-bold flex items-center justify-center bg-[#911606] text-white'
+                        style={{ width: 110, height: 44 }}
+                        onClick={() =>
+                          sendMessage({ action: 'undo_last_card' })
+                        }
+                      >
+                        Undo Card
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : gameState.game_mode === 'manual' ? (
+                <div className='flex flex-col items-center justify-center w-full h-full mt-8'>
                   <button
-                    className="success-button w-full"
+                    className='mb-4 px-6 py-3 rounded-lg text-xl font-bold shadow text-white bg-[#911606] hover:bg-[#741003] transition-colors'
+                    style={{ maxWidth: 260 }}
+                    onClick={() => sendMessage({ action: 'reset_game' })}
+                  >
+                    RESET GAME
+                  </button>
+                  <button
+                    className='m-4 px-5 py-3 rounded-lg text-xl font-bold shadow text-white bg-[#911606] hover:bg-[#741003] transition-colors'
                     onClick={() => {
-                      // Start round: assign cards and evaluate
-                      sendMessage({ action: 'start_auto_round' });
+                      sendMessage({ action: 'clear_round' })
                     }}
                   >
-                    ▶️ START
+                    NEW GAME
+                  </button>
+                  <div className='grid grid-cols-3 grid-rows-2 gap-4 w-fit'>
+                    {[1, 2, 3, 4, 5, 6].map(playerNum => (
+                      <div
+                        key={playerNum}
+                        className='bg-[#911606] h-28 w-56 rounded-lg flex flex-col justify-center items-center p-3'
+                        style={{ margin: '8px' }}
+                      >
+                        <div className='text-lg font-bold mb-2 text-[#F0DEAD]'>
+                          PLAYER {playerNum}
+                        </div>
+                        <div className='flex flex-row gap-2'>
+                          <button
+                            className='px-4 py-2 rounded text-[#741003] bg-[#F0DEAD] text-base font-semibold'
+                            onClick={() =>
+                              sendMessage({
+                                action: 'manual_assign_result',
+                                player_id: playerNum.toString(),
+                                result: 'win'
+                              })
+                            }
+                          >
+                            WIN
+                          </button>
+                          <button
+                            className='px-4 py-2 rounded bg-[#450A03] text-[#F0DEAD] text-base font-semibold'
+                            onClick={() =>
+                              sendMessage({
+                                action: 'manual_assign_result',
+                                player_id: playerNum.toString(),
+                                result: 'lose'
+                              })
+                            }
+                          >
+                            LOSE
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className='flex flex-col items-center justify-center w-full h-full'>
+                  {/* DECK COUNT DISPLAY - AUTOMATIC MODE */}
+                  {/* <div className='mb-4 mt-6 p-3 bg-white rounded-lg border-2 border-[#741003]'>
+                    <div className='text-[#741003] font-bold text-lg text-center'>
+                      Deck Count: {gameState.deck_count} cards
+                    </div>
+                  </div> */}
+                  {/* <button
+                    onClick={() => sendMessage({ action: 'shuffle_deck' })}
+                    className='m-4 px-5 py-3 rounded-lg text-xl font-bold shadow text-white bg-[#911606] hover:bg-[#741003] transition-colors'
+                  >
+                    🔄 Shuffle Deck ({gameState.deck_count} cards)
+                  </button> */}
+                  <button
+                    className='m-4 px-5 py-3 rounded-lg text-xl font-bold shadow text-white bg-[#911606] hover:bg-[#741003] transition-colors'
+                    onClick={() => {
+                      sendMessage({ action: 'start_auto_round' })
+                    }}
+                  >
+                    Start automatic
                   </button>
                   {/* Show NEW ROUND if previous round completed and players exist */}
-                  {Object.values(gameState.players).some(p => p.card || p.status !== 'active') && (
+                  {Object.values(gameState.players).some(
+                    p => p.card || p.status !== 'active'
+                  ) && (
                     <button
-                      className="dealer-button w-full"
+                      className='m-4 px-5 py-3 rounded-lg text-xl font-bold shadow text-white bg-[#911606] hover:bg-[#741003] transition-colors'
                       onClick={() => {
-                        sendMessage({ action: 'clear_round' });
+                        sendMessage({ action: 'clear_round' })
                       }}
                     >
-                      🔄 NEW GAME
+                      NEW GAME
                     </button>
                   )}
+                  <button
+                    className='m-4 px-5 py-3 rounded-lg text-xl font-bold shadow text-white bg-[#911606] hover:bg-[#741003] transition-colors'
+                    onClick={() => sendMessage({ action: 'reset_game' })}
+                  >
+                    RESET GAME
+                  </button>
                 </div>
               )}
-
-              {gameState.game_mode === 'live' && (
-                <>
-                  <button 
-                    onClick={() => sendMessage({ action: 'evaluate_round' })} 
-                    className="success-button w-full mb-2"
-                  >
-                    ⚖️ Evaluate Round
-                  </button>
-                  <button
-                    className="dealer-button w-full mb-4"
-                    onClick={() => {
-                      sendMessage({ action: 'clear_round' });
-                    }}
-                  >
-                    🔄 NEW GAME
-                  </button>
-                </>
-              )}
-
-              {/* Card Assignment Panel for Manual/Live Mode */}
-              {(gameState.game_mode === 'manual' || gameState.game_mode === 'live') && (
-                <>
-                  <div className="mb-6">
-                    <label className="block text-casino-gold font-semibold mb-2">
-                      {gameState.war_round_active ? 'Assign War Card (Number & Suit)' : 'Assign Card (Number & Suit)'}
-                    </label>
-                    <div className="flex flex-col gap-2">
-                      <div className="flex flex-wrap gap-2 justify-center mb-2">
-                        {["A","2","3","4","5","6","7","8","9","T","J","Q","K"].map(rank => (
-                          <button
-                            key={rank}
-                            className={`px-3 py-1 rounded border ${manualCard[0]===rank ? 'bg-casino-gold text-black' : 'bg-black text-casino-gold border-casino-gold'}`}
-                            onClick={() => setManualCard(rank + (manualCard[1]||''))}
-                          >
-                            {rank}
-                          </button>
-                        ))}
-                      </div>
-                      <div className="flex flex-wrap gap-2 justify-center mb-2">
-                        {['S','H','D','C'].map(suit => (
-                          <button
-                            key={suit}
-                            className={`px-3 py-1 rounded border ${manualCard[1]===suit ? 'bg-casino-gold text-black' : 'bg-black text-casino-gold border-casino-gold'}`}
-                            onClick={() => setManualCard((manualCard[0]||'') + suit)}
-                          >
-                            {suit === 'S' ? '♠' : suit === 'H' ? '♥' : suit === 'D' ? '♦' : '♣'}
-                          </button>
-                        ))}
-                      </div>
-                      <button
-                        className="success-button w-full"
-                        disabled={manualCard.length !== 2 || allAssigned}
-                        onClick={() => {
-                          if (manualCard.length !== 2) return;
-                          if (gameState.war_round_active) {
-                            // War round assignment: use EXACT same logic as normal rounds
-                            const warPlayerIds = gameState.war_round ? Object.keys(gameState.war_round.players).filter(pid => 
-                              gameState.war_round && (gameState.war_round.players[pid] === null || gameState.war_round.players[pid] === undefined)
-                            ).sort((a, b) => Number(a) - Number(b)) : [];
-                            if (warPlayerIds.length > 0) {
-                              sendMessage({ action: 'assign_war_card', target: 'player', card: manualCard, player_id: warPlayerIds[0] });
-                              setManualCard('');
-                              addNotification(`War card ${manualCard} assigned to player ${warPlayerIds[0]}`);
-                            } else if (gameState.war_round && !gameState.war_round.dealer_card) {
-                              sendMessage({ action: 'assign_war_card', target: 'dealer', card: manualCard });
-                              setManualCard('');
-                              addNotification(`War card ${manualCard} assigned to dealer`);
-                            }
-                          } else {
-                            // Normal round assignment
-                            const playerIds = Object.keys(gameState.players).filter(pid => gameState.players[pid] && gameState.players[pid].card === null).sort((a, b) => Number(a) - Number(b));
-                            if (playerIds.length > 0) {
-                              sendMessage({ action: 'manual_deal_card', target: 'player', card: manualCard, player_id: playerIds[0] });
-                              setManualCard('');
-                              addNotification(`Card ${manualCard} assigned to player ${playerIds[0]}`);
-                            } else if (!gameState.dealer_card) {
-                              sendMessage({ action: 'manual_deal_card', target: 'dealer', card: manualCard });
-                              setManualCard('');
-                              addNotification(`Card ${manualCard} assigned to dealer`);
-                            }
-                          }
-                        }}
-                      >
-                        ➕ Add Card
-                      </button>
-                    </div>
-                    {/* Disable if all players and dealer have cards (normal) or all war cards assigned (war round) */}
-                    {allAssigned && (
-                      <div className="text-center text-sm text-gray-400 mt-2">
-                        {gameState.war_round_active
-                          ? 'All war cards have been assigned to the players and dealer.'
-                          : 'All cards have been assigned to the players and dealer.'}
-                      </div>
-                    )}
-                  </div>
-                  {/* Common Card Assignment by Dropdown (Player/Dealer) */}
-                  <div className="mb-6">
-                    <label className="block text-casino-gold font-semibold mb-2">
-                      {gameState.war_round_active ? 'Assign War Card to Specific Player/Dealer' : 'Assign Card to Specific Player/Dealer'}
-                    </label>
-                    <div className="flex flex-col gap-2">
-                      <div className="flex gap-2">
-                        <select
-                          value={manualCardTarget}
-                          onChange={e => setManualCardTarget(e.target.value)}
-                          className="bg-black border border-casino-gold rounded-lg px-3 py-2 text-white flex-1"
-                        >
-                          <option value="">Select...</option>
-                          {(gameState.war_round_active && gameState.war_round)
-                            ? Object.keys(gameState.war_round.players).map(pid => (
-                                <option key={pid} value={pid}>
-                                  Player {pid}
-                                </option>
-                              ))
-                            : Object.keys(gameState.players).map(pid => (
-                                <option key={pid} value={pid}>
-                                  Player {pid}
-                                </option>
-                              ))}
-                          <option value="dealer">Dealer</option>
-                        </select>
-                        <input
-                          type="text"
-                          placeholder="Card (e.g., AS, KH)"
-                          value={manualCardSpecific}
-                          onChange={e => setManualCardSpecific(e.target.value.toUpperCase())}
-                          className="bg-black border border-casino-gold rounded-lg px-3 py-2 text-white flex-1"
-                        />
-                      </div>
-                      <button
-                        className="success-button w-full"
-                        disabled={
-                          !manualCardTarget ||
-                          manualCardSpecific.length !== 2 ||
-                          (gameState.war_round_active
-                            ? (manualCardTarget === 'dealer'
-                                ? !!(gameState.war_round && gameState.war_round.dealer_card)
-                                : !!(gameState.war_round && gameState.war_round.players && gameState.war_round.players[manualCardTarget] !== null && gameState.war_round.players[manualCardTarget] !== undefined))
-                            : (manualCardTarget === 'dealer'
-                                ? !!gameState.dealer_card
-                                : !!gameState.players[manualCardTarget]?.card)
-                          )
-                        }
-                        onClick={() => {
-                          if (!manualCardTarget || manualCardSpecific.length !== 2) return;
-                          if (!validCardPattern.test(manualCardSpecific)) {
-                            setNotifications(prev => [
-                              ...prev.slice(-4),
-                              "Invalid card. Please enter a valid card using ranks (2-10, J, Q, K, A) and suits (S, H, D, C)."
-                            ]);
-                            return;
-                          }
-                          if (gameState.war_round_active) {
-                            if (manualCardTarget === 'dealer') {
-                              sendMessage({ action: 'assign_war_card', target: 'dealer', card: manualCardSpecific });
-                              addNotification(`War card ${manualCardSpecific} assigned to dealer`);
-                            } else {
-                              sendMessage({ action: 'assign_war_card', target: 'player', card: manualCardSpecific, player_id: manualCardTarget });
-                              addNotification(`War card ${manualCardSpecific} assigned to player ${manualCardTarget}`);
-                            }
-                          } else {
-                            if (manualCardTarget === 'dealer') {
-                              sendMessage({ action: 'manual_deal_card', target: 'dealer', card: manualCardSpecific });
-                              addNotification(`Card ${manualCardSpecific} assigned to dealer`);
-                            } else {
-                              sendMessage({ action: 'manual_deal_card', target: 'player', card: manualCardSpecific, player_id: manualCardTarget });
-                              addNotification(`Card ${manualCardSpecific} assigned to player ${manualCardTarget}`);
-                            }
-                          }
-                          setManualCardSpecific('');
-                          setManualCardTarget('');
-                        }}
-                      >
-                        Assign Card
-                      </button>
-                    </div>
-                  </div>
-                </>
-              )}
-
-
-
-              {/* Utility Controls */}
-              <div className="space-y-2">
-                {/* Add Evaluate War Round button to menu when war round is active */}
-                {gameState.war_round_active && (
-                  <button
-                    onClick={() => sendMessage({ action: 'evaluate_war_round' })}
-                    className="dealer-button w-full"
-                  >
-                    ⚔️ Evaluate War Round
-                  </button>
-                )}
-                {gameState.game_mode !== 'automatic' && (
-                  <button onClick={() => sendMessage({ action: 'undo_last_card' })} className="danger-button w-full">
-                    ↩️ UNDO CARD
-                  </button>
-                )}
-                <button onClick={() => sendMessage({ action: 'reset_game' })} className="danger-button w-full">
-                  🔄 CLEAR ALL STATS             </button>
-              </div>
-            </motion.div>
-          </motion.div>
+            </div>
+          </div>
         )}
       </AnimatePresence>
 
       {/* Bet/Table Menu Modal */}
       <AnimatePresence>
         {betMenuOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
-          >
-            <motion.div
-              initial={{ scale: 0.9, y: -40 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.9, y: -40 }}
-              className="bg-black/90 border-2 border-casino-gold rounded-2xl p-8 w-full max-w-xs relative shadow-2xl"
+          <div className='fixed top-0 left-0 h-full w-full z-50 flex items-center justify-center bg-black bg-opacity-60 overflow-y-auto p-4'>
+            <div
+              className='rounded-lg shadow-lg p-8 relative min-w-[320px] min-h-[200px] max-w-[90vw] my-8 flex flex-col items-center justify-center'
+              style={{ backgroundColor: '#F0DEAD' }}
             >
               <button
-                className="absolute top-4 right-4 text-casino-gold hover:text-white text-2xl"
                 onClick={() => setBetMenuOpen(false)}
-                aria-label="Close Bet/Table Menu"
+                className='absolute top-3 right-3 text-gray-500 hover:text-gray-700 text-2xl font-bold focus:outline-none'
+                aria-label='Close'
               >
-                <FaTimesIcon />
+                ×
               </button>
-              <h2 className="text-xl font-bold text-casino-gold mb-4 text-center">Table & Betting</h2>
-              <div className="mb-4">
-                <label className="block text-casino-gold font-semibold mb-2">Table Number</label>
+              <h2 className='text-xl font-bold text-[#741003] mb-6 text-center'>
+                Table & Betting
+              </h2>
+              <div className='mb-4 w-full max-w-xs'>
+                <label className='block text-[#741003] font-semibold mb-2'>
+                  Table Number
+                </label>
                 <input
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
+                  type='text'
+                  inputMode='numeric'
+                  pattern='[0-9]*'
                   value={pendingTableNumber}
-                  onChange={e => setPendingTableNumber(e.target.value === '' ? 0 : Number(e.target.value.replace(/\D/g, '')))}
-                  className="w-full bg-black border border-casino-gold rounded-lg px-3 py-2 text-white appearance-none"
+                  onChange={e =>
+                    setPendingTableNumber(
+                      e.target.value === ''
+                        ? 0
+                        : Number(e.target.value.replace(/\D/g, ''))
+                    )
+                  }
+                  className='w-full bg-white border-2 border-[#741003] rounded-lg px-3 py-2 text-[#741003] appearance-none font-semibold'
                   style={{ MozAppearance: 'textfield' }}
                 />
               </div>
-              <div className="mb-4">
-                <label className="block text-casino-gold font-semibold mb-2">Min Bet</label>
+              <div className='mb-4 w-full max-w-xs'>
+                <label className='block text-[#741003] font-semibold mb-2'>
+                  Min Bet
+                </label>
                 <input
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
+                  type='text'
+                  inputMode='numeric'
+                  pattern='[0-9]*'
                   value={pendingMinBet}
-                  onChange={e => setPendingMinBet(e.target.value === '' ? 0 : Number(e.target.value.replace(/\D/g, '')))}
-                  className="w-full bg-black border border-casino-gold rounded-lg px-3 py-2 text-white appearance-none"
+                  onChange={e =>
+                    setPendingMinBet(
+                      e.target.value === ''
+                        ? 0
+                        : Number(e.target.value.replace(/\D/g, ''))
+                    )
+                  }
+                  className='w-full bg-white border-2 border-[#741003] rounded-lg px-3 py-2 text-[#741003] appearance-none font-semibold'
                   style={{ MozAppearance: 'textfield' }}
                 />
               </div>
-              <div className="mb-4">
-                <label className="block text-casino-gold font-semibold mb-2">Max Bet</label>
+              <div className='mb-6 w-full max-w-xs'>
+                <label className='block text-[#741003] font-semibold mb-2'>
+                  Max Bet
+                </label>
                 <input
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
+                  type='text'
+                  inputMode='numeric'
+                  pattern='[0-9]*'
                   value={pendingMaxBet}
-                  onChange={e => setPendingMaxBet(e.target.value === '' ? 0 : Number(e.target.value.replace(/\D/g, '')))}
-                  className="w-full bg-black border border-casino-gold rounded-lg px-3 py-2 text-white appearance-none"
+                  onChange={e =>
+                    setPendingMaxBet(
+                      e.target.value === ''
+                        ? 0
+                        : Number(e.target.value.replace(/\D/g, ''))
+                    )
+                  }
+                  className='w-full bg-white border-2 border-[#741003] rounded-lg px-3 py-2 text-[#741003] appearance-none font-semibold'
                   style={{ MozAppearance: 'textfield' }}
                 />
               </div>
               <button
-                className="success-button w-full"
+                className='rounded-lg shadow text-xl font-bold text-white w-full max-w-xs'
+                style={{ height: 49, backgroundColor: '#911606' }}
                 onClick={() => {
-                  sendMessage({ action: 'change_bets', min_bet: pendingMinBet, max_bet: pendingMaxBet })
-                  sendMessage({ action: 'change_table', table_number: pendingTableNumber })
+                  sendMessage({
+                    action: 'change_bets',
+                    min_bet: pendingMinBet,
+                    max_bet: pendingMaxBet
+                  })
+                  sendMessage({
+                    action: 'change_table',
+                    table_number: pendingTableNumber
+                  })
                   setBetMenuOpen(false)
                   addNotification('Table and betting updated')
                 }}
               >
                 Save
               </button>
-            </motion.div>
-          </motion.div>
+            </div>
+          </div>
         )}
       </AnimatePresence>
 
-      {/* Player Management + Connection Status */}
-      <div className="relative">
-        {/* Connection Status in top right */}
-        <div className="absolute top-4 right-4 z-10">
-          <div className={`px-4 py-2 rounded-full flex items-center gap-2 ${connected ? 'bg-green-500/20 border border-green-500 text-green-400' : 'bg-red-500/20 border border-red-500 text-red-400'}`}>
-        <div className={`w-3 h-3 rounded-full ${connected ? 'bg-green-400' : 'bg-red-400'} animate-pulse`}></div>
-        {connected ? 'Connected' : 'Disconnected'}
-          </div>
-        </div>
-        <div className="bg-black/40 backdrop-blur-sm border border-casino-gold rounded-xl p-6 mb-6">
-          <h2 className="text-xl font-bold text-casino-gold mb-4">Player Management</h2>
-          <div className="flex gap-4 justify-center">
-        {Array.from({ length: 6 }, (_, i) => i + 1).map((seatNumber) => {
-          const playerId = seatNumber.toString();
-          const isActive = gameState.players[playerId] !== undefined;
-          return (
-            <button
-          key={seatNumber}
-          onClick={() => {
-            if (isActive) {
-              sendMessage({ action: "remove_player", player_id: playerId });
-              addNotification(`Seat ${seatNumber} deactivated`);
-            } else {
-              sendMessage({ action: "add_player", player_id: playerId });
-              addNotification(`Seat ${seatNumber} activated`);
-            }
-          }}
-          className={`flex flex-col items-center justify-center border-2 rounded-xl p-4 transition-all duration-200 ${
-            isActive 
-              ? "bg-green-800 border-green-400 shadow-lg shadow-green-400/20"
-              : "bg-gray-800 border-gray-600 hover:border-gray-400"
-          }`}
-            >
-          <div className="text-4xl mb-2">
-            {isActive ? "🟢" : "⚫"}
-          </div>
-          <div className="text-lg font-bold text-white">Seat {seatNumber}</div>
-            </button>
-          );
-        })}
-          </div>
-        </div>
-      </div>
-
-      {/* Notifications */}
       <AnimatePresence>
         {notifications.map((notification, index) => (
           <motion.div
@@ -833,7 +1310,7 @@ export default function DealerPage() {
             initial={{ opacity: 0, x: 300 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -300 }}
-            className="fixed top-20 right-6 bg-casino-gold text-black px-4 py-2 rounded-lg shadow-lg z-50 mb-2"
+            className='fixed top-20 right-6 bg-casino-gold text-black px-4 py-2 rounded-lg shadow-lg z-50 mb-2'
             style={{ top: `${80 + index * 60}px` }}
           >
             {notification}
@@ -841,201 +1318,421 @@ export default function DealerPage() {
         ))}
       </AnimatePresence>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Game Table */}
-        <div className="lg:col-span-3 col-span-full w-full">
-          <div className="bg-black/40 backdrop-blur-sm border border-casino-gold rounded-xl p-6 mb-6 w-full grow flex flex-col">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-casino-gold">
-                Round {gameState.round_number} {gameState.round_active ? '(Active)' : ''}
-              </h2>
-              <div className="text-right">
-                <div className="text-casino-gold font-semibold">Table: {gameState.table_number}</div>
-                <div className="text-casino-gold font-semibold">Betting: ${gameState.min_bet} - $${gameState.max_bet}</div>
-                <div className="text-gray-300 text-sm">Players: {Object.keys(gameState.players).length}/6</div>
-              </div>
-            </div>
-
-            {/* Dealer Section */}
-            {(!gameState.war_round_active || !gameState.war_round?.original_cards) ? (
-              <div className="text-center mb-8">
-                <h3 className="text-xl font-bold text-casino-gold mb-4">Dealer</h3>
-                <div className="flex flex-col items-center justify-center">
-                  {/* After war round, show both original and war card stacked */}
-                  {(!gameState.war_round_active && gameState.war_round?.original_cards?.dealer_card) ? (
-                    <div className="flex flex-col items-center gap-1">
-                      {renderCard(gameState.war_round.original_cards.dealer_card, 'large')}
-                      {gameState.war_round?.dealer_card && (
-                        <div className="mt-1">{renderCard(gameState.war_round.dealer_card, 'large')}</div>
-                      )}
+      <div className='flex-1 overflow-y-auto mt-6'>
+        <div className='flex-1 flex flex-col'>
+          <div className='flex-1 flex flex-col mx-4 lg:mx-6 mb-8'>
+            {/* Game Table Container - Compact layout */}
+            <div className='bg-[#911606] border-4 border-[#d4af37] p-4 flex-1 flex flex-col'>
+              {/* Dealer + Game Info - More compact */}
+              <div className='flex flex-col lg:flex-row gap-4 mb-4'>
+                {/* Left side - Dealer section - Reduced padding */}
+                <div className='lg:w-2/3'>
+                  {!gameState.war_round_active ||
+                  !gameState.war_round?.original_cards ? (
+                    <div className='mb-0'>
+                      <div className='bg-[#911606] border-2 border-dashed border-white p-4 rounded-lg'>
+                        <div className='flex justify-between items-center mb-3'>
+                          <h3 className='text-xl font-medium font-[questrial] tracking-widest text-white'>
+                            Dealer's Cards
+                          </h3>
+                          {/* Reset Button - Smaller */}
+                          <div className='flex justify-center'>
+                            <button
+                              className='rounded-lg shadow text-lg font-bold flex items-center justify-center'
+                              style={{
+                                width: 180,
+                                height: 44,
+                                backgroundColor: '#F0DEAD',
+                                color: '#741003',
+                                border: '2px solid #741003'
+                              }}
+                              onClick={() =>
+                                sendMessage({ action: 'clear_round' })
+                              }
+                            >
+                              NEW GAME
+                            </button>
+                          </div>
+                        </div>
+                        <div className='flex justify-center items-center min-h-[120px]'>
+                          {/* Dealer card rendering - Smaller cards */}
+                          {!gameState.war_round_active &&
+                          gameState.war_round?.original_cards?.dealer_card ? (
+                            <div className='flex items-center gap-4'>
+                              {renderCard(
+                                gameState.war_round.original_cards.dealer_card,
+                                'medium'
+                              )}
+                              {gameState.war_round?.dealer_card && (
+                                <div className=''>
+                                  {renderCard(
+                                    gameState.war_round.dealer_card,
+                                    'medium'
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          ) : gameState.dealer_card ? (
+                            renderCard(gameState.dealer_card, 'medium')
+                          ) : (
+                            <div className='w-16 h-20 bg-black/15 rounded-lg flex items-center justify-center'>
+                              <span className='text-white text-xl'>?</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                  ) :
-                  // Normal round: show only the original card
-                  gameState.dealer_card ? (
-                    renderCard(gameState.dealer_card, 'large')
                   ) : (
-                    <div className="w-20 h-28 card-back rounded-lg flex items-center justify-center">
-                      <span className="text-white text-2xl">🎴</span>
-                    </div>
+                    gameState.game_mode === 'live' &&
+                    gameState.round_active && (
+                      <div className='text-center mb-6'>
+                        <h3 className='text-lg font-bold text-casino-gold mb-3'>
+                          Dealer
+                        </h3>
+                        {/* <div className="mt-4">
+                      <input 
+                        type="texwt" 
+                        placeholder="Manual card (e.g., AS, KH)"
+                        value={manualCard}
+                        onChange={(e) => setManualCard(e.target.value.toUpperCase())}
+                        className="bg-black border border-casino-gold rounded-lg px-3 py-2 text-white mr-2"
+                      />
+                      <button 
+                        onClick={() => {
+                          if (manualCard) {
+                            if (!validCardPattern.test(manualCard)) {
+                              setNotifications(prev => [
+                                ...prev.slice(-4),
+                                "Invalid card. Please enter a valid card using ranks (2-10, J, Q, K, A) and suits (S, H, D, C)."
+                              ]);
+                              return;
+                            }
+                            sendMessage({ action: 'manual_deal_card', target: 'dealer', card: manualCard });
+                            setManualCard('');
+                          }
+                        }}
+                        className="success-button"
+                      >
+                        Set Dealer Card
+                      </button>
+                    </div> */}
+                      </div>
+                    )
                   )}
                 </div>
-                {/* Dealer card assignment textbox and button removed as requested */}
-              </div>
-            ) : (
-              // If war round is active, still show the dealer card assignment input in live mode ONLY if round is active
-              gameState.game_mode === 'live' && gameState.round_active && (
-                <div className="text-center mb-8">
-                  <h3 className="text-xl font-bold text-casino-gold mb-4">Dealer</h3>
-                  {/* <div className="mt-4">
-                    <input 
-                      type="text" 
-                      placeholder="Manual card (e.g., AS, KH)"
-                      value={manualCard}
-                      onChange={(e) => setManualCard(e.target.value.toUpperCase())}
-                      className="bg-black border border-casino-gold rounded-lg px-3 py-2 text-white mr-2"
-                    />
-                    <button 
-                      onClick={() => {
-                        if (manualCard) {
-                          if (!validCardPattern.test(manualCard)) {
-                            setNotifications(prev => [
-                              ...prev.slice(-4),
-                              "Invalid card. Please enter a valid card using ranks (2-10, J, Q, K, A) and suits (S, H, D, C)."
-                            ]);
-                            return;
-                          }
-                          sendMessage({ action: 'manual_deal_card', target: 'dealer', card: manualCard });
-                          setManualCard('');
-                        }
-                      }}
-                      className="success-button"
-                    >
-                      Set Dealer Card
-                    </button>
-                  </div> */}
-                </div>
-              )
-            )}
 
-            {/* War Round Section */}
-            {gameState.war_round_active && (
-              <div className="bg-red-900/30 border-2 border-red-500 rounded-xl p-6 mb-8">
-                <h3 className="text-xl font-bold text-red-400 mb-4 text-center">⚔️ WAR ROUND ⚔️</h3>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* War Dealer Card */}
-                  <div className="text-center">
-                    <h4 className="text-lg font-semibold text-red-400 mb-2">Dealer War Card</h4>
-                    <div className="flex justify-center mb-4">
-                      {gameState.war_round?.dealer_card ? (
-                        renderCard(gameState.war_round.dealer_card, 'medium')
-                      ) : (
-                        <div className="w-16 h-22 card-back rounded-lg flex items-center justify-center">
-                          <span className="text-white">🎴</span>
-                        </div>
-                      )}
+                {/* Right side - Game information - More compact */}
+                <div className='lg:w-1/3 flex flex-col justify-start items-end'>
+                  <div className='mb-3 p-2'>
+                    <h2 className='text-xl font-bold text-yellow-300'>
+                      Round {gameState.round_number}{' '}
+                      {gameState.round_active ? '(Active)' : ''}
+                    </h2>
+                  </div>
+                  <div className='mb-3 p-2'>
+                    <div className='text-yellow-300 font-semibold text-base'>
+                      Table No. FT: {gameState.table_number}
+                    </div>
+                  </div>
+                  <div className='mb-3 p-2'>
+                    <div className='text-yellow-300 font-semibold text-base'>
+                      Betting: ₹{gameState.min_bet} - ₹{gameState.max_bet}
+                    </div>
+                  </div>
+                  <div className='mb-3 p-2'>
+                    <div className='text-yellow-300 font-semibold text-base'>
+                      Players: {Object.keys(gameState.players).length}/6
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* War Round Section - More compact */}
+              {gameState.war_round_active && (
+                <div className='bg-red-900/30 border-2 border-red-500 rounded-xl p-4 mb-5'>
+                  <h3 className='text-xl font-bold text-red-400 mb-4 text-center'>
+                    ⚔️ WAR ROUND ⚔️
+                  </h3>
+
+                  <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
+                    {/* War Dealer Card */}
+                    <div className='text-center'>
+                      <h4 className='text-lg font-semibold text-red-400 mb-3'>
+                        Dealer War Card
+                      </h4>
+                      <div className='flex justify-center mb-4'>
+                        {gameState.war_round?.dealer_card ? (
+                          renderCard(gameState.war_round.dealer_card, 'medium')
+                        ) : (
+                          <div className='w-12 h-16 card-back rounded-lg flex items-center justify-center'>
+                            <span className='text-white'>?</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* War Player Cards */}
+                    <div className='text-center'>
+                      <h4 className='text-lg font-semibold text-red-400 mb-3'>
+                        Player War Cards
+                      </h4>
+                      <div className='space-y-2'>
+                        {gameState.war_round &&
+                          Object.entries(gameState.war_round.players).map(
+                            ([playerId, card]) => (
+                              <div
+                                key={playerId}
+                                className='flex items-center justify-between bg-black/30 rounded-lg p-2'
+                              >
+                                <span className='text-white text-base'>
+                                  {playerId}
+                                </span>
+                                <div className='flex items-center gap-2'>
+                                  {card ? (
+                                    renderCard(card, 'small')
+                                  ) : (
+                                    <div className='w-8 h-12 card-back rounded flex items-center justify-center'>
+                                      <span className='text-white text-xs'>
+                                        ?
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )
+                          )}
+                      </div>
                     </div>
                   </div>
 
-                  {/* War Player Cards */}
-                  <div className="text-center">
-                    <h4 className="text-lg font-semibold text-red-400 mb-2">Player War Cards</h4>
-                    <div className="space-y-2">
-                      {gameState.war_round && Object.entries(gameState.war_round.players).map(([playerId, card]) => (
-                        <div key={playerId} className="flex items-center justify-between bg-black/30 rounded-lg p-2">
-                          <span className="text-white">{playerId}</span>
-                          <div className="flex items-center gap-2">
-                            {card ? renderCard(card, 'small') : (
-                              <div className="w-12 h-16 card-back rounded flex items-center justify-center">
-                                <span className="text-white text-xs">🎴</span>
-                              </div>
-                            )}
+                  {/* War Card Assignment Controls - More compact */}
+                  {/* <div className='mt-5 p-3 bg-black/30 rounded-lg'> */}
+                  {/* <h4 className='text-lg font-semibold text-casino-gold mb-3'>
+                  Assign War Cards
+                </h4>
+                <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
+                  <select
+                    value={warCardTarget}
+                    onChange={e =>
+                      setWarCardTarget(e.target.value as 'dealer' | 'player')
+                    }
+                    className='bg-black border border-casino-gold rounded-lg px-3 py-2 text-white'
+                  >
+                    <option value='dealer'>Dealer</option>
+                    <option value='player'>Player</option>
+                  </select>
+
+                  {warCardTarget === 'player' && (
+                    <select
+                      value={warPlayerId}
+                      onChange={e => setWarPlayerId(e.target.value)}
+                      className='bg-black border border-casino-gold rounded-lg px-3 py-2 text-white'
+                    >
+                      <option value=''>Select Player</option>
+                      {warPlayers.map(([playerId]) => (
+                        <option key={playerId} value={playerId}>
+                          {playerId}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+
+                  <div className='flex gap-2'>
+                    <input
+                      type='text'
+                      placeholder='Card (e.g., AS, KH)'
+                      value={warCardValue}
+                      onChange={e =>
+                        setWarCardValue(e.target.value.toUpperCase())
+                      }
+                      className='flex-1 bg-black border border-casino-gold rounded-lg px-3 py-2 text-white'
+                    />
+                    <button
+                      onClick={() => {
+                        if (
+                          !warCardValue ||
+                          (warCardTarget === 'player' && !warPlayerId)
+                        ) {
+                          setNotifications(prev => [
+                            ...prev.slice(-4),
+                            'Please enter a card value and select a player if target is Player.'
+                          ])
+                          return
+                        }
+                        if (!validCardPattern.test(warCardValue)) {
+                          setNotifications(prev => [
+                            ...prev.slice(-4),
+                            'Invalid card. Please enter a valid card using ranks (2-10, J, Q, K, A) and suits (S, H, D, C).'
+                          ])
+                          return
+                        }
+                        sendMessage({
+                          action: 'assign_war_card',
+                          target: warCardTarget,
+                          card: warCardValue,
+                          player_id:
+                            warCardTarget === 'player'
+                              ? warPlayerId
+                              : undefined
+                        })
+                        setWarCardValue('')
+                        setWarPlayerId('')
+                      }}
+                      className='success-button'
+                    >
+                      Assign
+                    </button>
+                  </div>
+                </div> */}
+                  {/* <button
+                      onClick={() =>
+                        sendMessage({ action: 'evaluate_war_round' })
+                      }
+                      className='w-full bg-red-600 hover:bg-red-700 text-white px-4 py-3 rounded-lg transition-colors font-semibold text-base'
+                    >
+                      ⚖️ Evaluate War Round
+                    </button> */}
+                  {/* </div> */}
+                </div>
+              )}
+
+              {/* Original Cards Section - More compact */}
+              {gameState.war_round_active &&
+                gameState.war_round?.original_cards && (
+                  <div className='bg-yellow-900/20 border-2 border-yellow-500 rounded-xl p-4 mb-4'>
+                    <h4 className='text-lg font-semibold text-yellow-400 mb-3 text-center'>
+                      Original Cards That Caused the Tie
+                    </h4>
+                    <div className='flex flex-wrap justify-center gap-6'>
+                      <div className='text-center'>
+                        <div className='text-yellow-400 font-bold mb-2 text-base'>
+                          Dealer
+                        </div>
+                        {renderCard(
+                          gameState.war_round.original_cards.dealer_card,
+                          'small'
+                        )}
+                      </div>
+                      {Object.entries(
+                        gameState.war_round.original_cards.players
+                      ).map(([pid, card]) => (
+                        <div key={pid} className='text-center'>
+                          <div className='text-yellow-400 font-bold mb-2 text-base'>
+                            Player {pid}
                           </div>
+                          {renderCard(card, 'small')}
                         </div>
                       ))}
                     </div>
                   </div>
-                </div>
+                )}
 
-                
+              {!gameState.war_round_active ||
+              !gameState.war_round?.original_cards ? (
+                <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 flex-1'>
+                  {/* Show all 6 players - active ones with full opacity, inactive ones with reduced opacity */}
+                  {Array.from({ length: 6 }, (_, i) => (i + 1).toString()).map(
+                    playerId => {
+                      const playerData = gameState.players[playerId]
+                      const isActive = playerData !== undefined
 
-                {/* Removed the separate Undo War Card button and logic */}
-              </div>
-            )}
+                      return (
+                        <motion.div
+                          key={playerId}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: isActive ? 1 : 0.3, y: 0 }}
+                          className={`bg-red-400/5 border-2 border-dashed border-white p-4 rounded-lg ${
+                            isActive ? '' : 'opacity-30'
+                          }`}
+                        >
+                          <div className='flex justify-between items-center mb-3'>
+                            <h4 className='text-lg font-normal font-[questrial] tracking-widest text-white'>
+                              Player {playerId}
+                            </h4>
+                            {isActive && (
+                              <div
+                                className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                                  playerData.status === 'active'
+                                    ? 'bg-green-500/20 text-green-400'
+                                    : playerData.status === 'war'
+                                    ? 'bg-red-500/20 text-red-400'
+                                    : playerData.status === 'waiting_choice'
+                                    ? 'bg-yellow-500/20 text-yellow-400'
+                                    : playerData.status === 'surrender'
+                                    ? 'bg-gray-500/20 text-gray-400'
+                                    : 'bg-gray-500/20 text-gray-400'
+                                }`}
+                              >
+                                {playerData.status === 'surrender'
+                                  ? 'SURRENDER'
+                                  : playerData.status
+                                      .replace('_', ' ')
+                                      .toUpperCase()}
+                              </div>
+                            )}
+                            {!isActive && (
+                              <div className='px-3 py-1 rounded-full text-sm font-semibold bg-gray-500/20 text-gray-400'>
+                                INACTIVE
+                              </div>
+                            )}
+                          </div>
+                          <div className='flex flex-col items-center mb-3 gap-2'>
+                            {/* Player cards - Use small/medium size with scale-125 */}
+                            {isActive && (
+                              <>
+                                {!gameState.war_round_active &&
+                                gameState.war_round?.original_cards?.players?.[
+                                  playerId
+                                ] ? (
+                                  <div className='flex justify-center items-center gap-3'>
+                                    <div className='text-center mb-3'>
+                                      <div className='flex justify-center transform scale-125'>
+                                        {renderCard(
+                                          gameState.war_round?.original_cards
+                                            ?.players?.[playerId],
+                                          'small'
+                                        )}
+                                      </div>
+                                    </div>
+                                    {playerData.war_card && (
+                                      <div className='text-center mb-3'>
+                                        <div className='flex justify-center transform scale-125'>
+                                          {renderCard(
+                                            playerData.war_card,
+                                            'small'
+                                          )}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                ) : playerData.card ? (
+                                  <div className='transform scale-125'>
+                                    {renderCard(playerData.card, 'small')}
+                                  </div>
+                                ) : (
+                                  <div className='w-12 h-16 bg-black/15 rounded-lg flex items-center justify-center transform scale-125'>
+                                    <span className='text-white text-lg'>
+                                      ?
+                                    </span>
+                                  </div>
+                                )}
+                              </>
+                            )}
+                            {!isActive && (
+                              <div className='w-12 h-16 bg-black/15 rounded-lg flex items-center justify-center transform scale-125'>
+                                <span className='text-white text-lg'>?</span>
+                              </div>
+                            )}
+                          </div>
 
-            {/* Original Cards Section */}
-            {gameState.war_round_active && gameState.war_round?.original_cards && (
-              <div className="bg-yellow-900/20 border-2 border-yellow-500 rounded-xl p-4 mb-4">
-                <h4 className="text-lg font-semibold text-yellow-400 mb-2 text-center">Original Cards That Caused the Tie</h4>
-                <div className="flex flex-wrap justify-center gap-8">
-                  <div className="text-center">
-                    <div className="text-yellow-400 font-bold mb-1">Dealer</div>
-                    {renderCard(gameState.war_round.original_cards.dealer_card, 'large')}
-                  </div>
-                  {Object.entries(gameState.war_round.original_cards.players).map(([pid, card]) => (
-                    <div key={pid} className="text-center">
-                      <div className="text-yellow-400 font-bold mb-1">Player {pid}</div>
-                      {renderCard(card, 'large')}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Players Section */}
-            {(!gameState.war_round_active || !gameState.war_round?.original_cards) ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {Object.entries(gameState.players).map(([playerId, playerData]) => (
-                  <motion.div
-                    key={playerId}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="bg-black/30 border border-casino-gold/50 rounded-xl p-4"
-                  >
-                    <div className="flex justify-between items-center mb-3">
-                      <h4 className="font-bold text-casino-gold">{playerId}</h4>
-                      <div className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                        playerData.status === 'active' ? 'bg-green-500/20 text-green-400' :
-                        playerData.status === 'war' ? 'bg-red-500/20 text-red-400' :
-                        playerData.status === 'waiting_choice' ? 'bg-yellow-500/20 text-yellow-400' :
-                        playerData.status === 'surrender' ? 'bg-gray-500/20 text-gray-400' :
-                        'bg-gray-500/20 text-gray-400'
-                      }`}>
-                        {playerData.status === 'surrender' ? 'SURRENDER' : playerData.status.replace('_', ' ').toUpperCase()}
-                      </div>
-                    </div>
-                    <div className="flex flex-col items-center mb-3 gap-1">
-                      {/* After war round, show both original and war card stacked */}
-                      {(!gameState.war_round_active && gameState.war_round?.original_cards?.players?.[playerId]) ? (
-                        <div className="flex flex-col items-center gap-1">
-                          {renderCard(gameState.war_round.original_cards.players[playerId], 'medium')}
-                          {playerData.war_card && (
-                            <div className="mt-1">{renderCard(playerData.war_card, 'medium')}</div>
-                          )}
-                        </div>
-                      ) :
-                      // Normal round: show only the original card
-                      playerData.card ? (
-                        renderCard(playerData.card, 'medium')
-                      ) : (
-                        <div className="w-16 h-22 card-back rounded-lg flex items-center justify-center">
-                          <span className="text-white">🎴</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {playerData.war_card && (
-                      <div className="text-center mb-3">
-                        <div className="text-xs text-red-400 mb-1">War Card</div>
-                        <div className="flex justify-center">
-                          {renderCard(playerData.war_card, 'small')}
-                        </div>
-                      </div>
-                    )}
-
-                    {gameState.game_mode === 'live' && (gameState.round_active || !playerData.card) && (!gameState.war_round || gameState.war_round_active || !gameState.war_round.original_cards) && (
-                      <div className="mt-3 space-y-2">
-                        {/* <input 
+                          {isActive &&
+                            gameState.game_mode === 'live' &&
+                            (gameState.round_active || !playerData.card) &&
+                            (!gameState.war_round ||
+                              gameState.war_round_active ||
+                              !gameState.war_round.original_cards) && (
+                              <div className='mt-4 space-y-3'>
+                                {/* <input 
                           type="text" 
                           placeholder="Card (e.g., AS, KH)"
                           className="w-full bg-black border border-casino-gold rounded px-2 py-1 text-white text-sm"
@@ -1061,77 +1758,139 @@ export default function DealerPage() {
                             }
                           }}
                         /> */}
-                      </div>
-                    )}
+                              </div>
+                            )}
 
-                    {playerData.result && (
-                      <div className={`text-center mt-3 px-2 py-1 rounded-full text-sm font-semibold ${
-                        playerData.result === 'win' ? 'bg-green-500/20 text-green-400' :
-                        playerData.result === 'lose' ? 'bg-red-500/20 text-red-400' :
-                        playerData.result === 'surrender' ? 'bg-gray-500/20 text-gray-400' :
-                        'bg-yellow-500/20 text-yellow-400'
-                      }`}>
-                        {playerData.result === 'surrender'
-                          ? 'SURRENDER'
-                          : playerData.result.toUpperCase()}
-                      </div>
-                    )}
+                          {/* Player result - More compact */}
+                          {isActive && playerData.result && (
+                            <div
+                              className={`text-center mt-3 px-4 py-2 rounded-lg text-sm font-bold
+                            transform transition-all duration-200 shadow ${
+                              playerData.result === 'win'
+                                ? 'bg-gradient-to-r from-green-700/80 to-green-500/80 text-white border-green-400 shadow-green-900/50'
+                                : playerData.result === 'lose'
+                                ? 'bg-gradient-to-r from-red-700/80 to-red-500/80 text-white border-red-400 shadow-red-900/50'
+                                : playerData.result === 'surrender'
+                                ? 'bg-gradient-to-r from-gray-700/80 to-gray-500/80 text-gray-200 border-gray-400 shadow-gray-900/50'
+                                : 'bg-gradient-to-r from-yellow-600/80 to-amber-500/80 text-white border-yellow-400 shadow-amber-900/50'
+                            }`}
+                            >
+                              <div className='flex items-center justify-center gap-2'>
+                                {playerData.result === 'win' && (
+                                  <span className='text-yellow-300'>🏆</span>
+                                )}
+                                {playerData.result === 'lose' && (
+                                  <span>❌</span>
+                                )}
+                                {playerData.result === 'surrender' && (
+                                  <span>🏳️</span>
+                                )}
+                                {playerData.result !== 'win' &&
+                                  playerData.result !== 'lose' &&
+                                  playerData.result !== 'surrender' && (
+                                    <span>⚠️</span>
+                                  )}
+                                <span className='tracking-wider'>
+                                  {playerData.result === 'surrender'
+                                    ? 'SURRENDER'
+                                    : playerData.result.toUpperCase()}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                        </motion.div>
+                      )
+                    }
+                  )}
 
-                    {playerData.status === 'waiting_choice' }
-                  </motion.div>
-                ))}
-
-                {Object.keys(gameState.players).length === 0 && (
-                  <div className="col-span-full text-center py-12 text-gray-400">
-                    <div className="text-6xl mb-4">🎲</div>
-                    <p className="text-xl">No players at the table</p>
-                    <p className="text-sm">Add players to start the game</p>
-                  </div>
-                )}
-              </div>
-            ) : null}
+                  {/* Keep the original fallback message if no players exist, but this won't show now since we always show 6 placeholders */}
+                  {Object.keys(gameState.players).length === 0 && false && (
+                    <div className='col-span-full text-center py-8 text-gray-400'>
+                      <div className='text-4xl mb-3'>🎲</div>
+                      <p className='text-lg'>No players at the table</p>
+                      <p className='text-xs'>Add players to start the game</p>
+                    </div>
+                  )}
+                </div>
+              ) : null}
+            </div>
           </div>
         </div>
       </div>
 
       <style jsx>{`
         .card {
-          background: linear-gradient(135deg, #2c4b2e 0%, #1d3323 100%);
+          background: white;
           border: 2px solid #d4af37;
           border-radius: 8px;
-          box-shadow: 0 4px 8px rgba(0, 0, 0, 0.8);
+          box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
         }
-        
         .card-back {
-          background: linear-gradient(135deg, #0b1e0b 0%, #0a150a 100%);
+          background: #6b0000;
           border: 2px solid #d4af37;
-          box-shadow: 0 4px 8px rgba(0, 0, 0, 0.8);
+          box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
         }
-        
+
         .dealer-button {
-          @apply bg-gradient-to-r from-yellow-600 to-yellow-700 hover:from-yellow-700 hover:to-yellow-800 text-white px-4 py-2 rounded-lg transition-all duration-200 font-semibold shadow-lg;
+          @apply g-gradient-to-r from-yellow-600 to-yellow-700 hover:from-yellow-700 hover:to-yellow-800 text-white px-4 py-2 rounded-lg transition-all duration-200 font-semibold shadow-lg;
         }
-        
+
         .success-button {
           @apply bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors font-semibold;
         }
-        
+
         .danger-button {
           @apply bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors;
         }
-        
+
         .animate-spin-slow {
           animation: spin 3s linear infinite;
+        }
+        .table-number {
+          text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+        }
+        .logo-container {
+          filter: drop-shadow(0 8px 12px rgba(0, 0, 0, 0.6));
+          transition: all 0.2s ease;
+        }
+        .logo-container:hover {
+          transform: translateY(-2px);
+          filter: drop-shadow(0 10px 14px rgba(0, 0, 0, 0.7));
+        }
+        @keyframes marquee {
+          0% {
+            transform: translateX(100%);
+          }
+          100% {
+            transform: translateX(-100%);
+          }
+        }
+
+        .animate-marquee {
+          animation: marquee 30s linear infinite;
         }
       `}</style>
       <style jsx global>{`
         body {
-          background: radial-gradient(circle,rgb(78, 197, 78),rgb(14, 14, 14));
+          background: radial-gradient(circle, #450a03);
           color: #fff;
         }
       `}</style>
+
+      {/* Bottom disclaimer - Marquee */}
+      <div className='absolute bottom-0 w-full bg-[#450a03] text-white text-xl sm:text-xs py-1 overflow-hidden'>
+        <div className='whitespace-nowrap animate-marquee'>
+          THIS IS AN ELECTRONIC GAME INCASE OF ANY GRIEVANCES THE MANAGEMENT
+          DECISION WILL BE FINAL &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; •
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; THIS IS AN ELECTRONIC GAME INCASE OF
+          ANY GRIEVANCES THE MANAGEMENT DECISION WILL BE FINAL
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; • &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; THIS
+          IS AN ELECTRONIC GAME INCASE OF ANY GRIEVANCES THE MANAGEMENT DECISION
+          WILL BE FINAL &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; •
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; THIS IS AN ELECTRONIC GAME INCASE OF
+          ANY GRIEVANCES THE MANAGEMENT DECISION WILL BE FINAL
+        </div>
+      </div>
     </div>
   )
 }
-
-
