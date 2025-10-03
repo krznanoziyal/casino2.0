@@ -758,7 +758,7 @@ export default function DisplayPage() {
         {/* Header with wood background and logo */}
         <nav className="w-full h-[15vh] relative flex items-center justify-between px-4 sm:px-6 md:px-8">
           <div className="text-xl sm:text-2xl md:text-4xl z-10 font-bold text-[#d4af37] font-[questrial] tracking-wider">
-            Table no: {gameState.table_number}
+            Table no: FT - {gameState.table_number}
           </div>
           <img
             src="/assets/wood.png"

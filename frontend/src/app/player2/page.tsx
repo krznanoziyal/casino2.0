@@ -478,7 +478,7 @@ export default function Player2Page() {
                 />
               </div>
               <span className="text-yellow-300 text-[8px] xs:text-[9px] sm:text-xs md:text-sm lg:text-base -mt-1 xs:-mt-2 sm:-mt-3 md:-mt-4">
-                Table: {gameState.table_number}
+                Table: FT - {gameState.table_number}
               </span>
             </div>
 

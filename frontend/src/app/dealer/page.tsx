@@ -733,7 +733,7 @@ export default function DealerPage() {
                 />
               </div>
               <span className="text-yellow-300 pb-4 -mt-4">
-                Table: {gameState.table_number}
+                Table:FT - {gameState.table_number}
               </span>
             </div>
 
@@ -833,7 +833,7 @@ export default function DealerPage() {
                     }, 200);
                   }}
                 >
-                  Manual Mode
+                  Live Mode
                 </button>
                 <button
                   className="px-3 py-1.5 rounded-lg text-xl font-semibold shadow text-white transition-colors whitespace-nowrap"
@@ -870,7 +870,7 @@ export default function DealerPage() {
                     }, 200);
                   }}
                 >
-                  Live Mode
+                  Manual Mode
                 </button>
               </div>
               {gameState.game_mode === "live" ? (
@@ -1467,7 +1467,7 @@ export default function DealerPage() {
                   </div>
                   <div className="mb-3 p-2">
                     <div className="text-yellow-300 font-semibold text-base">
-                      Table No. FT: {gameState.table_number}
+                      Table No. FT - {gameState.table_number}
                     </div>
                   </div>
                   <div className="mb-3 p-2">
