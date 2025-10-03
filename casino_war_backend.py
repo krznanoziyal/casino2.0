@@ -9,7 +9,7 @@ import re
 import urllib.parse
 import serial
 
-# ser = serial.Serial("COM1", 9600, timeout=0.1)  # Adjust baud rate if necessary
+ser = serial.Serial("COM1", 9600, timeout=0.1)  # Adjust baud rate if necessary
 
 # MongoDB setup
 MONGO_URI = "mongodb://localhost:27017"
@@ -1370,11 +1370,11 @@ async def read_from_serial(ser):
             await asyncio.sleep(1)  # Prevent tight error loop
 
 async def main():
-    # print("Connected to:", ser.name)
+    print("Connected to:", ser.name)
     async with websockets.serve(handle_connection, "0.0.0.0", 6789):
         print("WebSocket server running on ws://0.0.0.0:6789")
         await asyncio.gather(
-            # read_from_serial(ser),
+            read_from_serial(ser),
             asyncio.Future()  # Keeps the server running forever
         )
 
