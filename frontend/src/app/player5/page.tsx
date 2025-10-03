@@ -69,7 +69,7 @@ export default function Player1Page() {
 
   const connectWebSocket = () => {
     try {
-      wsRef.current = new WebSocket("ws://10.16.23.9:6789");
+      wsRef.current = new WebSocket("ws://192.168.2.190:6789");
       // wsRef.current = new WebSocket('ws://localhost:6789')
 
       wsRef.current.onopen = () => {
