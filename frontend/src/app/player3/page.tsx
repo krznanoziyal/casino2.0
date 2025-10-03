@@ -656,12 +656,12 @@ export default function Player3Page() {
                     }`}
                   >
                     {playerData.result === "win"
-                      ? "🎉 YOU WIN!"
+                      ? "YOU WIN!"
                       : playerData.result === "lose"
-                      ? "😞 YOU LOSE"
+                      ? "YOU LOSE"
                       : playerData.result === "surrender"
-                      ? "🏳️ SURRENDERED"
-                      : "🤝 TIE!"}
+                      ? "SURRENDERED"
+                      : "TIE!"}
                   </div>
                 )}
 
