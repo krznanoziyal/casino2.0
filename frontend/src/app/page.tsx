@@ -1,52 +1,51 @@
 // app/display/page.tsx
 
-//CHANGES 
+//CHANGES
 
-
-'use client'
-import { useState, useEffect, useRef } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import Image from 'next/image'
+"use client";
+import { useState, useEffect, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import Image from "next/image";
 
 interface GameState {
-  deck_count: number
-  burned_cards_count: number
-  dealer_card: string | null
-  players: Record<string, PlayerData>
-  round_active: boolean
-  round_number: number
-  game_mode: 'manual' | 'automatic' | 'live'
-  table_number: number
-  min_bet: number
-  max_bet: number
-  player_results: Record<string, string>
-  war_round_active?: boolean
+  deck_count: number;
+  burned_cards_count: number;
+  dealer_card: string | null;
+  players: Record<string, PlayerData>;
+  round_active: boolean;
+  round_number: number;
+  game_mode: "manual" | "automatic" | "live";
+  table_number: number;
+  min_bet: number;
+  max_bet: number;
+  player_results: Record<string, string>;
+  war_round_active?: boolean;
   war_round?: {
-    dealer_card: string | null
-    players: Record<string, string | null>
-  }
+    dealer_card: string | null;
+    players: Record<string, string | null>;
+  };
 }
 
 interface PlayerData {
-  card: string | null
-  status: 'active' | 'war' | 'surrender' | 'waiting_choice' | 'finished'
-  result: string | null
-  war_card: string | null
+  card: string | null;
+  status: "active" | "war" | "surrender" | "waiting_choice" | "finished";
+  result: string | null;
+  war_card: string | null;
 }
 
 interface GameResult {
-  round_number: number
-  player_id: string
-  player_card: string
-  war_card?: string
-  dealer_card: string
-  result: string
-  timestamp: string
-  table_number: number
-  game_mode: string
+  round_number: number;
+  player_id: string;
+  player_card: string;
+  war_card?: string;
+  dealer_card: string;
+  result: string;
+  timestamp: string;
+  table_number: number;
+  game_mode: string;
 }
 
-export default function DisplayPage () {
+export default function DisplayPage() {
   const [gameState, setGameState] = useState<GameState>({
     deck_count: 0,
     burned_cards_count: 0,
@@ -54,130 +53,130 @@ export default function DisplayPage () {
     players: {},
     round_active: false,
     round_number: 0,
-    game_mode: 'manual',
+    game_mode: "manual",
     table_number: 1,
     min_bet: 10,
     max_bet: 1000,
-    player_results: {}
-  })
+    player_results: {},
+  });
 
-  const [connected, setConnected] = useState(false)
-  const [recentResults, setRecentResults] = useState<GameResult[]>([])
-  const [roundHistory, setRoundHistory] = useState<any[]>([])
-  const [currentTime, setCurrentTime] = useState(new Date())
-  const [notifications, setNotifications] = useState<string[]>([])
+  const [connected, setConnected] = useState(false);
+  const [recentResults, setRecentResults] = useState<GameResult[]>([]);
+  const [roundHistory, setRoundHistory] = useState<any[]>([]);
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const [notifications, setNotifications] = useState<string[]>([]);
   const [playerStatsFromBackend, setPlayerStatsFromBackend] = useState<
     Record<string, any>
-  >({})
-  const [statsLoaded, setStatsLoaded] = useState(false)
-  const [sessionStats, setSessionStats] = useState<Record<string, any>>({})
+  >({});
+  const [statsLoaded, setStatsLoaded] = useState(false);
+  const [sessionStats, setSessionStats] = useState<Record<string, any>>({});
 
   const [resultPopups, setResultPopups] = useState<
     Record<string, string | null>
-  >({})
-  const resultTimeoutRefs = useRef<Record<string, NodeJS.Timeout>>({})
+  >({});
+  const resultTimeoutRefs = useRef<Record<string, NodeJS.Timeout>>({});
 
-  const wsRef = useRef<WebSocket | null>(null)
+  const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
-    connectWebSocket()
-    const timeInterval = setInterval(() => setCurrentTime(new Date()), 1000)
+    connectWebSocket();
+    const timeInterval = setInterval(() => setCurrentTime(new Date()), 1000);
 
     return () => {
       if (wsRef.current) {
-        wsRef.current.close()
+        wsRef.current.close();
       }
-      clearInterval(timeInterval)
-    }
-  }, [])
+      clearInterval(timeInterval);
+    };
+  }, []);
 
   const connectWebSocket = () => {
     try {
-      wsRef.current = new WebSocket('ws://192.168.2.190:6789')
+      wsRef.current = new WebSocket("ws://10.16.23.9:6789");
       // wsRef.current = new WebSocket('ws://localhost:6789')
       wsRef.current.onopen = () => {
-        setConnected(true)
-      }
+        setConnected(true);
+      };
 
       wsRef.current.onclose = () => {
-        setConnected(false)
-        setTimeout(connectWebSocket, 3000)
-      }
+        setConnected(false);
+        setTimeout(connectWebSocket, 3000);
+      };
 
-      wsRef.current.onmessage = event => {
-        const data = JSON.parse(event.data)
-        handleServerMessage(data)
-      }
+      wsRef.current.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        handleServerMessage(data);
+      };
     } catch (error) {
-      console.error('WebSocket connection error:', error)
-      setConnected(false)
+      console.error("WebSocket connection error:", error);
+      setConnected(false);
     }
-  }
+  };
 
   const addNotification = (message: string) => {
-    setNotifications(prev => [...prev.slice(-4), message])
+    setNotifications((prev) => [...prev.slice(-4), message]);
     setTimeout(() => {
-      setNotifications(prev => prev.slice(1))
-    }, 5000)
-  }
+      setNotifications((prev) => prev.slice(1));
+    }, 5000);
+  };
 
   const handleServerMessage = (data: any) => {
     switch (data.action) {
-      case 'game_reset':
-        setGameState(data.game_state)
-        setSessionStats({})
-        addNotification('Game has been reset')
-        break
-      case 'game_state_update':
-        setGameState(data.game_state)
-        if (data.stats) setSessionStats(data.stats)
-        break
-      case 'round_completed':
-        setGameState(prev => ({
+      case "game_reset":
+        setGameState(data.game_state);
+        setSessionStats({});
+        addNotification("Game has been reset");
+        break;
+      case "game_state_update":
+        setGameState(data.game_state);
+        if (data.stats) setSessionStats(data.stats);
+        break;
+      case "round_completed":
+        setGameState((prev) => ({
           ...prev,
           round_active: false,
-          player_results: data.player_results
-        }))
+          player_results: data.player_results,
+        }));
         // Add to round history
         const roundData = {
           round_number: data.round_number,
           results: data.player_results,
           timestamp: new Date().toLocaleTimeString(),
-          dealer_card: gameState.dealer_card
-        }
-        setRoundHistory(prev => [roundData, ...prev.slice(0, 9)])
+          dealer_card: gameState.dealer_card,
+        };
+        setRoundHistory((prev) => [roundData, ...prev.slice(0, 9)]);
         // Update sessionStats with backend stats for live UI update
-        if (data.stats) setSessionStats(data.stats)
-        break
-      case 'all_player_stats':
-        if (data.stats) setSessionStats(data.stats)
-        break
-      case 'clear_all_stats':
-        setSessionStats({})
-        break
-      case 'round_dealt':
-        setGameState(prev => ({
+        if (data.stats) setSessionStats(data.stats);
+        break;
+      case "all_player_stats":
+        if (data.stats) setSessionStats(data.stats);
+        break;
+      case "clear_all_stats":
+        setSessionStats({});
+        break;
+      case "round_dealt":
+        setGameState((prev) => ({
           ...prev,
           dealer_card: data.dealer_card,
           players: data.players,
           round_number: data.round_number,
           deck_count: data.deck_count,
-          player_results: data.player_results
-        }))
-        break
-      case 'war_round_started':
-        setGameState(prev => ({
+          player_results: data.player_results,
+        }));
+        break;
+      case "war_round_started":
+        setGameState((prev) => ({
           ...prev,
           war_round_active: true,
-          war_round: data.war_round
-        }))
-        break
-      case 'war_round_evaluated': {
-        setGameState(prev => {
+          war_round: data.war_round,
+        }));
+        break;
+      case "war_round_evaluated": {
+        setGameState((prev) => {
           const prevOriginalCards =
-            prev.war_round && 'original_cards' in prev.war_round
+            prev.war_round && "original_cards" in prev.war_round
               ? prev.war_round.original_cards
-              : undefined
+              : undefined;
           return {
             ...prev,
             war_round_active: false,
@@ -188,142 +187,142 @@ export default function DisplayPage () {
                 ...Object.fromEntries(
                   Object.entries(data.players || {}).map(([pid, pdata]) => [
                     pid,
-                    (pdata as PlayerData).war_card || null
+                    (pdata as PlayerData).war_card || null,
                   ])
-                )
+                ),
               },
               ...(prevOriginalCards
                 ? { original_cards: prevOriginalCards }
-                : {})
+                : {}),
             },
             players: { ...prev.players, ...data.players },
-            player_results: data.player_results
-          }
-        })
-        break
+            player_results: data.player_results,
+          };
+        });
+        break;
       }
-      case 'player_added':
-      case 'player_removed':
-        setGameState(prev => ({
+      case "player_added":
+      case "player_removed":
+        setGameState((prev) => ({
           ...prev,
-          players: data.players
-        }))
-        break
-      case 'game_mode_changed':
-        setGameState(prev => ({
+          players: data.players,
+        }));
+        break;
+      case "game_mode_changed":
+        setGameState((prev) => ({
           ...prev,
-          game_mode: data.mode
-        }))
-        break
-      case 'bets_changed':
-        setGameState(prev => ({
+          game_mode: data.mode,
+        }));
+        break;
+      case "bets_changed":
+        setGameState((prev) => ({
           ...prev,
           min_bet: data.min_bet,
-          max_bet: data.max_bet
-        }))
-        break
-      case 'table_changed':
-        setGameState(prev => ({
+          max_bet: data.max_bet,
+        }));
+        break;
+      case "table_changed":
+        setGameState((prev) => ({
           ...prev,
-          table_number: data.table_number
-        }))
-        break
-      case 'dealer_card_set':
-        setGameState(prev => ({
+          table_number: data.table_number,
+        }));
+        break;
+      case "dealer_card_set":
+        setGameState((prev) => ({
           ...prev,
           dealer_card: data.card,
           deck_count:
-            typeof data.game_state?.deck_count === 'number'
+            typeof data.game_state?.deck_count === "number"
               ? data.game_state.deck_count
-              : typeof data.deck_count === 'number'
+              : typeof data.deck_count === "number"
               ? data.deck_count
-              : prev.deck_count
-        }))
-        addNotification(`Dealer card manually set to ${data.card}`)
-        break
-      case 'player_card_set':
-        setGameState(prev => ({
+              : prev.deck_count,
+        }));
+        addNotification(`Dealer card manually set to ${data.card}`);
+        break;
+      case "player_card_set":
+        setGameState((prev) => ({
           ...prev,
           players: {
             ...prev.players,
             [data.player_id]: {
               ...prev.players[data.player_id],
               card: data.card,
-              status: 'active'
-            }
+              status: "active",
+            },
           },
           deck_count:
-            typeof data.game_state?.deck_count === 'number'
+            typeof data.game_state?.deck_count === "number"
               ? data.game_state.deck_count
-              : typeof data.deck_count === 'number'
+              : typeof data.deck_count === "number"
               ? data.deck_count
-              : prev.deck_count
-        }))
-        addNotification(`Card manually assigned to player ${data.player_id}`)
-        break
-      case 'war_card_assigned':
-        setGameState(prev => ({
+              : prev.deck_count,
+        }));
+        addNotification(`Card manually assigned to player ${data.player_id}`);
+        break;
+      case "war_card_assigned":
+        setGameState((prev) => ({
           ...prev,
           war_round: {
             dealer_card:
-              data.target === 'dealer'
+              data.target === "dealer"
                 ? data.card
                 : prev.war_round?.dealer_card ?? null,
             players: {
               ...((prev.war_round && prev.war_round.players) || {}),
-              ...(data.target === 'player' && data.player_id
+              ...(data.target === "player" && data.player_id
                 ? { [data.player_id]: data.card }
-                : {})
-            }
-          }
-        }))
+                : {}),
+            },
+          },
+        }));
         addNotification(
           `War card ${data.card} assigned to ${
-            data.target === 'dealer' ? 'Dealer' : 'Player ' + data.player_id
+            data.target === "dealer" ? "Dealer" : "Player " + data.player_id
           }`
-        )
-        break
-      case 'cards_undone':
-        setGameState(prev => ({
+        );
+        break;
+      case "cards_undone":
+        setGameState((prev) => ({
           ...prev,
           deck_count: data.deck_count,
           dealer_card: data.dealer_card,
-          players: data.players
-        }))
-        if (data.message) addNotification(data.message)
-        break
-      case 'player_registered':
+          players: data.players,
+        }));
+        if (data.message) addNotification(data.message);
+        break;
+      case "player_registered":
         if (data.stats) {
-          setPlayerStatsFromBackend(prev => ({ ...prev, ...data.stats }))
-          setStatsLoaded(true)
+          setPlayerStatsFromBackend((prev) => ({ ...prev, ...data.stats }));
+          setStatsLoaded(true);
         }
-        break
-      case 'manual_result_assigned': {
+        break;
+      case "manual_result_assigned": {
         // Update the affected player's result in the display grid
-        setGameState(prev => ({
+        setGameState((prev) => ({
           ...prev,
           players: {
             ...prev.players,
             [data.player_id]: {
               ...prev.players[data.player_id],
               result: data.result,
-              status: 'finished'
-            }
+              status: "finished",
+            },
           },
           player_results: {
             ...prev.player_results,
-            [data.player_id]: data.result
-          }
-        }))
+            [data.player_id]: data.result,
+          },
+        }));
         addNotification(
           `Player ${
             data.player_id
           } assigned result: ${data.result.toUpperCase()}`
-        )
-        break
+        );
+        break;
       }
     }
-  }
+  };
 
   // --- Real-time WIN/LOSE popups for each player ---
   // Watch for player result changes and show popup
@@ -331,42 +330,42 @@ export default function DisplayPage () {
     Object.entries(gameState.players).forEach(([playerId, playerData]) => {
       if (
         playerData.result &&
-        (playerData.result === 'win' || playerData.result === 'lose')
+        (playerData.result === "win" || playerData.result === "lose")
       ) {
-        setResultPopups(prev => {
-          if (prev[playerId] === playerData.result) return prev
+        setResultPopups((prev) => {
+          if (prev[playerId] === playerData.result) return prev;
           // Show popup
-          return { ...prev, [playerId]: playerData.result }
-        })
+          return { ...prev, [playerId]: playerData.result };
+        });
         // Clear any previous timeout
         if (resultTimeoutRefs.current[playerId])
-          clearTimeout(resultTimeoutRefs.current[playerId])
+          clearTimeout(resultTimeoutRefs.current[playerId]);
         // Hide popup after 3 seconds
         resultTimeoutRefs.current[playerId] = setTimeout(() => {
-          setResultPopups(prev => ({ ...prev, [playerId]: null }))
-        }, 3000)
+          setResultPopups((prev) => ({ ...prev, [playerId]: null }));
+        }, 3000);
       }
-    })
-  }, [gameState.players])
+    });
+  }, [gameState.players]);
 
   const renderCard = (
     card: string | null,
-    size: 'small' | 'medium' | 'large' = 'medium'
+    size: "small" | "medium" | "large" = "medium"
   ) => {
-    if (!card) return null
+    if (!card) return null;
 
-    const rank = card[0]
-    const suit = card[1]
+    const rank = card[0];
+    const suit = card[1];
 
-    console.log(`Rendering card: ${rank}${suit}`)
-    const suitSymbol = { S: '♠', H: '♥', D: '♦', C: '♣' }[suit] || suit
-    const isRed = suit === 'H' || suit === 'D'
+    console.log(`Rendering card: ${rank}${suit}`);
+    const suitSymbol = { S: "♠", H: "♥", D: "♦", C: "♣" }[suit] || suit;
+    const isRed = suit === "H" || suit === "D";
 
     const sizeClasses = {
-      small: 'w-16 h-24 text-base',
-      medium: 'w-24 h-32 text-lg',
-      large: 'w-32 h-44 text-xl'
-    }
+      small: "w-16 h-24 text-base",
+      medium: "w-24 h-32 text-lg",
+      large: "w-32 h-44 text-xl",
+    };
 
     return (
       <motion.div
@@ -379,60 +378,60 @@ export default function DisplayPage () {
           src={`/cards/${rank}${suit}.png`}
           alt={`${rank} of ${suit}`}
           fill
-          className='object-cover rounded-lg'
-          sizes='(max-width: 640px) 64px, (max-width: 768px) 80px, 96px'
+          className="object-cover rounded-lg"
+          sizes="(max-width: 640px) 64px, (max-width: 768px) 80px, 96px"
         />
       </motion.div>
-    )
-  }
+    );
+  };
 
   const getPlayerStats = () => {
     // Always use sessionStats from backend
     const stats: Record<
       string,
       { wins: number; losses: number; ties: number; surrenders: number }
-    > = {}
-    Object.keys(gameState.players).forEach(playerId => {
+    > = {};
+    Object.keys(gameState.players).forEach((playerId) => {
       stats[playerId] = sessionStats[playerId] || {
         wins: 0,
         losses: 0,
         ties: 0,
-        surrenders: 0
-      }
-    })
-    return stats
-  }
+        surrenders: 0,
+      };
+    });
+    return stats;
+  };
 
   const getResultColor = (result: string) => {
     switch (result) {
-      case 'win':
-        return 'text-green-400 bg-green-500/20 border-green-500'
-      case 'lose':
-        return 'text-red-400 bg-red-500/20 border-red-500'
-      case 'surrender':
-        return 'text-yellow-400 bg-yellow-500/20 border-yellow-500'
-      case 'tie':
-        return 'text-blue-400 bg-blue-500/20 border-blue-500'
+      case "win":
+        return "text-green-400 bg-green-500/20 border-green-500";
+      case "lose":
+        return "text-red-400 bg-red-500/20 border-red-500";
+      case "surrender":
+        return "text-yellow-400 bg-yellow-500/20 border-yellow-500";
+      case "tie":
+        return "text-blue-400 bg-blue-500/20 border-blue-500";
       default:
-        return 'text-gray-400 bg-gray-500/20 border-gray-500'
+        return "text-gray-400 bg-gray-500/20 border-gray-500";
     }
-  }
+  };
 
-  const playerStats = getPlayerStats()
+  const playerStats = getPlayerStats();
 
   // On mount, request all player stats from backend
   useEffect(() => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ action: 'get_all_player_stats' }))
+      wsRef.current.send(JSON.stringify({ action: "get_all_player_stats" }));
     }
-  }, [connected])
+  }, [connected]);
 
   // Handle clear all stats
   const handleClearAllStats = () => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ action: 'clear_all_stats' }))
+      wsRef.current.send(JSON.stringify({ action: "clear_all_stats" }));
     }
-  }
+  };
 
   // return (
   // <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 p-4 overflow-auto">
@@ -695,143 +694,143 @@ export default function DisplayPage () {
 
   const playerGrid = [
     [
-      '1',
-      'col-start-2 col-end-4 row-start-2 row-end-4 flex items-center justify-center z-10'
+      "1",
+      "col-start-2 col-end-4 row-start-2 row-end-4 flex items-center justify-center z-10 mr-8",
     ],
     [
-      '2',
-      'col-start-3 col-end-4 row-start-4 row-end-7 flex items-center justify-center z-10'
+      "2",
+      "col-start-3 col-end-4 row-start-4 row-end-7 flex items-center justify-center z-10 mr-6 mb-14",
     ],
     [
-      '3',
-      'col-start-4 col-end-5 row-start-6 row-end-8 flex items-center justify-center z-10'
+      "3",
+      "col-start-4 col-end-5 row-start-6 row-end-8 flex items-center justify-center z-10 mr-10",
     ],
     [
-      '4',
-      'col-start-6 col-end-7 row-start-6 row-end-8 flex items-center justify-center z-10'
+      "4",
+      "col-start-6 col-end-7 row-start-6 row-end-8 flex items-center justify-center z-10 ml-10",
     ],
     [
-      '5',
-      'col-start-7 col-end-8 row-start-4 row-end-7 flex items-center justify-center z-10'
+      "5",
+      "col-start-7 col-end-8 row-start-4 row-end-7 flex items-center justify-center z-10 mb-14 ml-6",
     ],
     [
-      '6',
-      'col-start-7 col-end-9 row-start-2 row-end-4 flex items-center justify-center z-10'
-    ]
-  ]
+      "6",
+      "col-start-7 col-end-9 row-start-2 row-end-4 flex items-center justify-center z-10 ml-8",
+    ],
+  ];
 
   const getPlayerState = (playerId: string) => {
-    const player = gameState.players[playerId]
-    if (!player) return 'inactive'
-    if (player.result === 'win') return 'won'
-    if (player.result === 'lose') return 'lost'
-    if (player.result === 'surrender') return 'surrender'
-    if (player.result === 'tie') return 'tie'
-    if (player.status === 'active') return 'active'
-    return 'inactive'
-  }
+    const player = gameState.players[playerId];
+    if (!player) return "inactive";
+    if (player.result === "win") return "won";
+    if (player.result === "lose") return "lost";
+    if (player.result === "surrender") return "surrender";
+    if (player.result === "tie") return "tie";
+    if (player.status === "active") return "active";
+    return "inactive";
+  };
 
   const stateToImg: Record<string, string> = {
-    inactive: '/assets/btn1.png',
-    won: '/assets/btn2.png',
-    lost: '/assets/btn3.png',
-    surrender: '/assets/btn4.png',
-    tie: '/assets/btn4.png',
-    active: '/assets/btn5.png'
-  }
+    inactive: "/assets/btn1.png",
+    won: "/assets/btn2.png",
+    lost: "/assets/btn3.png",
+    surrender: "/assets/btn4.png",
+    tie: "/assets/btn4.png",
+    active: "/assets/btn5.png",
+  };
 
   const stateToOverlay: Record<string, string> = {
-    won: 'WIN',
-    lost: 'LOSE',
-    surrender: 'SURRENDER',
-    tie: 'TIE',
-    active: '',
-    inactive: ''
-  }
+    won: "WIN",
+    lost: "LOSE",
+    surrender: "SURRENDER",
+    tie: "TIE",
+    active: "",
+    inactive: "",
+  };
 
   const getPlayerColor = (state: string) => {
-    return 'text-white'
-  }
+    return "text-white";
+  };
 
   return (
-    <div className='min-h-screen bg-[#d6ab5d] flex flex-col items-center justify-center p-1 sm:p-2'>
-      <div className='h-[94vh] w-[98vw] sm:w-[96vw] m-1 sm:m-3 bg-[#971909] flex flex-col'>
+    <div className="min-h-screen bg-[#d6ab5d] flex flex-col items-center justify-center p-1 sm:p-2">
+      <div className="h-[94vh] w-[98vw] sm:w-[96vw] m-1 sm:m-3 bg-[#971909] flex flex-col">
         {/* Header with wood background and logo */}
-        <nav className='w-full h-[15vh] relative flex items-center justify-between px-4 sm:px-6 md:px-8'>
-          <div className='text-xl sm:text-2xl md:text-4xl z-10 font-bold text-[#d4af37] font-[questrial] tracking-wider'>
+        <nav className="w-full h-[15vh] relative flex items-center justify-between px-4 sm:px-6 md:px-8">
+          <div className="text-xl sm:text-2xl md:text-4xl z-10 font-bold text-[#d4af37] font-[questrial] tracking-wider">
             Table no: {gameState.table_number}
           </div>
           <img
-            src='/assets/wood.png'
-            alt='Wood Background'
-            className='absolute inset-0 w-full h-full object-cover'
+            src="/assets/wood.png"
+            alt="Wood Background"
+            className="absolute inset-0 w-full h-full object-cover"
           />
-          <div className='relative z-10 flex-1 flex justify-center'>
+          <div className="relative z-10 flex-1 flex justify-center">
             <img
-              src='/assets/logo.png'
-              alt='Casino Wars Logo'
-              className='h-[16vh] sm:h-[17vh] md:h-[18vh] object-contain'
+              src="/assets/logo.png"
+              alt="Casino Wars Logo"
+              className="h-[16vh] sm:h-[17vh] md:h-[18vh] object-contain"
             />
           </div>
-          <div className='relative z-10 flex flex-col items-center justify-center'>
-            <div className='text-xl sm:text-2xl md:text-4xl text-[#d4af37] font-bold font-[questrial] tracking-widest mb-0.5'>
+          <div className="relative z-10 flex flex-col items-center justify-center">
+            <div className="text-xl sm:text-2xl md:text-4xl text-[#d4af37] font-bold font-[questrial] tracking-widest mb-0.5">
               BETS
             </div>
-            <div className='text-lg sm:text-xl md:text-2xl text-[#d4af37] font-semibold font-[questrial] tracking-wide'>
+            <div className="text-lg sm:text-xl md:text-2xl text-[#d4af37] font-semibold font-[questrial] tracking-wide">
               Max: ₹{gameState.max_bet}
             </div>
-            <div className='text-lg sm:text-xl md:text-2xl text-[#d4af37] font-semibold font-[questrial] tracking-wide'>
+            <div className="text-lg sm:text-xl md:text-2xl text-[#d4af37] font-semibold font-[questrial] tracking-wide">
               Min: ₹{gameState.min_bet}
             </div>
           </div>
         </nav>
 
         {/* Main game grid */}
-        <div className='flex-1 grid grid-cols-9 grid-rows-9 w-[98vw] sm:w-[96vw] h-[79vh]'>
+        <div className="flex-1 grid grid-cols-9 grid-rows-9 w-[98vw] sm:w-[96vw] h-[79vh]">
           {/* Left side design */}
-          <div className='col-start-1 col-end-2 row-start-2 row-end-8 flex items-center justify-center z-10'>
+          <div className="col-start-1 col-end-2 row-start-2 row-end-8 flex items-center justify-center z-10">
             <img
-              src='/assets/side_design.png'
-              alt='Left Side Design'
-              className='w-full h-full object-contain'
+              src="/assets/side_design.png"
+              alt="Left Side Design"
+              className="w-full h-full object-contain"
             />
           </div>
 
           {/* Right side design */}
-          <div className='col-start-9 col-end-10 row-start-2 row-end-8 flex items-center justify-center z-10'>
+          <div className="col-start-9 col-end-10 row-start-2 row-end-8 flex items-center justify-center z-10">
             <img
-              src='/assets/side_design.png'
-              alt='Right Side Design'
-              className='w-full h-full object-contain'
+              src="/assets/side_design.png"
+              alt="Right Side Design"
+              className="w-full h-full object-contain"
             />
           </div>
 
           {/* Center game area */}
-          <div className='col-start-3 col-end-8 row-start-1 row-end-6 flex items-center justify-center z-10 relative px-4 py-2 top-4'>
+          <div className="col-start-3 col-end-8 row-start-1 row-end-6 flex items-center justify-center z-10 relative px-4 py-2 top-4">
             {/* Main game piece background */}
-            <div className='absolute inset-0 flex items-center justify-center mt-6 mb-3 transform scale-110'>
+            <div className="absolute inset-0 flex items-center justify-center mt-6 mb-3 transform scale-110">
               <img
-                src='/assets/new_piece.png'
-                alt='Game Table'
-                className='w-[90%] h-[90%] object-contain'
+                src="/assets/new_piece.png"
+                alt="Game Table"
+                className="w-[90%] h-[90%] object-contain"
               />
             </div>
 
             {/* Dealer Cards - positioned in center with flex layout */}
             {(gameState.dealer_card || gameState.war_round?.dealer_card) && (
-              <div className='absolute top-[70%] left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-30'>
-                <div className='flex items-center gap-3 sm:gap-4 md:gap-5'>
+              <div className="absolute top-[70%] left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-30">
+                <div className="flex items-center gap-3 sm:gap-4 md:gap-5 mt-4">
                   {/* Regular dealer card */}
                   {gameState.dealer_card && (
-                    <div className='transform scale-90 sm:scale-100 md:scale-110 lg:scale-125'>
-                      {renderCard(gameState.dealer_card, 'medium')}
+                    <div className="transform scale-90 sm:scale-100 md:scale-110 lg:scale-150">
+                      {renderCard(gameState.dealer_card, "medium")}
                     </div>
                   )}
 
                   {/* Dealer war card */}
                   {gameState.war_round?.dealer_card && (
-                    <div className='transform scale-90 sm:scale-100 md:scale-110 lg:scale-125'>
-                      {renderCard(gameState.war_round.dealer_card, 'medium')}
+                    <div className="transform scale-90 sm:scale-100 md:scale-110 lg:scale-150">
+                      {renderCard(gameState.war_round.dealer_card, "medium")}
                     </div>
                   )}
                 </div>
@@ -839,26 +838,26 @@ export default function DisplayPage () {
             )}
 
             {/* Ocean7 Logo in center */}
-            <div className='absolute z-20 top-1'>
+            <div className="absolute z-20 top-1">
               <img
-                src='/assets/ocean7-logo.png'
-                alt='Ocean7 Logo'
-                className='w-48 h-48 object-contain'
+                src="/assets/ocean7-logo.png"
+                alt="Ocean7 Logo"
+                className="w-48 h-48 object-contain"
               />
             </div>
           </div>
 
           {/* Left Side Player Cards (Players 1, 2, 3) - Cards positioned to the LEFT of players */}
-          {[1, 2, 3].map(playerNum => {
-            const player = gameState.players[playerNum.toString()]
-            if (!player) return null
+          {[1, 2, 3].map((playerNum) => {
+            const player = gameState.players[playerNum.toString()];
+            if (!player) return null;
 
             // Responsive position cards to the LEFT of each player button
             const cardPositions = {
-              1: 'absolute top-[30%] sm:top-[32%] md:top-[35%] left-[6%] sm:left-[8%] md:left-[9%] transform -translate-y-1/2 z-30',
-              2: 'absolute top-[55%] sm:top-[56%] md:top-[58%] left-[10%] sm:left-[12%] md:left-[14%] transform -translate-y-1/2 z-30',
-              3: 'absolute top-[68%] sm:top-[69%] md:top-[71%] left-[20%] sm:left-[22%] md:left-[24%] transform -translate-y-1/2 z-30'
-            }
+              1: "absolute top-[30%] sm:top-[32%] md:top-[35%] left-[6%] sm:left-[8%] md:left-[9%] transform -translate-y-1/2 z-30",
+              2: "absolute top-[55%] sm:top-[calc(56%-1rem)] md:top-[calc(58%-1rem)] left-[calc(10%-1rem)] sm:left-[12%] md:left-[14%] transform -translate-y-1/2 z-30",
+              3: "absolute top-[68%] sm:top-[69%] md:top-[71%] left-[20%] sm:left-[22%] md:left-[24%] transform -translate-y-1/2 z-30",
+            };
 
             return (
               <div
@@ -867,39 +866,39 @@ export default function DisplayPage () {
                   cardPositions[playerNum as keyof typeof cardPositions]
                 }
               >
-                <div className='flex gap-1'>
+                <div className="flex gap-1">
                   {/* Regular card */}
                   {player.card && (
-                    <div className='transform scale-75 sm:scale-85 md:scale-95 lg:scale-105'>
-                      {renderCard(player.card, 'medium')}
+                    <div className = "transform scale-75 sm:scale-85 md:scale-95 lg:scale-150">
+                      {renderCard(player.card, "medium")}
                     </div>
                   )}
 
                   {/* War round card */}
                   {gameState.war_round?.players?.[playerNum.toString()] && (
-                    <div className='transform scale-75 sm:scale-85 md:scale-95 lg:scale-105'>
+                    <div className="transform scale-75 sm:scale-85 md:scale-95 lg:scale-150">
                       {renderCard(
                         gameState.war_round.players[playerNum.toString()],
-                        'medium'
+                        "medium"
                       )}
                     </div>
                   )}
                 </div>
               </div>
-            )
+            );
           })}
 
           {/* Right Side Player Cards (Players 4, 5, 6) - Cards positioned to the RIGHT of players */}
-          {[4, 5, 6].map(playerNum => {
-            const player = gameState.players[playerNum.toString()]
-            if (!player) return null
+          {[4, 5, 6].map((playerNum) => {
+            const player = gameState.players[playerNum.toString()];
+            if (!player) return null;
 
             // Responsive position cards to the RIGHT of each player button
             const cardPositions = {
-              4: 'absolute top-[68%] sm:top-[69%] md:top-[71%] right-[20%] sm:right-[22%] md:right-[24%] transform -translate-y-1/2 z-30',
-              5: 'absolute top-[55%] sm:top-[56%] md:top-[58%] right-[10%] sm:right-[11%] md:right-[13%] transform -translate-y-1/2 z-30',
-              6: 'absolute top-[30%] sm:top-[32%] md:top-[35%] right-[6%] sm:right-[7%] md:right-[8%] transform -translate-y-1/2 z-30'
-            }
+              4: "absolute top-[68%] sm:top-[69%] md:top-[71%] right-[20%] sm:right-[22%] md:right-[24%] transform -translate-y-1/2 z-30",
+              5: "absolute top-[55%] sm:top-[56%] md:top-[58%] right-[10%] sm:right-[11%] md:right-[13%] transform -translate-y-1/2 z-30",
+              6: "absolute top-[30%] sm:top-[32%] md:top-[35%] right-[6%] sm:right-[7%] md:right-[8%] transform -translate-y-1/2 z-30",
+            };
 
             return (
               <div
@@ -908,68 +907,68 @@ export default function DisplayPage () {
                   cardPositions[playerNum as keyof typeof cardPositions]
                 }
               >
-                <div className='flex gap-1'>
+                <div className="flex gap-1">
                   {/* Regular card */}
                   {player.card && (
-                    <div className='transform scale-75 sm:scale-85 md:scale-95 lg:scale-105'>
-                      {renderCard(player.card, 'medium')}
+                    <div className="transform scale-75 sm:scale-90 md:scale-100 lg:scale-150">
+                      {renderCard(player.card, "medium")}
                     </div>
                   )}
 
                   {/* War round card */}
                   {gameState.war_round?.players?.[playerNum.toString()] && (
-                    <div className='transform scale-75 sm:scale-85 md:scale-95 lg:scale-105'>
+                    <div className="transform scale-75 sm:scale-90 md:scale-100 lg:scale-150">
                       {renderCard(
                         gameState.war_round.players[playerNum.toString()],
-                        'medium'
+                        "medium"
                       )}
                     </div>
                   )}
                 </div>
               </div>
-            )
+            );
           })}
 
           {/* Player positions - adjusted sizes for 1112x800 */}
           {playerGrid.map(([playerId, gridClass], idx) => {
-            const state = getPlayerState(playerId)
-            const imgSrc = stateToImg[state]
-            const overlay = stateToOverlay[state]
-            const colorClass = getPlayerColor(state)
+            const state = getPlayerState(playerId);
+            const imgSrc = stateToImg[state];
+            const overlay = stateToOverlay[state];
+            const colorClass = getPlayerColor(state);
 
             return (
               <div key={playerId} className={gridClass}>
                 {/* Player button with responsive sizing */}
-                <div className='relative w-[10vw] h-[10vh] sm:w-[11vw] sm:h-[11vh] md:w-[12vw] md:h-[12vh] lg:w-[13vw] lg:h-[13vh] flex items-center justify-center'>
+                <div className="relative w-[10vw] h-[10vh] sm:w-[11vw] sm:h-[11vh] md:w-[12vw] md:h-[12vh] lg:w-[13vw] lg:h-[13vh] flex items-center justify-center">
                   <img
                     src={imgSrc}
-                    alt='Player Position'
-                    className='w-full h-full object-contain'
+                    alt="Player Position"
+                    className="w-full h-full object-contain"
                   />
                   <div
                     className={`absolute top-1/2 left-1/2 -translate-y-1/2 -translate-x-1/2 ${colorClass} px-1 sm:px-2 py-1 text-lg sm:text-xl md:text-2xl flex flex-col items-center`}
                   >
-                    <div className='font-medium text-xl sm:text-2xl md:text-3xl'>
+                    <div className="font-medium text-xl sm:text-2xl md:text-3xl">
                       {idx + 1}
                     </div>
-                    <div className='text-[10px] sm:text-xs md:text-sm font-medium'>
+                    <div className="text-[10px] sm:text-xs md:text-sm font-medium">
                       {overlay}
                     </div>
                   </div>
                 </div>
               </div>
-            )
+            );
           })}
 
           {/* Footer with wood background and betting info */}
-          <footer className='col-start-1 col-end-10 row-start-8 row-end-10 flex justify-center items-center relative'>
+          <footer className="col-start-1 col-end-10 row-start-8 row-end-10 flex justify-center items-center relative">
             <img
-              src='/assets/wood.png'
-              alt='Wood Background'
-              className='absolute inset-0 w-full h-full object-cover rotate-180 z-0'
+              src="/assets/wood.png"
+              alt="Wood Background"
+              className="absolute inset-0 w-full h-full object-cover rotate-180 z-0"
             />
-            <div className='relative top-1 flex items-center w-full ml-6 sm:ml-8 md:ml-10 z-10'>
-              <div className='text-xl sm:text-2xl md:text-4xl font-bold text-[#d4af37] font-[questrial] tracking-wider'>
+            <div className="relative top-1 flex items-center w-full ml-6 sm:ml-8 md:ml-10 z-10">
+              <div className="text-xl sm:text-2xl md:text-4xl font-bold text-[#d4af37] font-[questrial] tracking-wider">
                 Games: {gameState.round_number}
               </div>
               {/* <div className='flex flex-col items-center justify-center z-10'>
@@ -992,8 +991,8 @@ export default function DisplayPage () {
       </div>
 
       {/* Bottom disclaimer - Marquee */}
-      <div className='absolute bottom-0 w-full text-xl py-1 overflow-hidden'>
-        <div className='whitespace-nowrap animate-marquee'>
+      <div className="absolute bottom-0 w-full text-xl py-1 overflow-hidden">
+        <div className="whitespace-nowrap animate-marquee">
           THIS IS AN ELECTRONIC GAME INCASE OF ANY GRIEVANCES THE MANAGEMENT
           DECISION WILL BE FINAL &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; •
           &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; THIS IS AN ELECTRONIC GAME INCASE OF
@@ -1015,23 +1014,23 @@ export default function DisplayPage () {
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.8 }}
-              className='fixed inset-0 z-50 flex items-center justify-center pointer-events-none'
+              className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none"
             >
               <div
                 className={`px-4 sm:px-6 md:px-8 py-4 sm:py-5 md:py-6 rounded-2xl shadow-2xl text-lg sm:text-xl md:text-2xl font-extrabold flex items-center justify-center gap-2 sm:gap-3
                 ${
-                  result === 'win'
-                    ? 'bg-green-600/95 text-yellow-200'
-                    : 'bg-red-700/95 text-white'
+                  result === "win"
+                    ? "bg-green-600/95 text-yellow-200"
+                    : "bg-red-700/95 text-white"
                 }`}
-                style={{ border: '3px solid #d4af37', minWidth: '200px' }}
+                style={{ border: "3px solid #d4af37", minWidth: "200px" }}
               >
-                Player {playerId}: {result === 'win' ? '🏆 WIN!' : '❌ LOSE'}
+                Player {playerId}: {result === "win" ? "🏆 WIN!" : "❌ LOSE"}
               </div>
             </motion.div>
           ) : null
         )}
       </AnimatePresence>
     </div>
-  )
+  );
 }

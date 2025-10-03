@@ -1,36 +1,36 @@
-'use client'
-import { useState, useEffect, useRef } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import Image from 'next/image'
+"use client";
+import { useState, useEffect, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import Image from "next/image";
 
 interface GameState {
-  deck_count: number
-  burned_cards_count: number
-  dealer_card: string | null
-  players: Record<string, PlayerData>
-  round_active: boolean
-  round_number: number
-  game_mode: 'manual' | 'automatic' | 'live'
-  table_number: number
-  min_bet: number
-  max_bet: number
-  player_results: Record<string, string>
-  war_round_active?: boolean
+  deck_count: number;
+  burned_cards_count: number;
+  dealer_card: string | null;
+  players: Record<string, PlayerData>;
+  round_active: boolean;
+  round_number: number;
+  game_mode: "manual" | "automatic" | "live";
+  table_number: number;
+  min_bet: number;
+  max_bet: number;
+  player_results: Record<string, string>;
+  war_round_active?: boolean;
   war_round?: {
-    dealer_card: string | null
-    players: Record<string, string | null>
-  }
+    dealer_card: string | null;
+    players: Record<string, string | null>;
+  };
 }
 
 interface PlayerData {
-  card: string | null
-  status: 'active' | 'war' | 'surrender' | 'waiting_choice' | 'finished'
-  result: string | null
-  war_card: string | null
+  card: string | null;
+  status: "active" | "war" | "surrender" | "waiting_choice" | "finished";
+  result: string | null;
+  war_card: string | null;
 }
 
-export default function Player2Page () {
-  const playerId = '2' // Fixed player ID for this page
+export default function Player2Page() {
+  const playerId = "2"; // Fixed player ID for this page
 
   const [gameState, setGameState] = useState<GameState>({
     deck_count: 0,
@@ -39,127 +39,127 @@ export default function Player2Page () {
     players: {},
     round_active: false,
     round_number: 0,
-    game_mode: 'manual',
+    game_mode: "manual",
     table_number: 1,
     min_bet: 10,
     max_bet: 1000,
-    player_results: {}
-  })
+    player_results: {},
+  });
 
-  const [connected, setConnected] = useState(false)
-  const [notifications, setNotifications] = useState<string[]>([])
+  const [connected, setConnected] = useState(false);
+  const [notifications, setNotifications] = useState<string[]>([]);
   // Use sessionStats from backend, not local increment
   const [sessionStats, setSessionStats] = useState<
     Record<
       string,
       { wins: number; losses: number; ties: number; surrenders: number }
     >
-  >({})
+  >({});
 
-  const wsRef = useRef<WebSocket | null>(null)
+  const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
-    connectWebSocket()
+    connectWebSocket();
     return () => {
       if (wsRef.current) {
-        wsRef.current.close()
+        wsRef.current.close();
       }
-    }
-  }, [])
+    };
+  }, []);
 
   const connectWebSocket = () => {
     try {
-      wsRef.current = new WebSocket('ws://192.168.2.190:6789')
+      wsRef.current = new WebSocket("ws://10.16.23.9:6789");
       // wsRef.current = new WebSocket('ws://localhost:6789')
 
       wsRef.current.onopen = () => {
-        setConnected(true)
-        sendMessage({ action: 'register_player', player_id: playerId })
-        addNotification('Connected to game')
-      }
+        setConnected(true);
+        sendMessage({ action: "register_player", player_id: playerId });
+        addNotification("Connected to game");
+      };
 
       wsRef.current.onclose = () => {
-        setConnected(false)
-        addNotification('Disconnected from server')
-        setTimeout(connectWebSocket, 3000)
-      }
+        setConnected(false);
+        addNotification("Disconnected from server");
+        setTimeout(connectWebSocket, 3000);
+      };
 
-      wsRef.current.onmessage = event => {
-        const data = JSON.parse(event.data)
-        handleServerMessage(data)
-      }
+      wsRef.current.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        handleServerMessage(data);
+      };
     } catch (error) {
-      console.error('WebSocket connection error:', error)
-      setConnected(false)
+      console.error("WebSocket connection error:", error);
+      setConnected(false);
     }
-  }
+  };
 
   const sendMessage = (message: any) => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify(message))
+      wsRef.current.send(JSON.stringify(message));
     }
-  }
+  };
 
   const addNotification = (message: string) => {
-    setNotifications(prev => {
-      if (prev[prev.length - 1] === message) return prev // Prevent duplicate
-      return [...prev.slice(-4), message]
-    })
+    setNotifications((prev) => {
+      if (prev[prev.length - 1] === message) return prev; // Prevent duplicate
+      return [...prev.slice(-4), message];
+    });
     setTimeout(() => {
-      setNotifications(prev => prev.slice(1))
-    }, 5000)
-  }
+      setNotifications((prev) => prev.slice(1));
+    }, 5000);
+  };
 
   const handleServerMessage = (data: any) => {
     switch (data.action) {
-      case 'game_state_update':
-        setGameState(data.game_state)
-        if (data.stats) setSessionStats(data.stats) // Always overwrite
-        break
-      case 'player_registered':
-        addNotification(`Registered as Player ${playerId}`)
+      case "game_state_update":
+        setGameState(data.game_state);
+        if (data.stats) setSessionStats(data.stats); // Always overwrite
+        break;
+      case "player_registered":
+        addNotification(`Registered as Player ${playerId}`);
         // Do NOT update sessionStats here; wait for game_state_update or round_completed
-        break
-      case 'round_dealt':
-        setGameState(prev => ({
+        break;
+      case "round_dealt":
+        setGameState((prev) => ({
           ...prev,
           dealer_card: data.dealer_card,
           players: data.players,
           round_number: data.round_number,
           deck_count: data.deck_count,
-          player_results: data.player_results
-        }))
+          player_results: data.player_results,
+        }));
         // Check if this player has a tie
         if (data.tie_players?.includes(playerId)) {
-          addNotification('TIE! Choose WAR or SURRENDER')
+          addNotification("TIE! Choose WAR or SURRENDER");
         }
-        break
-      case 'player_choice_made':
-        setGameState(prev => ({
+        break;
+      case "player_choice_made":
+        setGameState((prev) => ({
           ...prev,
           players: data.players,
-          player_results: data.player_results
-        }))
+          player_results: data.player_results,
+        }));
         if (data.player_id === playerId) {
-          addNotification(`Choice made: ${data.choice.toUpperCase()}`)
+          addNotification(`Choice made: ${data.choice.toUpperCase()}`);
         }
-        break
-      case 'war_round_started':
-        setGameState(prev => ({
+        break;
+      case "war_round_started":
+        setGameState((prev) => ({
           ...prev,
           war_round_active: true,
-          war_round: data.war_round
-        }))
+          war_round: data.war_round,
+        }));
         if (data.players.includes(playerId)) {
-          addNotification('WAR ROUND STARTED! ⚔️')
+          addNotification("WAR ROUND STARTED! ⚔️");
         }
-        break
-      case 'war_round_evaluated': {
-        setGameState(prev => {
+        break;
+      case "war_round_evaluated": {
+        setGameState((prev) => {
           const prevOriginalCards =
-            prev.war_round && 'original_cards' in prev.war_round
+            prev.war_round && "original_cards" in prev.war_round
               ? prev.war_round.original_cards
-              : undefined
+              : undefined;
           return {
             ...prev,
             war_round_active: false,
@@ -170,215 +170,215 @@ export default function Player2Page () {
                 ...Object.fromEntries(
                   Object.entries(data.players || {}).map(([pid, pdata]) => [
                     pid,
-                    (pdata as PlayerData).war_card || null
+                    (pdata as PlayerData).war_card || null,
                   ])
-                )
+                ),
               },
               ...(prevOriginalCards
                 ? { original_cards: prevOriginalCards }
-                : {})
+                : {}),
             },
             players: { ...prev.players, ...data.players },
-            player_results: data.player_results
-          }
-        })
-        addNotification('War round completed')
-        break
+            player_results: data.player_results,
+          };
+        });
+        addNotification("War round completed");
+        break;
       }
-      case 'round_completed':
-        setGameState(prev => ({
+      case "round_completed":
+        setGameState((prev) => ({
           ...prev,
           round_active: false,
-          player_results: data.player_results
-        }))
-        if (data.stats) setSessionStats(data.stats) // Always overwrite
-        break
-      case 'all_player_stats':
-        if (data.stats) setSessionStats(data.stats) // Always overwrite
-        break
-      case 'clear_all_stats':
-        setSessionStats({}) // Clear immediately, backend will send new stats
-        break
-      case 'error':
-        addNotification(`Error: ${data.message}`)
-        break
-      case 'game_reset':
-        setGameState(data.game_state)
-        if (data.stats) setSessionStats(data.stats)
-        addNotification('Game has been reset')
-        break
-      case 'dealer_card_set':
-        setGameState(prev => ({
+          player_results: data.player_results,
+        }));
+        if (data.stats) setSessionStats(data.stats); // Always overwrite
+        break;
+      case "all_player_stats":
+        if (data.stats) setSessionStats(data.stats); // Always overwrite
+        break;
+      case "clear_all_stats":
+        setSessionStats({}); // Clear immediately, backend will send new stats
+        break;
+      case "error":
+        addNotification(`Error: ${data.message}`);
+        break;
+      case "game_reset":
+        setGameState(data.game_state);
+        if (data.stats) setSessionStats(data.stats);
+        addNotification("Game has been reset");
+        break;
+      case "dealer_card_set":
+        setGameState((prev) => ({
           ...prev,
           dealer_card: data.card,
           deck_count:
-            typeof data.game_state?.deck_count === 'number'
+            typeof data.game_state?.deck_count === "number"
               ? data.game_state.deck_count
-              : typeof data.deck_count === 'number'
+              : typeof data.deck_count === "number"
               ? data.deck_count
-              : prev.deck_count
-        }))
-        addNotification(`Dealer card manually set to ${data.card}`)
-        break
-      case 'player_card_set':
-        setGameState(prev => ({
+              : prev.deck_count,
+        }));
+        addNotification(`Dealer card manually set to ${data.card}`);
+        break;
+      case "player_card_set":
+        setGameState((prev) => ({
           ...prev,
           players: {
             ...prev.players,
             [data.player_id]: {
               ...prev.players[data.player_id],
               card: data.card,
-              status: 'active'
-            }
+              status: "active",
+            },
           },
           deck_count:
-            typeof data.game_state?.deck_count === 'number'
+            typeof data.game_state?.deck_count === "number"
               ? data.game_state.deck_count
-              : typeof data.deck_count === 'number'
+              : typeof data.deck_count === "number"
               ? data.deck_count
-              : prev.deck_count
-        }))
-        addNotification(`Card manually assigned to player ${data.player_id}`)
-        break
-      case 'war_card_assigned':
-        setGameState(prev => ({
+              : prev.deck_count,
+        }));
+        addNotification(`Card manually assigned to player ${data.player_id}`);
+        break;
+      case "war_card_assigned":
+        setGameState((prev) => ({
           ...prev,
           war_round: {
             dealer_card:
-              data.target === 'dealer'
+              data.target === "dealer"
                 ? data.card
                 : prev.war_round?.dealer_card ?? null,
             players: {
               ...((prev.war_round && prev.war_round.players) || {}),
-              ...(data.target === 'player' && data.player_id
+              ...(data.target === "player" && data.player_id
                 ? { [data.player_id]: data.card }
-                : {})
-            }
-          }
-        }))
+                : {}),
+            },
+          },
+        }));
         addNotification(
           `War card ${data.card} assigned to ${
-            data.target === 'dealer' ? 'Dealer' : 'Player ' + data.player_id
+            data.target === "dealer" ? "Dealer" : "Player " + data.player_id
           }`
-        )
-        break
-      case 'cards_undone':
-        setGameState(prev => ({
+        );
+        break;
+      case "cards_undone":
+        setGameState((prev) => ({
           ...prev,
           deck_count: data.deck_count,
           dealer_card: data.dealer_card,
-          players: data.players
-        }))
-        if (data.message) addNotification(data.message)
-        break
-      case 'bets_changed':
-        setGameState(prev => ({
+          players: data.players,
+        }));
+        if (data.message) addNotification(data.message);
+        break;
+      case "bets_changed":
+        setGameState((prev) => ({
           ...prev,
           min_bet: data.min_bet,
-          max_bet: data.max_bet
-        }))
+          max_bet: data.max_bet,
+        }));
         addNotification(
           `Betting range updated: $${data.min_bet} - $${data.max_bet}`
-        )
-        break
-      case 'table_changed':
-        setGameState(prev => ({ ...prev, table_number: data.table_number }))
-        addNotification(`Table number updated: ${data.table_number}`)
-        break
-      case 'player_added':
-        setGameState(prev => ({ ...prev, players: data.players }))
+        );
+        break;
+      case "table_changed":
+        setGameState((prev) => ({ ...prev, table_number: data.table_number }));
+        addNotification(`Table number updated: ${data.table_number}`);
+        break;
+      case "player_added":
+        setGameState((prev) => ({ ...prev, players: data.players }));
         if (data.player_id === playerId) {
-          addNotification('You have been added to the table!')
+          addNotification("You have been added to the table!");
         }
-        break
-      case 'player_removed':
-        setGameState(prev => ({
+        break;
+      case "player_removed":
+        setGameState((prev) => ({
           ...prev,
           players: data.players,
-          player_results: data.player_results
-        }))
+          player_results: data.player_results,
+        }));
         if (data.player_id === playerId) {
-          addNotification('You have been removed from the table.')
+          addNotification("You have been removed from the table.");
         }
-        break
-      case 'manual_result_assigned': {
+        break;
+      case "manual_result_assigned": {
         // If this is for this player, update result and show popup
         if (data.player_id === playerId) {
-          setGameState(prev => ({
+          setGameState((prev) => ({
             ...prev,
             players: {
               ...prev.players,
               [playerId]: {
                 ...prev.players[playerId],
                 result: data.result,
-                status: 'finished'
-              }
+                status: "finished",
+              },
             },
             player_results: {
               ...prev.player_results,
-              [playerId]: data.result
-            }
-          }))
-          addNotification(data.result === 'win' ? 'You WIN!' : 'You LOSE!')
+              [playerId]: data.result,
+            },
+          }));
+          addNotification(data.result === "win" ? "You WIN!" : "You LOSE!");
         } else {
           // Update other players' results for display
-          setGameState(prev => ({
+          setGameState((prev) => ({
             ...prev,
             players: {
               ...prev.players,
               [data.player_id]: {
                 ...prev.players[data.player_id],
                 result: data.result,
-                status: 'finished'
-              }
+                status: "finished",
+              },
             },
             player_results: {
               ...prev.player_results,
-              [data.player_id]: data.result
-            }
-          }))
+              [data.player_id]: data.result,
+            },
+          }));
         }
-        break
+        break;
       }
       default:
         if (data.message) {
-          addNotification(data.message)
+          addNotification(data.message);
         }
     }
-  }
+  };
 
   // On mount, request all player stats from backend (optional, for instant sync)
   useEffect(() => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ action: 'get_all_player_stats' }))
+      wsRef.current.send(JSON.stringify({ action: "get_all_player_stats" }));
     }
-  }, [connected])
+  }, [connected]);
 
   // Handle clear all stats
   const handleClearAllStats = () => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ action: 'clear_all_stats' }))
+      wsRef.current.send(JSON.stringify({ action: "clear_all_stats" }));
     }
-  }
+  };
 
   const renderCard = (
     card: string | null,
-    size: 'small' | 'medium' | 'large' = 'medium'
+    size: "small" | "medium" | "large" = "medium"
   ) => {
-    if (!card) return null
+    if (!card) return null;
 
-    const rank = card[0]
-    const suit = card[1]
+    const rank = card[0];
+    const suit = card[1];
 
-    console.log(`Rendering card: ${rank}${suit}`)
-    const suitSymbol = { S: '♠', H: '♥', D: '♦', C: '♣' }[suit] || suit
-    const isRed = suit === 'H' || suit === 'D'
+    console.log(`Rendering card: ${rank}${suit}`);
+    const suitSymbol = { S: "♠", H: "♥", D: "♦", C: "♣" }[suit] || suit;
+    const isRed = suit === "H" || suit === "D";
 
     const sizeClasses = {
-      small: 'w-16 h-24 text-base',
-      medium: 'w-24 h-32 text-lg',
-      large: 'w-32 h-44 text-xl'
-    }
+      small: "w-16 h-24 text-base",
+      medium: "w-24 h-32 text-lg",
+      large: "w-32 h-44 text-xl",
+    };
 
     return (
       <motion.div
@@ -391,121 +391,121 @@ export default function Player2Page () {
           src={`/cards/${rank}${suit}.png`}
           alt={`${rank} of ${suit}`}
           fill
-          className='object-cover rounded-lg'
-          sizes='(max-width: 640px) 64px, (max-width: 768px) 80px, 96px'
+          className="object-cover rounded-lg"
+          sizes="(max-width: 640px) 64px, (max-width: 768px) 80px, 96px"
         />
       </motion.div>
-    )
-  }
+    );
+  };
 
-  const renderCardBack = (size: 'small' | 'medium' | 'large' = 'medium') => {
+  const renderCardBack = (size: "small" | "medium" | "large" = "medium") => {
     const sizeClasses = {
-      small: 'w-16 h-24 text-2xl',
-      medium: 'w-24 h-32 text-4xl',
-      large: 'w-32 h-44 text-6xl'
-    }
+      small: "w-16 h-24 text-2xl",
+      medium: "w-24 h-32 text-4xl",
+      large: "w-32 h-44 text-6xl",
+    };
 
     return (
       <div
         className={`${sizeClasses[size]} relative bg-gradient-to-br from-red-800 to-red-900 rounded-lg shadow-2xl overflow-hidden`}
       >
         {/* Subtle texture overlay */}
-        <div className='absolute inset-0 opacity-10 bg-gradient-to-b from-transparent via-black to-transparent'></div>
+        <div className="absolute inset-0 opacity-10 bg-gradient-to-b from-transparent via-black to-transparent"></div>
 
         {/* Question mark - centered */}
-        <div className='absolute inset-0 flex items-center justify-center'>
-          <div className='text-white font-bold'>?</div>
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="text-white font-bold">?</div>
         </div>
 
         {/* Card shine effect */}
-        <div className='absolute inset-0 bg-gradient-to-tr from-transparent via-white to-transparent opacity-5'></div>
+        <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white to-transparent opacity-5"></div>
       </div>
-    )
-  }
+    );
+  };
 
-  const playerData = gameState.players[playerId]
+  const playerData = gameState.players[playerId];
   const isInWar =
     gameState.war_round_active &&
-    gameState.war_round?.players[playerId] !== undefined
+    gameState.war_round?.players[playerId] !== undefined;
   // Only show war data if this specific player participated in war
   const hasWarData =
-    gameState.war_round && gameState.war_round.players[playerId] !== undefined
+    gameState.war_round && gameState.war_round.players[playerId] !== undefined;
 
-  const isActive = gameState.players[playerId] !== undefined
+  const isActive = gameState.players[playerId] !== undefined;
 
   // If player is not active, show video
   if (!isActive) {
     return (
-      <div className='min-h-screen bg-[#450a03] flex items-center justify-center'>
+      <div className="min-h-screen bg-[#450a03] flex items-center justify-center">
         {/* Full screen video */}
-        <div className='relative w-full h-screen overflow-hidden'>
+        <div className="relative w-full h-screen overflow-hidden">
           <video
-            className='absolute inset-0 w-full h-full object-cover'
+            className="absolute inset-0 w-full h-full object-cover"
             autoPlay
             loop
             muted
             playsInline
           >
-            <source src='/assets/ocean7vid.mp4' type='video/mp4' />
+            <source src="/assets/ocean7vid.mp4" type="video/mp4" />
             Your browser does not support the video tag.
           </video>
         </div>
       </div>
-    )
+    );
   }
 
   return (
-    <div className='min-h-screen bg-[#450a03] pb-12'>
+    <div className="min-h-screen bg-[#450a03] pb-12">
       {/* Header with wood background */}
-      <nav className='relative h-[15vh] w-full overflow-hidden'>
+      <nav className="relative h-[15vh] w-full overflow-hidden">
         <img
-          src='/assets/wood.png'
-          alt='Wood Background'
-          className='absolute inset-0 object-cover w-full h-full'
+          src="/assets/wood.png"
+          alt="Wood Background"
+          className="absolute inset-0 object-cover w-full h-full"
         />
-        <div className='relative h-full'>
-          <div className='flex items-center justify-between -mt-2 xs:-mt-3 sm:-mt-4 px-2 xs:px-4 sm:px-6 md:px-8'>
+        <div className="relative h-full">
+          <div className="flex items-center justify-between -mt-2 xs:-mt-3 sm:-mt-4 px-2 xs:px-4 sm:px-6 md:px-8">
             {/* Left Side - Casino Wars Logo */}
-            <div className='w-16 h-16 xs:w-20 xs:h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 lg:w-32 lg:h-32 relative flex flex-col items-center justify-center overflow-hidden'>
-              <div className='relative w-12 h-12 xs:w-14 xs:h-14 sm:w-16 sm:h-16 md:w-20 md:h-20 lg:w-24 lg:h-24 xl:w-28 xl:h-28'>
+            <div className="w-16 h-16 xs:w-20 xs:h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 lg:w-32 lg:h-32 relative flex flex-col items-center justify-center overflow-hidden">
+              <div className="relative w-12 h-12 xs:w-14 xs:h-14 sm:w-16 sm:h-16 md:w-20 md:h-20 lg:w-24 lg:h-24 xl:w-28 xl:h-28">
                 <Image
-                  src='/assets/logo.png'
-                  alt='Casino Wars Logo'
+                  src="/assets/logo.png"
+                  alt="Casino Wars Logo"
                   fill
-                  className='object-contain'
-                  sizes='(max-width: 375px) 48px, (max-width: 640px) 56px, (max-width: 768px) 64px, (max-width: 1024px) 80px, (max-width: 1280px) 96px, 112px'
+                  className="object-contain"
+                  sizes="(max-width: 375px) 48px, (max-width: 640px) 56px, (max-width: 768px) 64px, (max-width: 1024px) 80px, (max-width: 1280px) 96px, 112px"
                   priority
                 />
               </div>
-              <span className='text-yellow-300 text-[8px] xs:text-[9px] sm:text-xs md:text-sm lg:text-base -mt-1 xs:-mt-2 sm:-mt-3 md:-mt-4'>
+              <span className="text-yellow-300 text-[8px] xs:text-[9px] sm:text-xs md:text-sm lg:text-base -mt-1 xs:-mt-2 sm:-mt-3 md:-mt-4">
                 Table: {gameState.table_number}
               </span>
             </div>
 
             {/* Center - Ocean 7 Logo */}
-            <div className='flex items-center justify-center'>
-              <div className='relative w-20 h-12 xs:w-24 xs:h-14 sm:w-32 sm:h-16 md:w-40 md:h-20 lg:w-48 lg:h-24 xl:w-48 xl:h-24'>
+            <div className="flex items-center justify-center">
+              <div className="relative w-20 h-12 xs:w-24 xs:h-14 sm:w-32 sm:h-16 md:w-40 md:h-20 lg:w-48 lg:h-24 xl:w-48 xl:h-24">
                 <Image
-                  src='/assets/ocean7-logo.png'
-                  alt='Ocean 7 Casino'
+                  src="/assets/ocean7-logo.png"
+                  alt="Ocean 7 Casino"
                   fill
-                  className='object-contain'
-                  sizes='(max-width: 375px) 80px, (max-width: 640px) 96px, (max-width: 768px) 128px, (max-width: 1024px) 160px, (max-width: 1280px) 192px, 224px'
+                  className="object-contain"
+                  sizes="(max-width: 375px) 80px, (max-width: 640px) 96px, (max-width: 768px) 128px, (max-width: 1024px) 160px, (max-width: 1280px) 192px, 224px"
                   priority
                 />
               </div>
             </div>
 
             {/* Right Side - Betting Info */}
-            <div className='w-16 h-16 xs:w-20 xs:h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 lg:w-32 lg:h-32 relative flex flex-col items-center justify-center overflow-hidden'>
-              <div className='text-center'>
-                <div className='text-[#DEBE83] font-bold text-[8px] xs:text-[9px] sm:text-xs md:text-sm lg:text-base font-[questrial] mb-0.5'>
+            <div className="w-16 h-16 xs:w-20 xs:h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 lg:w-32 lg:h-32 relative flex flex-col items-center justify-center overflow-hidden">
+              <div className="text-center">
+                <div className="text-[#DEBE83] font-bold text-[8px] xs:text-[9px] sm:text-xs md:text-sm lg:text-base font-[questrial] mb-0.5">
                   Bets
                 </div>
-                <div className='text-yellow-300 text-[7px] xs:text-[8px] sm:text-[9px] md:text-xs lg:text-sm'>
+                <div className="text-yellow-300 text-[7px] xs:text-[8px] sm:text-[9px] md:text-xs lg:text-sm">
                   Max: {gameState.max_bet.toLocaleString()}
                 </div>
-                <div className='text-yellow-300 text-[7px] xs:text-[8px] sm:text-[9px] md:text-xs lg:text-sm'>
+                <div className="text-yellow-300 text-[7px] xs:text-[8px] sm:text-[9px] md:text-xs lg:text-sm">
                   Min: {gameState.min_bet.toLocaleString()}
                 </div>
               </div>
@@ -522,7 +522,7 @@ export default function Player2Page () {
             initial={{ opacity: 0, x: 300 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -300 }}
-            className='fixed top-20 right-6 bg-yellow-500 text-black px-4 py-2 rounded-lg shadow-lg z-50 mb-2'
+            className="fixed top-20 right-6 bg-yellow-500 text-black px-4 py-2 rounded-lg shadow-lg z-50 mb-2"
             style={{ top: `${80 + index * 60}px` }}
           >
             {notification}
@@ -531,59 +531,59 @@ export default function Player2Page () {
       </AnimatePresence>
 
       {/* Game Area */}
-      <div className='mx-auto max-w-7xl px-4 sm:px-6 py-6 sm:py-8 md:py-10 min-h-[calc(100vh-15vh-3rem)]'>
-        <div className='bg-[#911606] border-4 border-[#d4af37] p-4 sm:p-6 md:p-8 w-full grow flex flex-col rounded-lg shadow-xl'>
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 py-6 sm:py-8 md:py-10 min-h-[calc(100vh-15vh-3rem)]">
+        <div className="bg-[#911606] border-4 border-[#d4af37] p-4 sm:p-6 md:p-8 w-full grow flex flex-col rounded-lg shadow-xl">
           {/* Player Number and Status */}
-          <div className='text-center mb-6 sm:mb-8'>
-            <h2 className='text-3xl sm:text-4xl font-semibold text-[#d4af37] font-[questrial] tracking-widest mb-4'>
+          <div className="text-center mb-6 sm:mb-8">
+            <h2 className="text-3xl sm:text-4xl font-semibold text-[#d4af37] font-[questrial] tracking-widest mb-4">
               PLAYER 2
             </h2>
             {playerData && (
-              <div className='flex justify-center'>
+              <div className="flex justify-center">
                 <div
                   className={`inline-block px-4 sm:px-6 py-1.5 sm:py-2 ${
-                    playerData.status === 'active'
-                      ? 'bg-[#7a1105]'
-                      : playerData.status === 'war'
-                      ? 'bg-[#8B0000]'
-                      : playerData.status === 'waiting_choice'
-                      ? 'bg-[#8B0000]'
-                      : 'bg-[#7a1105]'
+                    playerData.status === "active"
+                      ? "bg-[#7a1105]"
+                      : playerData.status === "war"
+                      ? "bg-[#8B0000]"
+                      : playerData.status === "waiting_choice"
+                      ? "bg-[#8B0000]"
+                      : "bg-[#7a1105]"
                   } text-white font-semibold rounded shadow-md`}
                 >
-                  {playerData.status === 'active'
-                    ? 'Active'
-                    : playerData.status === 'war'
-                    ? 'War'
-                    : playerData.status === 'waiting_choice'
-                    ? 'Choose'
-                    : playerData.status === 'surrender'
-                    ? 'Surrender'
-                    : 'Finished'}
+                  {playerData.status === "active"
+                    ? "Active"
+                    : playerData.status === "war"
+                    ? "War"
+                    : playerData.status === "waiting_choice"
+                    ? "Choose"
+                    : playerData.status === "surrender"
+                    ? "Surrender"
+                    : "Finished"}
                 </div>
               </div>
             )}
           </div>
 
           {/* Dealer Section */}
-          <div className='bg-[#a42210] border-2 border-[#d4af37] p-4 sm:p-6 rounded-xl mb-6 sm:mb-8 shadow-md'>
-            <h3 className='text-xl font-medium font-[questrial] tracking-widest text-white mb-4'>
+          <div className="bg-[#a42210] border-2 border-[#d4af37] p-4 sm:p-6 rounded-xl mb-6 sm:mb-8 shadow-md">
+            <h3 className="text-xl font-medium font-[questrial] tracking-widest text-white mb-4">
               Dealer's Hand
             </h3>
-            <div className='flex justify-center items-center gap-4 min-h-[120px]'>
+            <div className="flex justify-center items-center gap-4 min-h-[120px]">
               {/* Original Dealer Card */}
-              <div className='flex flex-col items-center'>
+              <div className="flex flex-col items-center">
                 {gameState.dealer_card
-                  ? renderCard(gameState.dealer_card, 'large')
-                  : renderCardBack('large')}
+                  ? renderCard(gameState.dealer_card, "large")
+                  : renderCardBack("large")}
               </div>
 
               {/* Dealer War Card - Only show if this player participated in war */}
               {hasWarData && (
-                <div className='flex flex-col items-center'>
+                <div className="flex flex-col items-center">
                   {gameState.war_round?.dealer_card
-                    ? renderCard(gameState.war_round.dealer_card, 'large')
-                    : renderCardBack('large')}
+                    ? renderCard(gameState.war_round.dealer_card, "large")
+                    : renderCardBack("large")}
                 </div>
               )}
             </div>
@@ -593,47 +593,47 @@ export default function Player2Page () {
           {gameState.war_round_active &&
             !gameState.war_round?.dealer_card &&
             !gameState.war_round?.players[playerId] && (
-              <div className='bg-red-900/30 border-2 border-red-500 rounded-xl p-4 sm:p-6 mb-6 sm:mb-8 shadow-md'>
-                <h3 className='text-xl font-bold text-red-400 mb-4 text-center'>
+              <div className="bg-red-900/30 border-2 border-red-500 rounded-xl p-4 sm:p-6 mb-6 sm:mb-8 shadow-md">
+                <h3 className="text-xl font-bold text-red-400 mb-4 text-center">
                   ⚔️ WAR ROUND ACTIVE ⚔️
                 </h3>
-                <p className='text-center text-red-300'>
+                <p className="text-center text-red-300">
                   War cards are being dealt...
                 </p>
               </div>
             )}
 
           {/* Player Section */}
-          <div className='text-center'>
-            <div className='bg-[#a42210] p-4 sm:p-6 rounded-xl mb-6 sm:mb-8 shadow-md'>
-              <h3 className='text-xl font-medium font-[questrial] tracking-widest text-white text-left mb-4'>
+          <div className="text-center">
+            <div className="bg-[#a42210] p-4 sm:p-6 rounded-xl mb-6 sm:mb-8 shadow-md">
+              <h3 className="text-xl font-medium font-[questrial] tracking-widest text-white text-left mb-4">
                 Your Hand
               </h3>
               {playerData ? (
-                <div className='flex justify-center items-center gap-4'>
+                <div className="flex justify-center items-center gap-4">
                   {/* Original Player Card */}
-                  <div className='flex flex-col items-center'>
+                  <div className="flex flex-col items-center">
                     {playerData.card
-                      ? renderCard(playerData.card, 'large')
-                      : renderCardBack('large')}
+                      ? renderCard(playerData.card, "large")
+                      : renderCardBack("large")}
                   </div>
 
                   {/* Player War Card - Show only if this player participated in war */}
                   {(playerData.war_card || hasWarData) && (
-                    <div className='flex flex-col items-center'>
+                    <div className="flex flex-col items-center">
                       {playerData.war_card
-                        ? renderCard(playerData.war_card, 'large')
+                        ? renderCard(playerData.war_card, "large")
                         : gameState.war_round?.players[playerId]
                         ? renderCard(
                             gameState.war_round.players[playerId],
-                            'large'
+                            "large"
                           )
-                        : renderCardBack('large')}
+                        : renderCardBack("large")}
                     </div>
                   )}
                 </div>
               ) : (
-                <div className='text-center text-white py-4'>
+                <div className="text-center text-white py-4">
                   <p>You are not currently in the game</p>
                 </div>
               )}
@@ -641,44 +641,44 @@ export default function Player2Page () {
 
             {/* Player Result and Choice Buttons */}
             {playerData && (
-              <div className='space-y-4'>
+              <div className="space-y-4">
                 {/* Result */}
                 {playerData.result && (
                   <div
                     className={`text-2xl sm:text-3xl font-bold p-3 rounded-lg shadow-lg ${
-                      playerData.result === 'win'
-                        ? 'bg-gradient-to-r from-green-700/80 to-green-500/80 text-white border border-green-400'
-                        : playerData.result === 'lose'
-                        ? 'bg-gradient-to-r from-red-700/80 to-red-500/80 text-white border border-red-400'
-                        : playerData.result === 'surrender'
-                        ? 'bg-gradient-to-r from-gray-700/80 to-gray-500/80 text-gray-200 border border-gray-400'
-                        : 'bg-gradient-to-r from-yellow-600/80 to-amber-500/80 text-white border border-yellow-400'
+                      playerData.result === "win"
+                        ? "bg-gradient-to-r from-green-700/80 to-green-500/80 text-white border border-green-400"
+                        : playerData.result === "lose"
+                        ? "bg-gradient-to-r from-red-700/80 to-red-500/80 text-white border border-red-400"
+                        : playerData.result === "surrender"
+                        ? "bg-gradient-to-r from-gray-700/80 to-gray-500/80 text-gray-200 border border-gray-400"
+                        : "bg-gradient-to-r from-yellow-600/80 to-amber-500/80 text-white border border-yellow-400"
                     }`}
                   >
-                    {playerData.result === 'win'
-                      ? '🎉 YOU WIN!'
-                      : playerData.result === 'lose'
-                      ? '😞 YOU LOSE'
-                      : playerData.result === 'surrender'
-                      ? '🏳️ SURRENDERED'
-                      : '🤝 TIE!'}
+                    {playerData.result === "win"
+                      ? "🎉 YOU WIN!"
+                      : playerData.result === "lose"
+                      ? "😞 YOU LOSE"
+                      : playerData.result === "surrender"
+                      ? "🏳️ SURRENDERED"
+                      : "🤝 TIE!"}
                   </div>
                 )}
 
                 {/* Choice Buttons */}
-                {playerData.status === 'waiting_choice' && (
-                  <div className='flex flex-col sm:flex-row gap-20 justify-center mt-4 sm:mt-6'>
+                {playerData.status === "waiting_choice" && (
+                  <div className="flex flex-col sm:flex-row gap-20 justify-center mt-4 sm:mt-6">
                     <motion.button
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
                       onClick={() =>
                         sendMessage({
-                          action: 'player_choice',
+                          action: "player_choice",
                           player_id: playerId,
-                          choice: 'war'
+                          choice: "war",
                         })
                       }
-                      className='bg-[#d4af37] hover:bg-[#c9a633] text-black px-6 sm:px-8 py-3 rounded-lg text-lg sm:text-xl font-bold transition-colors shadow-lg w-full sm:w-auto'
+                      className="bg-[#d4af37] hover:bg-[#c9a633] text-black px-6 sm:px-8 py-3 rounded-lg text-lg sm:text-xl font-bold transition-colors shadow-lg w-full sm:w-auto"
                     >
                       War
                     </motion.button>
@@ -687,12 +687,12 @@ export default function Player2Page () {
                       whileTap={{ scale: 0.95 }}
                       onClick={() =>
                         sendMessage({
-                          action: 'player_choice',
+                          action: "player_choice",
                           player_id: playerId,
-                          choice: 'surrender'
+                          choice: "surrender",
                         })
                       }
-                      className='bg-[#8B0000] hover:bg-[#7a0000] text-white px-6 sm:px-8 py-3 rounded-lg text-lg sm:text-xl font-bold transition-colors shadow-lg w-full sm:w-auto'
+                      className="bg-[#8B0000] hover:bg-[#7a0000] text-white px-6 sm:px-8 py-3 rounded-lg text-lg sm:text-xl font-bold transition-colors shadow-lg w-full sm:w-auto"
                     >
                       Surrender
                     </motion.button>
@@ -806,8 +806,8 @@ export default function Player2Page () {
         }
       `}</style>
       {/* Bottom disclaimer - Fixed Footer */}
-      <div className='fixed bottom-0 left-0 right-0 w-full bg-[#450a03] text-white text-[10px] sm:text-xs py-2 overflow-hidden z-40'>
-        <div className='whitespace-nowrap animate-marquee'>
+      <div className="fixed bottom-0 left-0 right-0 w-full bg-[#450a03] text-white text-[10px] sm:text-xs py-2 overflow-hidden z-40">
+        <div className="whitespace-nowrap animate-marquee">
           THIS IS AN ELECTRONIC GAME INCASE OF ANY GRIEVANCES THE MANAGEMENT
           DECISION WILL BE FINAL &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; •
           &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; THIS IS AN ELECTRONIC GAME INCASE OF
@@ -820,5 +820,5 @@ export default function Player2Page () {
         </div>
       </div>
     </div>
-  )
+  );
 }
