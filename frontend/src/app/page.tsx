@@ -847,12 +847,16 @@ export default function DisplayPage() {
             </div>
           </div>
 
-          {/* Left Side Player Cards (Players 1, 2, 3) - Cards positioned to the LEFT of players */}
+          {/* Left Side Player Cards (Players 1, 2, 3) - Now showing players 6, 5, 4 at these positions */}
           {[1, 2, 3].map((playerNum) => {
-            const player = gameState.players[playerNum.toString()];
+            // Map the display position to the actual player data using the mapping
+            const actualPlayerNum = {1: 6, 2: 5, 3: 4}[playerNum];
+            // Make sure actualPlayerNum is not undefined before using as index
+            const playerKey = actualPlayerNum ? actualPlayerNum.toString() : "";
+            const player = playerKey ? gameState.players[playerKey] : undefined;
             if (!player) return null;
 
-            // Responsive position cards to the LEFT of each player button
+            // Keep the same card positions - these are the LEFT side card positions
             const cardPositions = {
               1: "absolute top-[30%] sm:top-[32%] md:top-[35%] left-[6%] sm:left-[8%] md:left-[9%] transform -translate-y-1/2 z-30",
               2: "absolute top-[55%] sm:top-[calc(56%-1rem)] md:top-[calc(58%-1rem)] left-[calc(10%-1rem)] sm:left-[12%] md:left-[14%] transform -translate-y-1/2 z-30",
@@ -867,18 +871,18 @@ export default function DisplayPage() {
                 }
               >
                 <div className="flex gap-1">
-                  {/* Regular card */}
+                  {/* Regular card - still on LEFT side */}
                   {player.card && (
-                    <div className = "transform scale-75 sm:scale-85 md:scale-95 lg:scale-150">
+                    <div className="transform scale-75 sm:scale-85 md:scale-95 lg:scale-150">
                       {renderCard(player.card, "medium")}
                     </div>
                   )}
 
-                  {/* War round card */}
-                  {gameState.war_round?.players?.[playerNum.toString()] && (
+                  {/* War round card - still on LEFT side */}
+                  {actualPlayerNum !== undefined && gameState.war_round?.players?.[actualPlayerNum.toString()] && (
                     <div className="transform scale-75 sm:scale-85 md:scale-95 lg:scale-150">
                       {renderCard(
-                        gameState.war_round.players[playerNum.toString()],
+                        gameState.war_round.players[actualPlayerNum?.toString()],
                         "medium"
                       )}
                     </div>
@@ -887,13 +891,15 @@ export default function DisplayPage() {
               </div>
             );
           })}
-
-          {/* Right Side Player Cards (Players 4, 5, 6) - Cards positioned to the RIGHT of players */}
           {[4, 5, 6].map((playerNum) => {
-            const player = gameState.players[playerNum.toString()];
+            // Map the display position to the actual player data using the mapping
+            const actualPlayerNum = {4: 3, 5: 2, 6: 1}[playerNum];
+            // Make sure actualPlayerNum is not undefined before using as index
+            const playerKey = actualPlayerNum ? actualPlayerNum.toString() : "";
+            const player = playerKey ? gameState.players[playerKey] : undefined;
             if (!player) return null;
 
-            // Responsive position cards to the RIGHT of each player button
+            // Keep the same card positions - these are the RIGHT side card positions
             const cardPositions = {
               4: "absolute top-[68%] sm:top-[69%] md:top-[71%] right-[20%] sm:right-[22%] md:right-[24%] transform -translate-y-1/2 z-30",
               5: "absolute top-[55%] sm:top-[56%] md:top-[58%] right-[10%] sm:right-[11%] md:right-[13%] transform -translate-y-1/2 z-30",
@@ -908,18 +914,18 @@ export default function DisplayPage() {
                 }
               >
                 <div className="flex gap-1">
-                  {/* Regular card */}
+                  {/* Regular card - still on RIGHT side */}
                   {player.card && (
                     <div className="transform scale-75 sm:scale-90 md:scale-100 lg:scale-150">
                       {renderCard(player.card, "medium")}
                     </div>
                   )}
 
-                  {/* War round card */}
-                  {gameState.war_round?.players?.[playerNum.toString()] && (
+                  {/* War round card - still on RIGHT side */}
+                  {actualPlayerNum !== undefined && gameState.war_round?.players?.[actualPlayerNum.toString()] && (
                     <div className="transform scale-75 sm:scale-90 md:scale-100 lg:scale-150">
                       {renderCard(
-                        gameState.war_round.players[playerNum.toString()],
+                        gameState.war_round.players[actualPlayerNum.toString()],
                         "medium"
                       )}
                     </div>
@@ -929,9 +935,19 @@ export default function DisplayPage() {
             );
           })}
 
-          {/* Player positions - adjusted sizes for 1112x800 */}
+          {/* Player positions - Also update the player display numbers */}
           {playerGrid.map(([playerId, gridClass], idx) => {
-            const state = getPlayerState(playerId);
+            // Map the display position to the actual player data using the mapping
+            const actualPlayerId = {
+              "1": "6",
+              "2": "5",
+              "3": "4",
+              "4": "3",
+              "5": "2",
+              "6": "1"
+            }[playerId];
+            
+            const state = getPlayerState(actualPlayerId || "");
             const imgSrc = stateToImg[state];
             const overlay = stateToOverlay[state];
             const colorClass = getPlayerColor(state);
@@ -949,7 +965,7 @@ export default function DisplayPage() {
                     className={`absolute top-1/2 left-1/2 -translate-y-1/2 -translate-x-1/2 ${colorClass} px-1 sm:px-2 py-1 text-lg sm:text-xl md:text-2xl flex flex-col items-center`}
                   >
                     <div className="font-medium text-xl sm:text-2xl md:text-3xl">
-                      {idx + 1}
+                      {actualPlayerId} {/* Show the actual player number */}
                     </div>
                     <div className="text-[10px] sm:text-xs md:text-sm font-medium">
                       {overlay}
