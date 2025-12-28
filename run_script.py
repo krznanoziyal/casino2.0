@@ -53,7 +53,8 @@ def find_chrome_path():
 # --- Server management ---
 def start_servers():
     global node_proc, python_proc
-    project_dir = r"C:/Users/USER/Desktop/casinowars/casino2.0"
+    # Get the directory where this script is located
+    project_dir = os.path.dirname(os.path.abspath(__file__))
     frontend_dir = os.path.join(project_dir, "frontend")
     if node_proc is None or node_proc.poll() is not None:
         node_proc = subprocess.Popen(
