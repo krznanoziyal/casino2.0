@@ -16,7 +16,9 @@ node_proc = None
 python_proc = None
 
 # URL to open
-WEB_URL = "http://192.168.2.190:3000"
+# WEB_URL = "http://192.168.2.190:3000" #casino's ethernet
+# WEB_URL = "http://192.168.1.11:3000" #krishna's laptop
+WEB_URL = "http://192.168.182.200:3000" #casino wifi
 
 # Tkinter setup
 # root = tk.Tk()

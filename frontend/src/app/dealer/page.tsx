@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { FaBars, FaTimes, FaMoneyBillWave } from 'react-icons/fa'
 import Image from 'next/image'
+import { IP } from '@/ip'
 
 // Use FaBars, FaTimes, and FaMoneyBillWave as JSX components with .default if needed
 // @ts-ignore
@@ -93,7 +94,7 @@ export default function DealerPage () {
 
   const connectWebSocket = () => {
     try {
-      wsRef.current = new WebSocket('ws://192.168.2.190:6789')
+      wsRef.current = new WebSocket(`ws://${IP}:6789`)
       // wsRef.current = new WebSocket('ws://localhost:6789') // Use this for local testing
       wsRef.current.onopen = () => {
         setConnected(true)

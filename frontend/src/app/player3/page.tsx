@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Image from 'next/image'
+import { IP } from '@/ip'
 
 interface GameState {
   deck_count: number
@@ -69,7 +70,7 @@ export default function Player3Page () {
 
   const connectWebSocket = () => {
     try {
-      wsRef.current = new WebSocket('ws://192.168.2.190:6789')
+      wsRef.current = new WebSocket(`ws://${IP}:6789`)
       // wsRef.current = new WebSocket('ws://localhost:6789')
 
       wsRef.current.onopen = () => {
