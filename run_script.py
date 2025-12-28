@@ -7,6 +7,7 @@ import serial
 import sys
 import signal
 import shutil
+import re
 
 # Path to your venv's python.exe
 # VENV_PYTHON = r"D:\Projects\venv\Scripts\python.exe"
@@ -15,8 +16,28 @@ import shutil
 node_proc = None
 python_proc = None
 
-# URL to open
-WEB_URL = "http://192.168.182.200:3000" #casino wifi
+# Read IP from frontend/src/ip.ts
+def get_ip_from_config():
+    try:
+        if getattr(sys, 'frozen', False):
+            project_dir = os.path.dirname(sys.executable)
+        else:
+            project_dir = os.path.dirname(os.path.abspath(__file__))
+        
+        ip_file_path = os.path.join(project_dir, "frontend", "src", "ip.ts")
+        with open(ip_file_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+            # Find the active IP line (not commented)
+            match = re.search(r'^export\s+const\s+IP\s*=\s*["\']([^"\']+)["\']', content, re.MULTILINE)
+            if match:
+                return match.group(1)
+    except Exception as e:
+        print(f"Warning: Could not read IP from ip.ts: {e}")
+    return "192.168.182.200"  # Fallback IP
+
+IP = get_ip_from_config()
+WEB_URL = f"http://{IP}:3000"
+print(f"Using IP: {IP}")
 
 # Tkinter setup
 # root = tk.Tk()
