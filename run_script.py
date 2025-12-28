@@ -16,8 +16,6 @@ node_proc = None
 python_proc = None
 
 # URL to open
-# WEB_URL = "http://192.168.2.190:3000" #casino's ethernet
-# WEB_URL = "http://192.168.1.11:3000" #krishna's laptop
 WEB_URL = "http://192.168.182.200:3000" #casino wifi
 
 # Tkinter setup
@@ -53,9 +51,18 @@ def find_chrome_path():
 # --- Server management ---
 def start_servers():
     global node_proc, python_proc
-    # Get the directory where this script is located
-    project_dir = os.path.dirname(os.path.abspath(__file__))
+    # Get the directory where this script/exe is located
+    # Handle both regular Python script and PyInstaller exe
+    if getattr(sys, 'frozen', False):
+        # Running as compiled exe
+        project_dir = os.path.dirname(sys.executable)
+    else:
+        # Running as regular Python script
+        project_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    print(f"Project directory: {project_dir}")
     frontend_dir = os.path.join(project_dir, "frontend")
+    print(f"Frontend directory: {frontend_dir}")
     if node_proc is None or node_proc.poll() is not None:
         node_proc = subprocess.Popen(
             "npx next dev --port 3000 --hostname 0.0.0.0",
