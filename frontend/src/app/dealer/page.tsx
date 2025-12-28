@@ -1,49 +1,49 @@
-'use client'
-import { useState, useEffect, useRef, useMemo } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { FaBars, FaTimes, FaMoneyBillWave } from 'react-icons/fa'
-import Image from 'next/image'
-import { IP } from '@/ip'
+"use client";
+import { useState, useEffect, useRef, useMemo } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { FaBars, FaTimes, FaMoneyBillWave } from "react-icons/fa";
+import Image from "next/image";
+import { IP } from "@/ip";
 
 // Use FaBars, FaTimes, and FaMoneyBillWave as JSX components with .default if needed
 // @ts-ignore
-const FaBarsIcon = (FaBars as any).default || FaBars
+const FaBarsIcon = (FaBars as any).default || FaBars;
 // @ts-ignore
-const FaTimesIcon = (FaTimes as any).default || FaTimes
+const FaTimesIcon = (FaTimes as any).default || FaTimes;
 // @ts-ignore
-const FaMoneyIcon = (FaMoneyBillWave as any).default || FaMoneyBillWave
+const FaMoneyIcon = (FaMoneyBillWave as any).default || FaMoneyBillWave;
 
 interface GameState {
-  deck_count: number
-  burned_cards_count: number
-  dealer_card: string | null
-  players: Record<string, PlayerData>
-  round_active: boolean
-  round_number: number
-  game_mode: 'manual' | 'automatic' | 'live'
-  table_number: number
-  min_bet: number
-  max_bet: number
-  player_results: Record<string, string>
-  war_round_active?: boolean
+  deck_count: number;
+  burned_cards_count: number;
+  dealer_card: string | null;
+  players: Record<string, PlayerData>;
+  round_active: boolean;
+  round_number: number;
+  game_mode: "manual" | "automatic" | "live";
+  table_number: number;
+  min_bet: number;
+  max_bet: number;
+  player_results: Record<string, string>;
+  war_round_active?: boolean;
   war_round?: {
-    dealer_card: string | null
-    players: Record<string, string | null>
+    dealer_card: string | null;
+    players: Record<string, string | null>;
     original_cards?: {
-      dealer_card: string | null
-      players: Record<string, string | null>
-    }
-  }
+      dealer_card: string | null;
+      players: Record<string, string | null>;
+    };
+  };
 }
 
 interface PlayerData {
-  card: string | null
-  status: 'active' | 'war' | 'surrender' | 'waiting_choice' | 'finished'
-  result: string | null
-  war_card: string | null
+  card: string | null;
+  status: "active" | "war" | "surrender" | "waiting_choice" | "finished";
+  result: string | null;
+  war_card: string | null;
 }
 
-export default function DealerPage () {
+export default function DealerPage() {
   const [gameState, setGameState] = useState<GameState>({
     deck_count: 0,
     burned_cards_count: 0,
@@ -51,250 +51,258 @@ export default function DealerPage () {
     players: {},
     round_active: false,
     round_number: 0,
-    game_mode: 'manual',
+    game_mode: "manual",
     table_number: 1,
     min_bet: 10,
     max_bet: 1000,
-    player_results: {}
-  })
+    player_results: {},
+  });
 
-  const [connected, setConnected] = useState(false)
-  const [newPlayerId, setNewPlayerId] = useState('')
-  const [minBet, setMinBet] = useState(10)
-  const [maxBet, setMaxBet] = useState(1000)
-  const [tableNumber, setTableNumber] = useState(1)
-  const [manualCard, setManualCard] = useState('')
-  const [notifications, setNotifications] = useState<string[]>([])
-  const [warCardTarget, setWarCardTarget] = useState<'dealer' | 'player'>(
-    'dealer'
-  )
-  const [warCardValue, setWarCardValue] = useState('')
-  const [warPlayerId, setWarPlayerId] = useState('')
-  const [menuOpen, setMenuOpen] = useState(false)
-  const [manualCardTarget, setManualCardTarget] = useState('')
-  const [manualCardSpecific, setManualCardSpecific] = useState('')
-  const [betMenuOpen, setBetMenuOpen] = useState(false)
-  const [pendingMinBet, setPendingMinBet] = useState(gameState.min_bet)
-  const [pendingMaxBet, setPendingMaxBet] = useState(gameState.max_bet)
+  const [connected, setConnected] = useState(false);
+  const [newPlayerId, setNewPlayerId] = useState("");
+  const [minBet, setMinBet] = useState(10);
+  const [maxBet, setMaxBet] = useState(1000);
+  const [tableNumber, setTableNumber] = useState(1);
+  const [manualCard, setManualCard] = useState("");
+  const [notifications, setNotifications] = useState<string[]>([]);
+  const [warCardTarget, setWarCardTarget] = useState<"dealer" | "player">(
+    "dealer"
+  );
+  const [warCardValue, setWarCardValue] = useState("");
+  const [warPlayerId, setWarPlayerId] = useState("");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [manualCardTarget, setManualCardTarget] = useState("");
+  const [manualCardSpecific, setManualCardSpecific] = useState("");
+  const [betMenuOpen, setBetMenuOpen] = useState(false);
+  const [pendingMinBet, setPendingMinBet] = useState(gameState.min_bet);
+  const [pendingMaxBet, setPendingMaxBet] = useState(gameState.max_bet);
   const [pendingTableNumber, setPendingTableNumber] = useState(
     gameState.table_number
-  )
+  );
 
-  const wsRef = useRef<WebSocket | null>(null)
-  const prevPlayerStatusesRef = useRef<Record<string, string>>({})
+  const wsRef = useRef<WebSocket | null>(null);
+  const prevPlayerStatusesRef = useRef<Record<string, string>>({});
 
   useEffect(() => {
-    connectWebSocket()
+    connectWebSocket();
     return () => {
       if (wsRef.current) {
-        wsRef.current.close()
+        wsRef.current.close();
       }
-    }
-  }, [])
+    };
+  }, []);
 
   const connectWebSocket = () => {
     try {
-      wsRef.current = new WebSocket(`ws://${IP}:6789`)
+      wsRef.current = new WebSocket(`ws://${IP}:6789`);
       // wsRef.current = new WebSocket('ws://localhost:6789') // Use this for local testing
       wsRef.current.onopen = () => {
-        setConnected(true)
-        sendMessage({ action: 'register_dealer' })
-        addNotification('Connected to game server')
-      }
+        setConnected(true);
+        sendMessage({ action: "register_dealer" });
+        addNotification("Connected to game server");
+      };
 
       wsRef.current.onclose = () => {
-        setConnected(false)
-        addNotification('Disconnected from server')
+        setConnected(false);
+        addNotification("Disconnected from server");
         // Attempt to reconnect after 3 seconds
-        setTimeout(connectWebSocket, 3000)
-      }
+        setTimeout(connectWebSocket, 3000);
+      };
 
-      wsRef.current.onmessage = event => {
-        const data = JSON.parse(event.data)
-        handleServerMessage(data)
-      }
+      wsRef.current.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        handleServerMessage(data);
+      };
     } catch (error) {
-      console.error('WebSocket connection error:', error)
-      setConnected(false)
+      console.error("WebSocket connection error:", error);
+      setConnected(false);
     }
-  }
+  };
 
   const sendMessage = (message: any) => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify(message))
+      wsRef.current.send(JSON.stringify(message));
     }
-  }
+  };
 
   // Deduplicated notification function
   const addNotification = (message: string) => {
-    setNotifications(prev => {
-      if (prev[prev.length - 1] === message) return prev // Prevent duplicate
-      return [...prev.slice(-4), message]
-    })
+    setNotifications((prev) => {
+      if (prev[prev.length - 1] === message) return prev; // Prevent duplicate
+      return [...prev.slice(-4), message];
+    });
     setTimeout(() => {
-      setNotifications(prev => prev.slice(1))
-    }, 5000)
-  }
+      setNotifications((prev) => prev.slice(1));
+    }, 5000);
+  };
 
-  const [cardQueue, setCardQueue] = useState<any[]>([])
-  const [isAssigningCards, setIsAssigningCards] = useState(false)
-  const [currentRoundNumber, setCurrentRoundNumber] = useState(0)
+  const [cardQueue, setCardQueue] = useState<any[]>([]);
+  const [isAssigningCards, setIsAssigningCards] = useState(false);
+  const [currentRoundNumber, setCurrentRoundNumber] = useState(0);
 
   useEffect(() => {
     if (cardQueue.length > 0 && !isAssigningCards) {
-      setIsAssigningCards(true)
+      setIsAssigningCards(true);
       const processNext = () => {
-        setCardQueue(q => {
-          const currentQueue = [...q] // Use current queue state
-          const next = currentQueue[0]
+        setCardQueue((q) => {
+          const currentQueue = [...q]; // Use current queue state
+          const next = currentQueue[0];
           if (!next) {
-            setIsAssigningCards(false)
-            return []
+            setIsAssigningCards(false);
+            return [];
           }
-          
+
           // Skip if card is already assigned (prevents duplicate assignment)
-          if (next.target === 'player' && next.player_id) {
-            const currentPlayer = gameState.players[next.player_id]
+          if (next.target === "player" && next.player_id) {
+            const currentPlayer = gameState.players[next.player_id];
             if (currentPlayer && currentPlayer.card === next.card) {
-              console.log(`[QUEUE] Skipping duplicate assignment for player ${next.player_id}, card already assigned`)
-              return currentQueue.slice(1) // Remove from queue but don't process
+              console.log(
+                `[QUEUE] Skipping duplicate assignment for player ${next.player_id}, card already assigned`
+              );
+              return currentQueue.slice(1); // Remove from queue but don't process
             }
-          } else if (next.target === 'dealer') {
+          } else if (next.target === "dealer") {
             if (gameState.dealer_card === next.card) {
-              console.log(`[QUEUE] Skipping duplicate assignment for dealer, card already assigned`)
-              return currentQueue.slice(1) // Remove from queue but don't process
+              console.log(
+                `[QUEUE] Skipping duplicate assignment for dealer, card already assigned`
+              );
+              return currentQueue.slice(1); // Remove from queue but don't process
             }
           }
-          
-          if (next.target === 'player' && next.player_id) {
-            setGameState(prev => ({
+
+          if (next.target === "player" && next.player_id) {
+            setGameState((prev) => ({
               ...prev,
               players: {
                 ...prev.players,
                 [next.player_id]: {
                   ...prev.players[next.player_id],
                   card: next.card,
-                  status: 'active'
-                }
+                  status: "active",
+                },
               },
               deck_count:
-                typeof next.deck_count === 'number'
+                typeof next.deck_count === "number"
                   ? next.deck_count
-                  : prev.deck_count
-            }))
-            addNotification(`Card assigned to player ${next.player_id}`)
-          } else if (next.target === 'dealer') {
-            setGameState(prev => ({
+                  : prev.deck_count,
+            }));
+            addNotification(`Card assigned to player ${next.player_id}`);
+          } else if (next.target === "dealer") {
+            setGameState((prev) => ({
               ...prev,
               dealer_card: next.card,
               deck_count:
-                typeof next.deck_count === 'number'
+                typeof next.deck_count === "number"
                   ? next.deck_count
-                  : prev.deck_count
-            }))
-            addNotification(`Card assigned to dealer`)
+                  : prev.deck_count,
+            }));
+            addNotification(`Card assigned to dealer`);
           }
           // Remove the assigned card from the queue
-          return currentQueue.slice(1)
-        })
-        
+          return currentQueue.slice(1);
+        });
+
         setTimeout(() => {
           // Check current queue length directly instead of using stale closure
-          setCardQueue(currentQueue => {
+          setCardQueue((currentQueue) => {
             if (currentQueue.length > 0) {
-              processNext()
+              processNext();
             } else {
-              setIsAssigningCards(false)
+              setIsAssigningCards(false);
             }
-            return currentQueue
-          })
-        }, 1000)
-      }
-      processNext()
+            return currentQueue;
+          });
+        }, 1000);
+      };
+      processNext();
     }
-  }, [cardQueue, isAssigningCards, gameState.players, gameState.dealer_card])
+  }, [cardQueue, isAssigningCards, gameState.players, gameState.dealer_card]);
 
   // Clear card queue when round changes or game state resets
   useEffect(() => {
     if (gameState.round_number !== currentRoundNumber) {
-      console.log(`[QUEUE] Round changed from ${currentRoundNumber} to ${gameState.round_number}, clearing card queue`)
-      setCardQueue([])
-      setIsAssigningCards(false)
-      setCurrentRoundNumber(gameState.round_number)
+      console.log(
+        `[QUEUE] Round changed from ${currentRoundNumber} to ${gameState.round_number}, clearing card queue`
+      );
+      setCardQueue([]);
+      setIsAssigningCards(false);
+      setCurrentRoundNumber(gameState.round_number);
     }
-  }, [gameState.round_number, currentRoundNumber])
+  }, [gameState.round_number, currentRoundNumber]);
 
   const handleServerMessage = (data: any) => {
     switch (data.action) {
-      case 'game_state_update':
+      case "game_state_update":
         // Clear card queue when complete game state is updated to prevent stale assignments
-        console.log('[QUEUE] Game state updated, clearing card queue')
-        setCardQueue([])
-        setIsAssigningCards(false)
-        setGameState(data.game_state)
-        break
-      case 'deck_shuffled':
-        setGameState(prev => ({
+        console.log("[QUEUE] Game state updated, clearing card queue");
+        setCardQueue([]);
+        setIsAssigningCards(false);
+        setGameState(data.game_state);
+        break;
+      case "deck_shuffled":
+        setGameState((prev) => ({
           ...prev,
           deck_count: data.deck_count,
-          burned_cards_count: data.burned_cards_count
-        }))
-        addNotification(`Deck shuffled - ${data.deck_count} cards remaining`)
-        break
-      case 'card_burned':
-        setGameState(prev => ({
+          burned_cards_count: data.burned_cards_count,
+        }));
+        addNotification(`Deck shuffled - ${data.deck_count} cards remaining`);
+        break;
+      case "card_burned":
+        setGameState((prev) => ({
           ...prev,
           deck_count: data.deck_count,
-          burned_cards_count: data.burned_cards_count
-        }))
+          burned_cards_count: data.burned_cards_count,
+        }));
         addNotification(
           data.message ||
             `Card ${data.burned_card} burned - ${data.deck_count} cards remaining`
-        )
-        break
-      case 'player_added':
-        setGameState(prev => ({ ...prev, players: data.players }))
-        addNotification(`Player ${data.player_id} added to game`)
-        break
-      case 'player_removed':
-        setGameState(prev => ({
+        );
+        break;
+      case "player_added":
+        setGameState((prev) => ({ ...prev, players: data.players }));
+        addNotification(`Player ${data.player_id} added to game`);
+        break;
+      case "player_removed":
+        setGameState((prev) => ({
           ...prev,
           players: data.players,
-          player_results: data.player_results
-        }))
-        addNotification(`Player ${data.player_id} removed from game`)
-        break
-      case 'manual_result_assigned':
-        setGameState(prev => ({
+          player_results: data.player_results,
+        }));
+        addNotification(`Player ${data.player_id} removed from game`);
+        break;
+      case "manual_result_assigned":
+        setGameState((prev) => ({
           ...prev,
           player_results: data.player_results,
-          players: { ...prev.players, ...data.players }
-        }))
-        addNotification(data.message || 'Player result assigned')
-        break
-      case 'round_dealt':
+          players: { ...prev.players, ...data.players },
+        }));
+        addNotification(data.message || "Player result assigned");
+        break;
+      case "round_dealt":
         // Clear card queue since round evaluation is complete
-        console.log('[QUEUE] Round dealt (evaluation complete), clearing card queue')
-        setCardQueue([])
-        setIsAssigningCards(false)
-        setGameState(prev => ({
+        console.log(
+          "[QUEUE] Round dealt (evaluation complete), clearing card queue"
+        );
+        setCardQueue([]);
+        setIsAssigningCards(false);
+        setGameState((prev) => ({
           ...prev,
           dealer_card: data.dealer_card,
           players: data.players,
           round_number: data.round_number,
           deck_count: data.deck_count,
-          player_results: data.player_results
-        }))
+          player_results: data.player_results,
+        }));
         if (data.tie_players?.length > 0) {
           addNotification(
             `Tie with players: ${data.tie_players.join(
-              ', '
+              ", "
             )} - Choose War or Surrender`
-          )
+          );
         }
-        break
-      case 'war_round_started':
-        setGameState(prev => ({
+        break;
+      case "war_round_started":
+        setGameState((prev) => ({
           ...prev,
           war_round_active: true,
           war_round: {
@@ -305,16 +313,16 @@ export default function DealerPage () {
               players: Object.fromEntries(
                 ((data.players || []) as string[]).map((pid: string) => [
                   pid,
-                  prev.players[pid]?.card || null
+                  prev.players[pid]?.card || null,
                 ])
-              )
-            }
-          }
-        }))
-        addNotification(`War round started for: ${data.players.join(', ')}`)
-        break
-      case 'war_round_evaluated':
-        setGameState(prev => ({
+              ),
+            },
+          },
+        }));
+        addNotification(`War round started for: ${data.players.join(", ")}`);
+        break;
+      case "war_round_evaluated":
+        setGameState((prev) => ({
           ...prev,
           war_round_active: false,
           war_round: {
@@ -322,282 +330,310 @@ export default function DealerPage () {
             dealer_card: data.dealer_card, // <-- ensure dealer war card is updated
             players: { ...prev.war_round?.players, ...data.war_round?.players },
             // Keep original_cards for display
-            original_cards: prev.war_round?.original_cards
+            original_cards: prev.war_round?.original_cards,
           },
           players: { ...prev.players, ...data.players },
-          player_results: data.player_results
-        }))
-        addNotification('War round completed')
-        break
-      case 'round_completed':
-        setGameState(prev => ({
+          player_results: data.player_results,
+        }));
+        addNotification("War round completed");
+        break;
+      case "round_completed":
+        setGameState((prev) => ({
           ...prev,
           round_active: false,
-          player_results: data.player_results
-        }))
-        addNotification(`Round ${data.round_number} completed`)
-        break
-      case 'game_mode_changed':
-        setGameState(prev => ({ ...prev, game_mode: data.mode }))
-        addNotification(`Game mode changed to ${data.mode}`)
-        break
-      case 'error':
-        addNotification(`Error: ${data.message}`)
-        break
-      case 'game_reset':
+          player_results: data.player_results,
+        }));
+        addNotification(`Round ${data.round_number} completed`);
+        break;
+      case "game_mode_changed":
+        setGameState((prev) => ({ ...prev, game_mode: data.mode }));
+        addNotification(`Game mode changed to ${data.mode}`);
+        break;
+      case "error":
+        addNotification(`Error: ${data.message}`);
+        break;
+      case "game_reset":
         // Update the UI using the new game state from the server.
-        console.log('[QUEUE] Game reset, clearing card queue')
-        setCardQueue([])
-        setIsAssigningCards(false)
-        setGameState(data.game_state)
-        addNotification('Game has been reset')
-        break
-      case 'dealer_card_set':
-        setGameState(prev => ({
+        console.log("[QUEUE] Game reset, clearing card queue");
+        setCardQueue([]);
+        setIsAssigningCards(false);
+        setGameState(data.game_state);
+        addNotification("Game has been reset");
+        break;
+      case "dealer_card_set":
+        setGameState((prev) => ({
           ...prev,
           dealer_card: data.card,
           deck_count:
-            typeof data.game_state?.deck_count === 'number'
+            typeof data.game_state?.deck_count === "number"
               ? data.game_state.deck_count
-              : typeof data.deck_count === 'number'
+              : typeof data.deck_count === "number"
               ? data.deck_count
-              : prev.deck_count
-        }))
-        addNotification(`Dealer card manually set to ${data.card}`)
-        break
-      case 'player_card_set':
-        setGameState(prev => ({
+              : prev.deck_count,
+        }));
+        addNotification(`Dealer card manually set to ${data.card}`);
+        break;
+      case "player_card_set":
+        setGameState((prev) => ({
           ...prev,
           players: {
             ...prev.players,
             [data.player_id]: {
               ...prev.players[data.player_id],
               card: data.card,
-              status: 'active'
-            }
+              status: "active",
+            },
           },
           deck_count:
-            typeof data.game_state?.deck_count === 'number'
+            typeof data.game_state?.deck_count === "number"
               ? data.game_state.deck_count
-              : typeof data.deck_count === 'number'
+              : typeof data.deck_count === "number"
               ? data.deck_count
-              : prev.deck_count
-        }))
-        addNotification(`Card manually assigned to player ${data.player_id}`)
-        break
-      case 'war_card_assigned':
-        setGameState(prev => ({
+              : prev.deck_count,
+        }));
+        addNotification(`Card manually assigned to player ${data.player_id}`);
+        break;
+      case "war_card_assigned":
+        setGameState((prev) => ({
           ...prev,
           // Always use the complete war_round from backend to ensure live state sync
           war_round: data.war_round || {
             dealer_card:
-              data.target === 'dealer'
+              data.target === "dealer"
                 ? data.card
                 : prev.war_round?.dealer_card ?? null,
             players: {
               ...prev.war_round?.players,
-              ...(data.target === 'player' && data.player_id
+              ...(data.target === "player" && data.player_id
                 ? { [data.player_id]: data.card }
-                : {})
+                : {}),
             },
             ...(prev.war_round?.original_cards
               ? { original_cards: prev.war_round.original_cards }
-              : {})
+              : {}),
           },
           deck_count:
-            typeof data.deck_count === 'number'
+            typeof data.deck_count === "number"
               ? data.deck_count
-              : prev.deck_count
-        }))
+              : prev.deck_count,
+        }));
         addNotification(
           `War card ${data.card} assigned to ${
-            data.target === 'dealer' ? 'Dealer' : 'Player ' + data.player_id
+            data.target === "dealer" ? "Dealer" : "Player " + data.player_id
           }`
-        )
-        break
-      case 'cards_undone':
-        setGameState(prev => {
-          setWarCardValue('')
-          setWarPlayerId('')
+        );
+        break;
+      case "cards_undone":
+        setGameState((prev) => {
+          setWarCardValue("");
+          setWarPlayerId("");
           // Debug: log war_round received from backend
           console.log(
-            'Received war_round from backend after undo:',
+            "Received war_round from backend after undo:",
             data.war_round
-          )
+          );
           const newState = {
             ...prev,
             deck_count:
-              typeof data.deck_count === 'number'
+              typeof data.deck_count === "number"
                 ? data.deck_count
                 : prev.deck_count,
-            war_round: data.hasOwnProperty('war_round')
+            war_round: data.hasOwnProperty("war_round")
               ? data.war_round
               : prev.war_round,
-            players: data.hasOwnProperty('players')
+            players: data.hasOwnProperty("players")
               ? data.players
               : prev.players,
-            dealer_card: data.hasOwnProperty('dealer_card')
+            dealer_card: data.hasOwnProperty("dealer_card")
               ? data.dealer_card
-              : prev.dealer_card
-          }
+              : prev.dealer_card,
+          };
           // Debug: log new war_round in state
           console.log(
-            'Updated war_round in state after undo:',
+            "Updated war_round in state after undo:",
             newState.war_round
-          )
-          return newState
-        })
-        if (data.message) addNotification(data.message)
-        break
-      case 'bets_changed':
-        setGameState(prev => ({
+          );
+          return newState;
+        });
+        if (data.message) addNotification(data.message);
+        break;
+      case "bets_changed":
+        setGameState((prev) => ({
           ...prev,
           min_bet: data.min_bet,
-          max_bet: data.max_bet
-        }))
+          max_bet: data.max_bet,
+        }));
         addNotification(
           `Betting range updated: $${data.min_bet} - $${data.max_bet}`
-        )
-        break
-      case 'table_changed':
-        setGameState(prev => ({ ...prev, table_number: data.table_number }))
-        addNotification(`Table number updated: ${data.table_number}`)
-        break
+        );
+        break;
+      case "table_changed":
+        setGameState((prev) => ({ ...prev, table_number: data.table_number }));
+        addNotification(`Table number updated: ${data.table_number}`);
+        break;
 
-      case 'card_assigned': {
+      case "card_assigned": {
         // Check if this assignment is already processed to prevent duplicates
-        const isAlreadyAssigned = data.target === 'player' && data.player_id 
-          ? gameState.players[data.player_id]?.card === data.card
-          : data.target === 'dealer' && gameState.dealer_card === data.card
-        
+        const isAlreadyAssigned =
+          data.target === "player" && data.player_id
+            ? gameState.players[data.player_id]?.card === data.card
+            : data.target === "dealer" && gameState.dealer_card === data.card;
+
         if (isAlreadyAssigned) {
-          console.log(`[QUEUE] Skipping duplicate card_assigned message for ${data.target} ${data.player_id || 'dealer'}`)
-          break
+          console.log(
+            `[QUEUE] Skipping duplicate card_assigned message for ${
+              data.target
+            } ${data.player_id || "dealer"}`
+          );
+          break;
         }
-        
-        setCardQueue(q => [...q, data])
-        break
+
+        setCardQueue((q) => [...q, data]);
+        break;
       }
 
-      case 'player_status_update':
+      case "player_status_update":
         // Instant status update when player chooses war/surrender
-        setGameState(prev => ({
+        setGameState((prev) => ({
           ...prev,
           players: {
             ...prev.players,
             [data.player_id]: {
               ...prev.players[data.player_id],
-              status: data.status
-            }
-          }
-        }))
-        addNotification(`Player ${data.player_id} chose ${data.choice}`)
-        break
-
-      case 'war_card_assigned_auto':
-        // Instant war card display in automatic mode
-        if (data.target === 'dealer') {
-          setGameState(prev => ({
-            ...prev,
-            war_round: prev.war_round ? {
-              ...prev.war_round,
-              dealer_card: data.card
-            } : {
-              dealer_card: data.card,
-              players: {},
-              original_cards: {
-                dealer_card: prev.dealer_card,
-                players: Object.fromEntries(
-                  Object.keys(prev.players).map(pid => [pid, prev.players[pid]?.card || null])
-                )
-              }
+              status: data.status,
             },
-            deck_count: typeof data.deck_count === 'number' ? data.deck_count : prev.deck_count
-          }))
-          addNotification(`War card assigned to dealer: ${data.card}`)
-        } else if (data.target === 'player' && data.player_id) {
-          setGameState(prev => ({
+          },
+        }));
+        addNotification(`Player ${data.player_id} chose ${data.choice}`);
+        break;
+
+      case "war_card_assigned_auto":
+        // Instant war card display in automatic mode
+        if (data.target === "dealer") {
+          setGameState((prev) => ({
+            ...prev,
+            war_round: prev.war_round
+              ? {
+                  ...prev.war_round,
+                  dealer_card: data.card,
+                }
+              : {
+                  dealer_card: data.card,
+                  players: {},
+                  original_cards: {
+                    dealer_card: prev.dealer_card,
+                    players: Object.fromEntries(
+                      Object.keys(prev.players).map((pid) => [
+                        pid,
+                        prev.players[pid]?.card || null,
+                      ])
+                    ),
+                  },
+                },
+            deck_count:
+              typeof data.deck_count === "number"
+                ? data.deck_count
+                : prev.deck_count,
+          }));
+          addNotification(`War card assigned to dealer: ${data.card}`);
+        } else if (data.target === "player" && data.player_id) {
+          setGameState((prev) => ({
             ...prev,
             players: {
               ...prev.players,
               [data.player_id]: {
                 ...prev.players[data.player_id],
-                war_card: data.card
-              }
+                war_card: data.card,
+              },
             },
-            war_round: prev.war_round ? {
-              ...prev.war_round,
-              players: {
-                ...prev.war_round.players,
-                [data.player_id]: data.card
-              }
-            } : {
-              dealer_card: null,
-              players: { [data.player_id]: data.card },
-              original_cards: {
-                dealer_card: prev.dealer_card,
-                players: Object.fromEntries(
-                  Object.keys(prev.players).map(pid => [pid, prev.players[pid]?.card || null])
-                )
-              }
-            },
-            deck_count: typeof data.deck_count === 'number' ? data.deck_count : prev.deck_count
-          }))
-          addNotification(`War card assigned to player ${data.player_id}: ${data.card}`)
+            war_round: prev.war_round
+              ? {
+                  ...prev.war_round,
+                  players: {
+                    ...prev.war_round.players,
+                    [data.player_id]: data.card,
+                  },
+                }
+              : {
+                  dealer_card: null,
+                  players: { [data.player_id]: data.card },
+                  original_cards: {
+                    dealer_card: prev.dealer_card,
+                    players: Object.fromEntries(
+                      Object.keys(prev.players).map((pid) => [
+                        pid,
+                        prev.players[pid]?.card || null,
+                      ])
+                    ),
+                  },
+                },
+            deck_count:
+              typeof data.deck_count === "number"
+                ? data.deck_count
+                : prev.deck_count,
+          }));
+          addNotification(
+            `War card assigned to player ${data.player_id}: ${data.card}`
+          );
         }
-        break
+        break;
 
-      case 'war_round_complete':
+      case "war_round_complete":
         // Final war round state update for automatic mode
-        setGameState(prev => ({
+        setGameState((prev) => ({
           ...prev,
-          war_round: prev.war_round ? {
-            ...prev.war_round,
-            dealer_card: data.dealer_war_card,
-            players: { ...prev.war_round.players, ...data.war_round?.players }
-          } : {
-            dealer_card: data.dealer_war_card,
-            players: data.war_round?.players || {}
-          },
+          war_round: prev.war_round
+            ? {
+                ...prev.war_round,
+                dealer_card: data.dealer_war_card,
+                players: {
+                  ...prev.war_round.players,
+                  ...data.war_round?.players,
+                },
+              }
+            : {
+                dealer_card: data.dealer_war_card,
+                players: data.war_round?.players || {},
+              },
           players: { ...prev.players, ...data.war_players },
-          player_results: data.player_results
-        }))
-        addNotification('War round evaluation complete')
-        break
+          player_results: data.player_results,
+        }));
+        addNotification("War round evaluation complete");
+        break;
 
-      case 'player_choice_made':
+      case "player_choice_made":
         // Handle player war/surrender choice
-        setGameState(prev => ({
+        setGameState((prev) => ({
           ...prev,
           players: data.players,
-          player_results: data.player_results
-        }))
-        addNotification(`Player ${data.player_id} chose ${data.choice}`)
-        break
+          player_results: data.player_results,
+        }));
+        addNotification(`Player ${data.player_id} chose ${data.choice}`);
+        break;
 
       default:
         if (data.message) {
-          addNotification(data.message)
+          addNotification(data.message);
         }
     }
-  }
+  };
 
   const renderCard = (
     card: string | null,
-    size: 'small' | 'medium' | 'large' = 'medium'
+    size: "small" | "medium" | "large" = "medium"
   ) => {
-    if (!card) return null
+    if (!card) return null;
 
-    const rank = card[0]
-    const suit = card[1]
+    const rank = card[0];
+    const suit = card[1];
 
-    const suitSymbol = { S: '♠', H: '♥', D: '♦', C: '♣' }[suit] || suit
-    const isRed = suit === 'H' || suit === 'D'
+    const suitSymbol = { S: "♠", H: "♥", D: "♦", C: "♣" }[suit] || suit;
+    const isRed = suit === "H" || suit === "D";
     const sizeClasses = {
-      small: 'w-16 h-24 text-base',
-      medium: 'w-24 h-32 text-lg',
-      large: 'w-32 h-44 text-xl'
-    }
+      small: "w-16 h-24 text-base",
+      medium: "w-24 h-32 text-lg",
+      large: "w-32 h-44 text-xl",
+    };
 
     return (
       <motion.div
@@ -610,41 +646,41 @@ export default function DealerPage () {
           src={`/cards/${rank}${suit}.png`}
           alt={`${rank} of ${suit}`}
           fill
-          className='object-contain rounded-lg'
-          sizes='(max-width: 640px) 64px, (max-width: 768px) 80px, 96px'
+          className="object-contain rounded-lg"
+          sizes="(max-width: 640px) 64px, (max-width: 768px) 80px, 96px"
         />
       </motion.div>
-    )
-  }
+    );
+  };
 
   //THIS CODE SNIPPET CHANGE MADE SURE WAR PLAYERS ARE LISTED IN THE DROP DOWN
   const warPlayers =
     gameState.war_round && gameState.war_round.players
       ? Object.entries(gameState.war_round.players)
-      : []
+      : [];
 
   // Card validation regex for all manual assignments
-  const validCardPattern = /^(10|[2-9]|[JQKA])[SHDC]$/
+  const validCardPattern = /^(10|[2-9]|[JQKA])[SHDC]$/;
 
   // Helper: are all players and dealer assigned? To prevent over-assignment
   const allAssigned = useMemo(() => {
     if (gameState.war_round_active) {
-      const wr = gameState.war_round
-      if (!wr || !wr.players || typeof wr.dealer_card === 'undefined')
-        return false
+      const wr = gameState.war_round;
+      if (!wr || !wr.players || typeof wr.dealer_card === "undefined")
+        return false;
       const playerCardsAssigned =
         Object.values(wr.players).length > 0 &&
         Object.values(wr.players).every(
-          card => card !== null && card !== undefined
-        )
-      const dealerCardAssigned = !!wr.dealer_card
-      return playerCardsAssigned && dealerCardAssigned
+          (card) => card !== null && card !== undefined
+        );
+      const dealerCardAssigned = !!wr.dealer_card;
+      return playerCardsAssigned && dealerCardAssigned;
     } else {
       return (
         Object.values(gameState.players)
-          .filter(p => p)
-          .every(p => p.card !== null) && !!gameState.dealer_card
-      )
+          .filter((p) => p)
+          .every((p) => p.card !== null) && !!gameState.dealer_card
+      );
     }
   }, [
     gameState.war_round_active,
@@ -652,112 +688,112 @@ export default function DealerPage () {
     gameState.war_round?.players,
     gameState.war_round?.dealer_card,
     gameState.players,
-    gameState.dealer_card
-  ])
+    gameState.dealer_card,
+  ]);
 
   useEffect(() => {
     // Compare previous and current player statuses
-    const prevStatuses = prevPlayerStatusesRef.current
-    const currStatuses: Record<string, string> = {}
+    const prevStatuses = prevPlayerStatusesRef.current;
+    const currStatuses: Record<string, string> = {};
     Object.entries(gameState.players).forEach(([pid, pdata]) => {
-      currStatuses[pid] = pdata.status
+      currStatuses[pid] = pdata.status;
       if (prevStatuses[pid] && prevStatuses[pid] !== pdata.status) {
         addNotification(
           `DEBUG: Player ${pid} status changed: ${prevStatuses[pid]} → ${pdata.status}`
-        )
+        );
       }
-    })
-    prevPlayerStatusesRef.current = currStatuses
-  }, [gameState.players])
+    });
+    prevPlayerStatusesRef.current = currStatuses;
+  }, [gameState.players]);
 
   return (
-    <div className='min-h-screen max-h-screen overflow-hidden flex flex-col'>
+    <div className="min-h-screen max-h-screen overflow-hidden flex flex-col">
       {/* Header Section - Reduce height */}
-      <nav className='relative h-[12vh] w-full overflow-hidden mb-2'>
+      <nav className="relative h-[12vh] w-full overflow-hidden mb-2">
         <img
-          src='/assets/wood.png'
-          alt='Wood Background'
-          className='absolute inset-0 object-cover w-full h-full'
+          src="/assets/wood.png"
+          alt="Wood Background"
+          className="absolute inset-0 object-cover w-full h-full"
         />
-        <div className='relative h-full'>
-          <div className='flex items-center justify-between -mt-1 xs:-mt-2 sm:-mt-3 px-2 xs:px-4 sm:px-6 md:px-8'>
+        <div className="relative h-full">
+          <div className="flex items-center justify-between -mt-1 xs:-mt-2 sm:-mt-3 px-2 xs:px-4 sm:px-6 md:px-8">
             {/* Left Logo - Reduce size */}
             <div
-              className='w-12 h-12 xs:w-16 xs:h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 lg:w-28 lg:h-28 relative flex flex-col items-center justify-center cursor-pointer hover:scale-105 transition-transform overflow-hidden -mt-2'
+              className="w-12 h-12 xs:w-16 xs:h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 lg:w-28 lg:h-28 relative flex flex-col items-center justify-center cursor-pointer hover:scale-105 transition-transform overflow-hidden -mt-2"
               onClick={() => setBetMenuOpen(true)}
-              aria-label='Open Bet/Table Menu'
+              aria-label="Open Bet/Table Menu"
             >
-              <div className='relative w-10 h-10 xs:w-12 xs:h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 lg:w-20 lg:h-20 xl:w-24 xl:h-24'>
+              <div className="relative w-10 h-10 xs:w-12 xs:h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 lg:w-20 lg:h-20 xl:w-24 xl:h-24">
                 <Image
-                  src='/assets/logo.png'
-                  alt='Casino Wars Logo'
+                  src="/assets/logo.png"
+                  alt="Casino Wars Logo"
                   fill
-                  className='object-contain'
-                  sizes='(max-width: 375px) 40px, (max-width: 640px) 48px, (max-width: 768px) 56px, (max-width: 1024px) 64px, (max-width: 1280px) 80px, 96px'
+                  className="object-contain"
+                  sizes="(max-width: 375px) 40px, (max-width: 640px) 48px, (max-width: 768px) 56px, (max-width: 1024px) 64px, (max-width: 1280px) 80px, 96px"
                   priority
                 />
               </div>
-              <span className='text-yellow-300 pb-4 -mt-4'>
-                Table: {gameState.table_number}
+              <span className="text-yellow-300 pb-4 -mt-4">
+                Table:FT - {gameState.table_number}
               </span>
             </div>
 
             {/* Center Hats - Reduce size */}
-            <div className='flex items-center justify-center gap-1 xs:gap-2 sm:gap-2 md:gap-3 lg:gap-4'>
-              {Array.from({ length: 6 }, (_, i) => i + 1).map(seatNumber => {
-                const playerId = seatNumber.toString()
-                const isActive = gameState.players[playerId] !== undefined
+            <div className="flex items-center justify-center gap-1 xs:gap-2 sm:gap-2 md:gap-3 lg:gap-4">
+              {Array.from({ length: 6 }, (_, i) => i + 1).map((seatNumber) => {
+                const playerId = seatNumber.toString();
+                const isActive = gameState.players[playerId] !== undefined;
                 return (
                   <div
                     key={seatNumber}
-                    className='w-6 h-6 xs:w-8 xs:h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 lg:w-16 lg:h-16 xl:w-18 xl:h-18 relative flex items-center justify-center cursor-pointer hover:scale-105 transition-transform'
+                    className="w-6 h-6 xs:w-8 xs:h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 lg:w-16 lg:h-16 xl:w-18 xl:h-18 relative flex items-center justify-center cursor-pointer hover:scale-105 transition-transform"
                     onClick={() => {
                       if (isActive) {
                         sendMessage({
-                          action: 'remove_player',
-                          player_id: playerId
-                        })
-                        addNotification(`Seat ${seatNumber} deactivated`)
+                          action: "remove_player",
+                          player_id: playerId,
+                        });
+                        addNotification(`Seat ${seatNumber} deactivated`);
                       } else {
                         sendMessage({
-                          action: 'add_player',
-                          player_id: playerId
-                        })
-                        addNotification(`Seat ${seatNumber} activated`)
+                          action: "add_player",
+                          player_id: playerId,
+                        });
+                        addNotification(`Seat ${seatNumber} activated`);
                       }
                     }}
                   >
-                    <div className='relative w-5 h-5 xs:w-6 xs:h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 lg:w-12 lg:h-12 xl:w-14 xl:h-14'>
+                    <div className="relative w-5 h-5 xs:w-6 xs:h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 lg:w-12 lg:h-12 xl:w-14 xl:h-14">
                       <Image
                         src={
                           isActive
-                            ? '/assets/whitehat.png'
-                            : '/assets/redhat.png'
+                            ? "/assets/whitehat.png"
+                            : "/assets/redhat.png"
                         }
-                        alt={isActive ? 'Active Player' : 'Inactive Player'}
+                        alt={isActive ? "Active Player" : "Inactive Player"}
                         fill
-                        className='object-contain'
-                        sizes='(max-width: 375px) 20px, (max-width: 640px) 24px, (max-width: 768px) 32px, (max-width: 1024px) 40px, (max-width: 1280px) 48px, 56px'
+                        className="object-contain"
+                        sizes="(max-width: 375px) 20px, (max-width: 640px) 24px, (max-width: 768px) 32px, (max-width: 1024px) 40px, (max-width: 1280px) 48px, 56px"
                       />
                     </div>
                   </div>
-                )
+                );
               })}
             </div>
 
             {/* Right Logo - Reduce size */}
             <div
-              className='w-12 h-12 xs:w-16 xs:h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 lg:w-28 lg:h-28 relative flex items-center justify-center cursor-pointer hover:scale-105 transition-transform overflow-hidden'
+              className="w-12 h-12 xs:w-16 xs:h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 lg:w-28 lg:h-28 relative flex items-center justify-center cursor-pointer hover:scale-105 transition-transform overflow-hidden"
               onClick={() => setMenuOpen(true)}
-              aria-label='Open Game Menu'
+              aria-label="Open Game Menu"
             >
-              <div className='relative w-10 h-10 xs:w-12 xs:h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 lg:w-20 lg:h-20 xl:w-24 xl:h-24'>
+              <div className="relative w-10 h-10 xs:w-12 xs:h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 lg:w-20 lg:h-20 xl:w-24 xl:h-24">
                 <Image
-                  src='/assets/menu.png'
-                  alt='Menu Icon'
+                  src="/assets/menu.png"
+                  alt="Menu Icon"
                   fill
-                  className='object-contain'
-                  sizes='(max-width: 375px) 40px, (max-width: 640px) 48px, (max-width: 768px) 56px, (max-width: 1024px) 64px, (max-width: 1280px) 80px, 96px'
+                  className="object-contain"
+                  sizes="(max-width: 375px) 40px, (max-width: 640px) 48px, (max-width: 768px) 56px, (max-width: 1024px) 64px, (max-width: 1280px) 80px, 96px"
                   priority
                 />
               </div>
@@ -769,80 +805,80 @@ export default function DealerPage () {
       {/* Game Controls Modal */}
       <AnimatePresence>
         {menuOpen && (
-          <div className='fixed top-0 left-0 h-full w-full z-50 flex items-center justify-center bg-black bg-opacity-60 overflow-y-auto p-4'>
+          <div className="fixed top-0 left-0 h-full w-full z-50 flex items-center justify-center bg-black bg-opacity-60 overflow-y-auto p-4">
             <div
-              className='rounded-lg shadow-lg p-8 relative min-w-[320px] min-h-[200px] max-w-[90vw] my-8 flex flex-col items-center justify-center'
-              style={{ backgroundColor: '#F0DEAD' }}
+              className="rounded-lg shadow-lg p-8 relative min-w-[320px] min-h-[200px] max-w-[90vw] my-8 flex flex-col items-center justify-center"
+              style={{ backgroundColor: "#F0DEAD" }}
             >
               <button
                 onClick={() => setMenuOpen(false)}
-                className='absolute top-3 right-3 text-gray-500 hover:text-gray-700 text-2xl font-bold focus:outline-none'
-                aria-label='Close'
+                className="absolute top-3 right-3 text-gray-500 hover:text-gray-700 text-2xl font-bold focus:outline-none"
+                aria-label="Close"
               >
                 ×
               </button>
-              <div className='flex flex-row items-center justify-center gap-6 w-full h-full'>
+              <div className="flex flex-row items-center justify-center gap-6 w-full h-full">
                 <button
-                  className='px-3 py-1.5 rounded-lg text-xl font-semibold shadow text-white transition-colors'
+                  className="px-3 py-1.5 rounded-lg text-xl font-semibold shadow text-white transition-colors"
                   style={{
                     width: 166,
                     height: 49,
                     backgroundColor:
-                      gameState.game_mode === 'live' ? '#741003' : '#911606'
+                      gameState.game_mode === "live" ? "#741003" : "#911606",
                   }}
                   onClick={() => {
-                    const newMode = 'live'
-                    sendMessage({ action: 'set_game_mode', mode: newMode })
+                    const newMode = "live";
+                    sendMessage({ action: "set_game_mode", mode: newMode });
                     setTimeout(() => {
-                      sendMessage({ action: 'reset_game' })
-                    }, 200)
+                      sendMessage({ action: "reset_game" });
+                    }, 200);
                   }}
                 >
-                  Manual Mode
+                  Live Mode
                 </button>
                 <button
-                  className='px-3 py-1.5 rounded-lg text-xl font-semibold shadow text-white transition-colors whitespace-nowrap'
+                  className="px-3 py-1.5 rounded-lg text-xl font-semibold shadow text-white transition-colors whitespace-nowrap"
                   style={{
                     height: 49,
                     backgroundColor:
-                      gameState.game_mode === 'automatic'
-                        ? '#741003'
-                        : '#911606'
+                      gameState.game_mode === "automatic"
+                        ? "#741003"
+                        : "#911606",
                   }}
                   onClick={() => {
-                    const newMode = 'automatic'
-                    sendMessage({ action: 'set_game_mode', mode: newMode })
+                    const newMode = "automatic";
+                    sendMessage({ action: "set_game_mode", mode: newMode });
                     setTimeout(() => {
-                      sendMessage({ action: 'reset_game' })
-                    }, 200)
+                      sendMessage({ action: "reset_game" });
+                    }, 200);
                   }}
                 >
                   Automatic Mode
                 </button>
                 <button
-                  className='px-3 py-1.5 rounded-lg text-xl font-semibold shadow text-white transition-colors'
+                  className="px-3 py-1.5 rounded-lg text-xl font-semibold shadow text-white transition-colors"
                   style={{
                     width: 166,
                     height: 49,
                     backgroundColor:
-                      gameState.game_mode === 'manual' ? '#741003' : '#911606'
+                      gameState.game_mode === "manual" ? "#741003" : "#911606",
                   }}
                   onClick={() => {
-                    const newMode = 'manual'
-                    sendMessage({ action: 'set_game_mode', mode: newMode })
+                    const newMode = "manual";
+                    sendMessage({ action: "set_game_mode", mode: newMode });
                     setTimeout(() => {
-                      sendMessage({ action: 'reset_game' })
-                    }, 200)
+                      sendMessage({ action: "reset_game" });
+                    }, 200);
                   }}
                 >
-                  Live Mode
+                  Manual Mode
                 </button>
               </div>
-              {gameState.game_mode === 'live' ? (
-                <div className='flex flex-row w-full gap-6 justify-center items-center mt-8'>
+              {gameState.game_mode === "live" ? (
+                <div className="flex flex-row w-full gap-6 justify-center items-center mt-8">
                   {/* Second column */}
-                  <div className='flex-1 flex flex-col h-full min-h-full'>
-                    <div className='flex flex-col items-center gap-2 mb-16'>
+                  <div className="flex-1 flex flex-col h-full min-h-full">
+                    <div className="flex flex-col items-center gap-2 mb-16">
                       {/* <button
                         className='rounded-lg shadow text-xl font-bold flex items-center justify-center'
                         style={{
@@ -880,7 +916,7 @@ export default function DealerPage () {
                         Deal Cards
                       </button> */}
                     </div>
-                    <div className='flex flex-col items-center gap-2'>
+                    <div className="flex flex-col items-center gap-2">
                       {/* <button
                         className='rounded-lg shadow text-xl font-bold flex items-center justify-center'
                         style={{
@@ -908,76 +944,76 @@ export default function DealerPage () {
                         Clear All Records
                       </button> */}
                       <button
-                        className='rounded-lg shadow text-xl font-bold flex items-center justify-center'
+                        className="rounded-lg shadow text-xl font-bold flex items-center justify-center"
                         style={{
                           width: 250,
                           height: 49,
-                          backgroundColor: '#fff',
-                          color: '#741003'
+                          backgroundColor: "#fff",
+                          color: "#741003",
                         }}
                         onClick={() => {
-                          sendMessage({ action: 'clear_round' })
+                          sendMessage({ action: "clear_round" });
                         }}
                       >
                         NEW GAME
                       </button>
                       <button
-                        className='rounded-lg shadow text-xl font-bold flex items-center justify-center'
+                        className="rounded-lg shadow text-xl font-bold flex items-center justify-center"
                         style={{
                           width: 250,
                           height: 49,
-                          backgroundColor: '#911606',
-                          color: '#fff'
+                          backgroundColor: "#911606",
+                          color: "#fff",
                         }}
-                        onClick={() => sendMessage({ action: 'reset_game' })}
+                        onClick={() => sendMessage({ action: "reset_game" })}
                       >
                         RESET GAME
                       </button>
                     </div>
                   </div>
                   {/* Third column */}
-                  <div className='flex-1 flex flex-col h-full min-h-full'>
+                  <div className="flex-1 flex flex-col h-full min-h-full">
                     {/* First group: 3x4 grid for ranks */}
-                    <div className='grid grid-cols-3 grid-rows-4 gap-4 mb-10 place-items-center'>
+                    <div className="grid grid-cols-3 grid-rows-4 gap-4 mb-10 place-items-center">
                       <div />
                       <button
                         className={`rounded-lg shadow text-xl font-bold flex items-center justify-center ${
-                          manualCard[0] === 'A'
-                            ? 'bg-[#741003] text-white'
-                            : 'bg-white text-[#741003]'
+                          manualCard[0] === "A"
+                            ? "bg-[#741003] text-white"
+                            : "bg-white text-[#741003]"
                         }`}
                         style={{ width: 80, height: 44 }}
                         onClick={() =>
-                          setManualCard('A' + (manualCard[1] || ''))
+                          setManualCard("A" + (manualCard[1] || ""))
                         }
                       >
                         A
                       </button>
                       <div />
                       {[
-                        '2',
-                        '3',
-                        '4',
-                        '5',
-                        '6',
-                        '7',
-                        '8',
-                        '9',
-                        'T',
-                        'J',
-                        'Q',
-                        'K'
-                      ].map(rank => (
+                        "2",
+                        "3",
+                        "4",
+                        "5",
+                        "6",
+                        "7",
+                        "8",
+                        "9",
+                        "T",
+                        "J",
+                        "Q",
+                        "K",
+                      ].map((rank) => (
                         <button
                           key={`grid-btn-${rank}`}
                           className={`rounded-lg shadow text-xl font-bold flex items-center justify-center ${
                             manualCard[0] === rank
-                              ? 'bg-[#741003] text-white'
-                              : 'bg-white text-[#741003]'
+                              ? "bg-[#741003] text-white"
+                              : "bg-white text-[#741003]"
                           }`}
                           style={{ width: 80, height: 44 }}
                           onClick={() =>
-                            setManualCard(rank + (manualCard[1] || ''))
+                            setManualCard(rank + (manualCard[1] || ""))
                           }
                         >
                           {rank}
@@ -985,27 +1021,27 @@ export default function DealerPage () {
                       ))}
                     </div>
                     {/* Second group: 2x2 grid for suits */}
-                    <div className='grid grid-cols-2 grid-rows-2 gap-4 mb-10 place-items-center'>
+                    <div className="grid grid-cols-2 grid-rows-2 gap-4 mb-10 place-items-center">
                       {[
-                        { symbol: '♠', value: 'S' },
-                        { symbol: '♥', value: 'H' },
-                        { symbol: '♦', value: 'D' },
-                        { symbol: '♣', value: 'C' }
-                      ].map(suit => (
+                        { symbol: "♠", value: "S" },
+                        { symbol: "♥", value: "H" },
+                        { symbol: "♦", value: "D" },
+                        { symbol: "♣", value: "C" },
+                      ].map((suit) => (
                         <button
                           key={`suit-btn-${suit.value}`}
                           className={`rounded-lg shadow text-xl font-bold flex items-center justify-center ${
                             manualCard[1] === suit.value
-                              ? 'bg-[#741003] text-white'
-                              : 'bg-white text-[#741003]'
+                              ? "bg-[#741003] text-white"
+                              : "bg-white text-[#741003]"
                           } ${
-                            suit.value === 'H' || suit.value === 'D'
-                              ? 'text-red-600'
-                              : 'text-black'
+                            suit.value === "H" || suit.value === "D"
+                              ? "text-red-600"
+                              : "text-black"
                           }`}
                           style={{ width: 110, height: 44 }}
                           onClick={() =>
-                            setManualCard((manualCard[0] || '') + suit.value)
+                            setManualCard((manualCard[0] || "") + suit.value)
                           }
                         >
                           {suit.symbol}
@@ -1013,21 +1049,21 @@ export default function DealerPage () {
                       ))}
                     </div>
                     {/* Third group: Send and Undo buttons */}
-                    <div className='flex flex-row gap-4 items-center justify-center'>
+                    <div className="flex flex-row gap-4 items-center justify-center">
                       <button
                         className={`rounded-lg shadow text-xl font-bold flex items-center justify-center ${
                           manualCard.length === 2
-                            ? 'bg-[#D6AB5D] text-white'
-                            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                            ? "bg-[#D6AB5D] text-white"
+                            : "bg-gray-300 text-gray-500 cursor-not-allowed"
                         }`}
                         style={{ width: 110, height: 44 }}
                         onClick={() => {
-                          if (manualCard.length !== 2) return
+                          if (manualCard.length !== 2) return;
                           if (gameState.war_round_active) {
                             const warPlayerIds = gameState.war_round
                               ? Object.keys(gameState.war_round.players)
                                   .filter(
-                                    pid =>
+                                    (pid) =>
                                       gameState.war_round &&
                                       (gameState.war_round.players[pid] ===
                                         null ||
@@ -1035,49 +1071,49 @@ export default function DealerPage () {
                                           undefined)
                                   )
                                   .sort((a, b) => Number(a) - Number(b))
-                              : []
+                              : [];
                             if (warPlayerIds.length > 0) {
                               sendMessage({
-                                action: 'assign_war_card',
-                                target: 'player',
+                                action: "assign_war_card",
+                                target: "player",
                                 card: manualCard,
-                                player_id: warPlayerIds[0]
-                              })
-                              setManualCard('')
+                                player_id: warPlayerIds[0],
+                              });
+                              setManualCard("");
                             } else if (
                               gameState.war_round &&
                               !gameState.war_round.dealer_card
                             ) {
                               sendMessage({
-                                action: 'assign_war_card',
-                                target: 'dealer',
-                                card: manualCard
-                              })
-                              setManualCard('')
+                                action: "assign_war_card",
+                                target: "dealer",
+                                card: manualCard,
+                              });
+                              setManualCard("");
                             }
                           } else {
                             const playerIds = Object.keys(gameState.players)
                               .filter(
-                                pid =>
+                                (pid) =>
                                   gameState.players[pid] &&
                                   gameState.players[pid].card === null
                               )
-                              .sort((a, b) => Number(a) - Number(b))
+                              .sort((a, b) => Number(a) - Number(b));
                             if (playerIds.length > 0) {
                               sendMessage({
-                                action: 'manual_deal_card',
-                                target: 'player',
+                                action: "manual_deal_card",
+                                target: "player",
                                 card: manualCard,
-                                player_id: playerIds[0]
-                              })
-                              setManualCard('')
+                                player_id: playerIds[0],
+                              });
+                              setManualCard("");
                             } else if (!gameState.dealer_card) {
                               sendMessage({
-                                action: 'manual_deal_card',
-                                target: 'dealer',
-                                card: manualCard
-                              })
-                              setManualCard('')
+                                action: "manual_deal_card",
+                                target: "dealer",
+                                card: manualCard,
+                              });
+                              setManualCard("");
                             }
                           }
                         }}
@@ -1086,10 +1122,10 @@ export default function DealerPage () {
                         Send card
                       </button>
                       <button
-                        className='rounded-lg shadow text-xl font-bold flex items-center justify-center bg-[#911606] text-white'
+                        className="rounded-lg shadow text-xl font-bold flex items-center justify-center bg-[#911606] text-white"
                         style={{ width: 110, height: 44 }}
                         onClick={() =>
-                          sendMessage({ action: 'undo_last_card' })
+                          sendMessage({ action: "undo_last_card" })
                         }
                       >
                         Undo Card
@@ -1097,53 +1133,53 @@ export default function DealerPage () {
                     </div>
                   </div>
                 </div>
-              ) : gameState.game_mode === 'manual' ? (
-                <div className='flex flex-col items-center justify-center w-full h-full mt-8'>
+              ) : gameState.game_mode === "manual" ? (
+                <div className="flex flex-col items-center justify-center w-full h-full mt-8">
                   <button
-                    className='mb-4 px-6 py-3 rounded-lg text-xl font-bold shadow text-white bg-[#911606] hover:bg-[#741003] transition-colors'
+                    className="mb-4 px-6 py-3 rounded-lg text-xl font-bold shadow text-white bg-[#911606] hover:bg-[#741003] transition-colors"
                     style={{ maxWidth: 260 }}
-                    onClick={() => sendMessage({ action: 'reset_game' })}
+                    onClick={() => sendMessage({ action: "reset_game" })}
                   >
                     RESET GAME
                   </button>
                   <button
-                    className='m-4 px-5 py-3 rounded-lg text-xl font-bold shadow text-white bg-[#911606] hover:bg-[#741003] transition-colors'
+                    className="m-4 px-5 py-3 rounded-lg text-xl font-bold shadow text-white bg-[#911606] hover:bg-[#741003] transition-colors"
                     onClick={() => {
-                      sendMessage({ action: 'clear_round' })
+                      sendMessage({ action: "clear_round" });
                     }}
                   >
                     NEW GAME
                   </button>
-                  <div className='grid grid-cols-3 grid-rows-2 gap-4 w-fit'>
-                    {[1, 2, 3, 4, 5, 6].map(playerNum => (
+                  <div className="grid grid-cols-3 grid-rows-2 gap-4 w-fit">
+                    {[1, 2, 3, 4, 5, 6].map((playerNum) => (
                       <div
                         key={playerNum}
-                        className='bg-[#911606] h-28 w-56 rounded-lg flex flex-col justify-center items-center p-3'
-                        style={{ margin: '8px' }}
+                        className="bg-[#911606] h-28 w-56 rounded-lg flex flex-col justify-center items-center p-3"
+                        style={{ margin: "8px" }}
                       >
-                        <div className='text-lg font-bold mb-2 text-[#F0DEAD]'>
+                        <div className="text-lg font-bold mb-2 text-[#F0DEAD]">
                           PLAYER {playerNum}
                         </div>
-                        <div className='flex flex-row gap-2'>
+                        <div className="flex flex-row gap-2">
                           <button
-                            className='px-4 py-2 rounded text-[#741003] bg-[#F0DEAD] text-base font-semibold'
+                            className="px-4 py-2 rounded text-[#741003] bg-[#F0DEAD] text-base font-semibold"
                             onClick={() =>
                               sendMessage({
-                                action: 'manual_assign_result',
+                                action: "manual_assign_result",
                                 player_id: playerNum.toString(),
-                                result: 'win'
+                                result: "win",
                               })
                             }
                           >
                             WIN
                           </button>
                           <button
-                            className='px-4 py-2 rounded bg-[#450A03] text-[#F0DEAD] text-base font-semibold'
+                            className="px-4 py-2 rounded bg-[#450A03] text-[#F0DEAD] text-base font-semibold"
                             onClick={() =>
                               sendMessage({
-                                action: 'manual_assign_result',
+                                action: "manual_assign_result",
                                 player_id: playerNum.toString(),
-                                result: 'lose'
+                                result: "lose",
                               })
                             }
                           >
@@ -1155,7 +1191,7 @@ export default function DealerPage () {
                   </div>
                 </div>
               ) : (
-                <div className='flex flex-col items-center justify-center w-full h-full'>
+                <div className="flex flex-col items-center justify-center w-full h-full">
                   {/* DECK COUNT DISPLAY - AUTOMATIC MODE */}
                   {/* <div className='mb-4 mt-6 p-3 bg-white rounded-lg border-2 border-[#741003]'>
                     <div className='text-[#741003] font-bold text-lg text-center'>
@@ -1169,29 +1205,29 @@ export default function DealerPage () {
                     🔄 Shuffle Deck ({gameState.deck_count} cards)
                   </button> */}
                   <button
-                    className='m-4 px-5 py-3 rounded-lg text-xl font-bold shadow text-white bg-[#911606] hover:bg-[#741003] transition-colors'
+                    className="m-4 px-5 py-3 rounded-lg text-xl font-bold shadow text-white bg-[#911606] hover:bg-[#741003] transition-colors"
                     onClick={() => {
-                      sendMessage({ action: 'start_auto_round' })
+                      sendMessage({ action: "start_auto_round" });
                     }}
                   >
                     Start automatic
                   </button>
                   {/* Show NEW ROUND if previous round completed and players exist */}
                   {Object.values(gameState.players).some(
-                    p => p.card || p.status !== 'active'
+                    (p) => p.card || p.status !== "active"
                   ) && (
                     <button
-                      className='m-4 px-5 py-3 rounded-lg text-xl font-bold shadow text-white bg-[#911606] hover:bg-[#741003] transition-colors'
+                      className="m-4 px-5 py-3 rounded-lg text-xl font-bold shadow text-white bg-[#911606] hover:bg-[#741003] transition-colors"
                       onClick={() => {
-                        sendMessage({ action: 'clear_round' })
+                        sendMessage({ action: "clear_round" });
                       }}
                     >
                       NEW GAME
                     </button>
                   )}
                   <button
-                    className='m-4 px-5 py-3 rounded-lg text-xl font-bold shadow text-white bg-[#911606] hover:bg-[#741003] transition-colors'
-                    onClick={() => sendMessage({ action: 'reset_game' })}
+                    className="m-4 px-5 py-3 rounded-lg text-xl font-bold shadow text-white bg-[#911606] hover:bg-[#741003] transition-colors"
+                    onClick={() => sendMessage({ action: "reset_game" })}
                   >
                     RESET GAME
                   </button>
@@ -1205,96 +1241,96 @@ export default function DealerPage () {
       {/* Bet/Table Menu Modal */}
       <AnimatePresence>
         {betMenuOpen && (
-          <div className='fixed top-0 left-0 h-full w-full z-50 flex items-center justify-center bg-black bg-opacity-60 overflow-y-auto p-4'>
+          <div className="fixed top-0 left-0 h-full w-full z-50 flex items-center justify-center bg-black bg-opacity-60 overflow-y-auto p-4">
             <div
-              className='rounded-lg shadow-lg p-8 relative min-w-[320px] min-h-[200px] max-w-[90vw] my-8 flex flex-col items-center justify-center'
-              style={{ backgroundColor: '#F0DEAD' }}
+              className="rounded-lg shadow-lg p-8 relative min-w-[320px] min-h-[200px] max-w-[90vw] my-8 flex flex-col items-center justify-center"
+              style={{ backgroundColor: "#F0DEAD" }}
             >
               <button
                 onClick={() => setBetMenuOpen(false)}
-                className='absolute top-3 right-3 text-gray-500 hover:text-gray-700 text-2xl font-bold focus:outline-none'
-                aria-label='Close'
+                className="absolute top-3 right-3 text-gray-500 hover:text-gray-700 text-2xl font-bold focus:outline-none"
+                aria-label="Close"
               >
                 ×
               </button>
-              <h2 className='text-xl font-bold text-[#741003] mb-6 text-center'>
+              <h2 className="text-xl font-bold text-[#741003] mb-6 text-center">
                 Table & Betting
               </h2>
-              <div className='mb-4 w-full max-w-xs'>
-                <label className='block text-[#741003] font-semibold mb-2'>
+              <div className="mb-4 w-full max-w-xs">
+                <label className="block text-[#741003] font-semibold mb-2">
                   Table Number
                 </label>
                 <input
-                  type='text'
-                  inputMode='numeric'
-                  pattern='[0-9]*'
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   value={pendingTableNumber}
-                  onChange={e =>
+                  onChange={(e) =>
                     setPendingTableNumber(
-                      e.target.value === ''
+                      e.target.value === ""
                         ? 0
-                        : Number(e.target.value.replace(/\D/g, ''))
+                        : Number(e.target.value.replace(/\D/g, ""))
                     )
                   }
-                  className='w-full bg-white border-2 border-[#741003] rounded-lg px-3 py-2 text-[#741003] appearance-none font-semibold'
-                  style={{ MozAppearance: 'textfield' }}
+                  className="w-full bg-white border-2 border-[#741003] rounded-lg px-3 py-2 text-[#741003] appearance-none font-semibold"
+                  style={{ MozAppearance: "textfield" }}
                 />
               </div>
-              <div className='mb-4 w-full max-w-xs'>
-                <label className='block text-[#741003] font-semibold mb-2'>
+              <div className="mb-4 w-full max-w-xs">
+                <label className="block text-[#741003] font-semibold mb-2">
                   Min Bet
                 </label>
                 <input
-                  type='text'
-                  inputMode='numeric'
-                  pattern='[0-9]*'
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   value={pendingMinBet}
-                  onChange={e =>
+                  onChange={(e) =>
                     setPendingMinBet(
-                      e.target.value === ''
+                      e.target.value === ""
                         ? 0
-                        : Number(e.target.value.replace(/\D/g, ''))
+                        : Number(e.target.value.replace(/\D/g, ""))
                     )
                   }
-                  className='w-full bg-white border-2 border-[#741003] rounded-lg px-3 py-2 text-[#741003] appearance-none font-semibold'
-                  style={{ MozAppearance: 'textfield' }}
+                  className="w-full bg-white border-2 border-[#741003] rounded-lg px-3 py-2 text-[#741003] appearance-none font-semibold"
+                  style={{ MozAppearance: "textfield" }}
                 />
               </div>
-              <div className='mb-6 w-full max-w-xs'>
-                <label className='block text-[#741003] font-semibold mb-2'>
+              <div className="mb-6 w-full max-w-xs">
+                <label className="block text-[#741003] font-semibold mb-2">
                   Max Bet
                 </label>
                 <input
-                  type='text'
-                  inputMode='numeric'
-                  pattern='[0-9]*'
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   value={pendingMaxBet}
-                  onChange={e =>
+                  onChange={(e) =>
                     setPendingMaxBet(
-                      e.target.value === ''
+                      e.target.value === ""
                         ? 0
-                        : Number(e.target.value.replace(/\D/g, ''))
+                        : Number(e.target.value.replace(/\D/g, ""))
                     )
                   }
-                  className='w-full bg-white border-2 border-[#741003] rounded-lg px-3 py-2 text-[#741003] appearance-none font-semibold'
-                  style={{ MozAppearance: 'textfield' }}
+                  className="w-full bg-white border-2 border-[#741003] rounded-lg px-3 py-2 text-[#741003] appearance-none font-semibold"
+                  style={{ MozAppearance: "textfield" }}
                 />
               </div>
               <button
-                className='rounded-lg shadow text-xl font-bold text-white w-full max-w-xs'
-                style={{ height: 49, backgroundColor: '#911606' }}
+                className="rounded-lg shadow text-xl font-bold text-white w-full max-w-xs"
+                style={{ height: 49, backgroundColor: "#911606" }}
                 onClick={() => {
                   sendMessage({
-                    action: 'change_bets',
+                    action: "change_bets",
                     min_bet: pendingMinBet,
-                    max_bet: pendingMaxBet
-                  })
+                    max_bet: pendingMaxBet,
+                  });
                   sendMessage({
-                    action: 'change_table',
-                    table_number: pendingTableNumber
-                  })
-                  setBetMenuOpen(false)
-                  addNotification('Table and betting updated')
+                    action: "change_table",
+                    table_number: pendingTableNumber,
+                  });
+                  setBetMenuOpen(false);
+                  addNotification("Table and betting updated");
                 }}
               >
                 Save
@@ -1311,7 +1347,7 @@ export default function DealerPage () {
             initial={{ opacity: 0, x: 300 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -300 }}
-            className='fixed top-20 right-6 bg-casino-gold text-black px-4 py-2 rounded-lg shadow-lg z-50 mb-2'
+            className="fixed top-20 right-6 bg-casino-gold text-black px-4 py-2 rounded-lg shadow-lg z-50 mb-2"
             style={{ top: `${80 + index * 60}px` }}
           >
             {notification}
@@ -1319,75 +1355,75 @@ export default function DealerPage () {
         ))}
       </AnimatePresence>
 
-      <div className='flex-1 overflow-y-auto mt-6'>
-        <div className='flex-1 flex flex-col'>
-          <div className='flex-1 flex flex-col mx-4 lg:mx-6 mb-8'>
+      <div className="flex-1 overflow-y-auto mt-6">
+        <div className="flex-1 flex flex-col">
+          <div className="flex-1 flex flex-col mx-4 lg:mx-6 mb-8">
             {/* Game Table Container - Compact layout */}
-            <div className='bg-[#911606] border-4 border-[#d4af37] p-4 flex-1 flex flex-col'>
+            <div className="bg-[#911606] border-4 border-[#d4af37] p-4 flex-1 flex flex-col">
               {/* Dealer + Game Info - More compact */}
-              <div className='flex flex-col lg:flex-row gap-4 mb-4'>
+              <div className="flex flex-col lg:flex-row gap-4 mb-4">
                 {/* Left side - Dealer section - Reduced padding */}
-                <div className='lg:w-2/3'>
+                <div className="lg:w-2/3">
                   {!gameState.war_round_active ||
                   !gameState.war_round?.original_cards ? (
-                    <div className='mb-0'>
-                      <div className='bg-[#911606] border-2 border-dashed border-white p-4 rounded-lg'>
-                        <div className='flex justify-between items-center mb-3'>
-                          <h3 className='text-xl font-medium font-[questrial] tracking-widest text-white'>
+                    <div className="mb-0">
+                      <div className="bg-[#911606] border-2 border-dashed border-white p-4 rounded-lg">
+                        <div className="flex justify-between items-center mb-3">
+                          <h3 className="text-xl font-medium font-[questrial] tracking-widest text-white">
                             Dealer's Cards
                           </h3>
                           {/* Reset Button - Smaller */}
-                          <div className='flex justify-center'>
+                          <div className="flex justify-center">
                             <button
-                              className='rounded-lg shadow text-lg font-bold flex items-center justify-center'
+                              className="rounded-lg shadow text-lg font-bold flex items-center justify-center"
                               style={{
                                 width: 180,
                                 height: 44,
-                                backgroundColor: '#F0DEAD',
-                                color: '#741003',
-                                border: '2px solid #741003'
+                                backgroundColor: "#F0DEAD",
+                                color: "#741003",
+                                border: "2px solid #741003",
                               }}
                               onClick={() =>
-                                sendMessage({ action: 'clear_round' })
+                                sendMessage({ action: "clear_round" })
                               }
                             >
                               NEW GAME
                             </button>
                           </div>
                         </div>
-                        <div className='flex justify-center items-center min-h-[120px]'>
+                        <div className="flex justify-center items-center min-h-[120px]">
                           {/* Dealer card rendering - Smaller cards */}
                           {!gameState.war_round_active &&
                           gameState.war_round?.original_cards?.dealer_card ? (
-                            <div className='flex items-center gap-4'>
+                            <div className="flex items-center gap-4">
                               {renderCard(
                                 gameState.war_round.original_cards.dealer_card,
-                                'medium'
+                                "medium"
                               )}
                               {gameState.war_round?.dealer_card && (
-                                <div className=''>
+                                <div className="">
                                   {renderCard(
                                     gameState.war_round.dealer_card,
-                                    'medium'
+                                    "medium"
                                   )}
                                 </div>
                               )}
                             </div>
                           ) : gameState.dealer_card ? (
-                            renderCard(gameState.dealer_card, 'medium')
+                            renderCard(gameState.dealer_card, "medium")
                           ) : (
-                            <div className='w-16 h-20 bg-black/15 rounded-lg flex items-center justify-center'>
-                              <span className='text-white text-xl'>?</span>
+                            <div className="w-16 h-20 bg-black/15 rounded-lg flex items-center justify-center">
+                              <span className="text-white text-xl">?</span>
                             </div>
                           )}
                         </div>
                       </div>
                     </div>
                   ) : (
-                    gameState.game_mode === 'live' &&
+                    gameState.game_mode === "live" &&
                     gameState.round_active && (
-                      <div className='text-center mb-6'>
-                        <h3 className='text-lg font-bold text-casino-gold mb-3'>
+                      <div className="text-center mb-6">
+                        <h3 className="text-lg font-bold text-casino-gold mb-3">
                           Dealer
                         </h3>
                         {/* <div className="mt-4">
@@ -1423,25 +1459,25 @@ export default function DealerPage () {
                 </div>
 
                 {/* Right side - Game information - More compact */}
-                <div className='lg:w-1/3 flex flex-col justify-start items-end'>
-                  <div className='mb-3 p-2'>
-                    <h2 className='text-xl font-bold text-yellow-300'>
-                      Round {gameState.round_number}{' '}
-                      {gameState.round_active ? '(Active)' : ''}
+                <div className="lg:w-1/3 flex flex-col justify-start items-end">
+                  <div className="mb-3 p-2">
+                    <h2 className="text-xl font-bold text-yellow-300">
+                      Round {gameState.round_number}{" "}
+                      {gameState.round_active ? "(Active)" : ""}
                     </h2>
                   </div>
-                  <div className='mb-3 p-2'>
-                    <div className='text-yellow-300 font-semibold text-base'>
-                      Table No. FT: {gameState.table_number}
+                  <div className="mb-3 p-2">
+                    <div className="text-yellow-300 font-semibold text-base">
+                      Table No. FT - {gameState.table_number}
                     </div>
                   </div>
-                  <div className='mb-3 p-2'>
-                    <div className='text-yellow-300 font-semibold text-base'>
+                  <div className="mb-3 p-2">
+                    <div className="text-yellow-300 font-semibold text-base">
                       Betting: ₹{gameState.min_bet} - ₹{gameState.max_bet}
                     </div>
                   </div>
-                  <div className='mb-3 p-2'>
-                    <div className='text-yellow-300 font-semibold text-base'>
+                  <div className="mb-3 p-2">
+                    <div className="text-yellow-300 font-semibold text-base">
                       Players: {Object.keys(gameState.players).length}/6
                     </div>
                   </div>
@@ -1450,50 +1486,50 @@ export default function DealerPage () {
 
               {/* War Round Section - More compact */}
               {gameState.war_round_active && (
-                <div className='bg-red-900/30 border-2 border-red-500 rounded-xl p-4 mb-5'>
-                  <h3 className='text-xl font-bold text-red-400 mb-4 text-center'>
+                <div className="bg-red-900/30 border-2 border-red-500 rounded-xl p-4 mb-5">
+                  <h3 className="text-xl font-bold text-red-400 mb-4 text-center">
                     ⚔️ WAR ROUND ⚔️
                   </h3>
 
-                  <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* War Dealer Card */}
-                    <div className='text-center'>
-                      <h4 className='text-lg font-semibold text-red-400 mb-3'>
+                    <div className="text-center">
+                      <h4 className="text-lg font-semibold text-red-400 mb-3">
                         Dealer War Card
                       </h4>
-                      <div className='flex justify-center mb-4'>
+                      <div className="flex justify-center mb-4">
                         {gameState.war_round?.dealer_card ? (
-                          renderCard(gameState.war_round.dealer_card, 'medium')
+                          renderCard(gameState.war_round.dealer_card, "medium")
                         ) : (
-                          <div className='w-12 h-16 card-back rounded-lg flex items-center justify-center'>
-                            <span className='text-white'>?</span>
+                          <div className="w-12 h-16 card-back rounded-lg flex items-center justify-center">
+                            <span className="text-white">?</span>
                           </div>
                         )}
                       </div>
                     </div>
 
                     {/* War Player Cards */}
-                    <div className='text-center'>
-                      <h4 className='text-lg font-semibold text-red-400 mb-3'>
+                    <div className="text-center">
+                      <h4 className="text-lg font-semibold text-red-400 mb-3">
                         Player War Cards
                       </h4>
-                      <div className='space-y-2'>
+                      <div className="space-y-2">
                         {gameState.war_round &&
                           Object.entries(gameState.war_round.players).map(
                             ([playerId, card]) => (
                               <div
                                 key={playerId}
-                                className='flex items-center justify-between bg-black/30 rounded-lg p-2'
+                                className="flex items-center justify-between bg-black/30 rounded-lg p-2"
                               >
-                                <span className='text-white text-base'>
+                                <span className="text-white text-base">
                                   {playerId}
                                 </span>
-                                <div className='flex items-center gap-2'>
+                                <div className="flex items-center gap-2">
                                   {card ? (
-                                    renderCard(card, 'small')
+                                    renderCard(card, "small")
                                   ) : (
-                                    <div className='w-8 h-12 card-back rounded flex items-center justify-center'>
-                                      <span className='text-white text-xs'>
+                                    <div className="w-8 h-12 card-back rounded flex items-center justify-center">
+                                      <span className="text-white text-xs">
                                         ?
                                       </span>
                                     </div>
@@ -1600,28 +1636,28 @@ export default function DealerPage () {
               {/* Original Cards Section - More compact */}
               {gameState.war_round_active &&
                 gameState.war_round?.original_cards && (
-                  <div className='bg-yellow-900/20 border-2 border-yellow-500 rounded-xl p-4 mb-4'>
-                    <h4 className='text-lg font-semibold text-yellow-400 mb-3 text-center'>
+                  <div className="bg-yellow-900/20 border-2 border-yellow-500 rounded-xl p-4 mb-4">
+                    <h4 className="text-lg font-semibold text-yellow-400 mb-3 text-center">
                       Original Cards That Caused the Tie
                     </h4>
-                    <div className='flex flex-wrap justify-center gap-6'>
-                      <div className='text-center'>
-                        <div className='text-yellow-400 font-bold mb-2 text-base'>
+                    <div className="flex flex-wrap justify-center gap-6">
+                      <div className="text-center">
+                        <div className="text-yellow-400 font-bold mb-2 text-base">
                           Dealer
                         </div>
                         {renderCard(
                           gameState.war_round.original_cards.dealer_card,
-                          'small'
+                          "small"
                         )}
                       </div>
                       {Object.entries(
                         gameState.war_round.original_cards.players
                       ).map(([pid, card]) => (
-                        <div key={pid} className='text-center'>
-                          <div className='text-yellow-400 font-bold mb-2 text-base'>
+                        <div key={pid} className="text-center">
+                          <div className="text-yellow-400 font-bold mb-2 text-base">
                             Player {pid}
                           </div>
-                          {renderCard(card, 'small')}
+                          {renderCard(card, "small")}
                         </div>
                       ))}
                     </div>
@@ -1630,12 +1666,12 @@ export default function DealerPage () {
 
               {!gameState.war_round_active ||
               !gameState.war_round?.original_cards ? (
-                <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 flex-1'>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 flex-1">
                   {/* Show all 6 players - active ones with full opacity, inactive ones with reduced opacity */}
                   {Array.from({ length: 6 }, (_, i) => (i + 1).toString()).map(
-                    playerId => {
-                      const playerData = gameState.players[playerId]
-                      const isActive = playerData !== undefined
+                    (playerId) => {
+                      const playerData = gameState.players[playerId];
+                      const isActive = playerData !== undefined;
 
                       return (
                         <motion.div
@@ -1643,41 +1679,41 @@ export default function DealerPage () {
                           initial={{ opacity: 0, y: 20 }}
                           animate={{ opacity: isActive ? 1 : 0.3, y: 0 }}
                           className={`bg-red-400/5 border-2 border-dashed border-white p-4 rounded-lg ${
-                            isActive ? '' : 'opacity-30'
+                            isActive ? "" : "opacity-30"
                           }`}
                         >
-                          <div className='flex justify-between items-center mb-3'>
-                            <h4 className='text-lg font-normal font-[questrial] tracking-widest text-white'>
+                          <div className="flex justify-between items-center mb-3">
+                            <h4 className="text-lg font-normal font-[questrial] tracking-widest text-white">
                               Player {playerId}
                             </h4>
                             {isActive && (
                               <div
                                 className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                                  playerData.status === 'active'
-                                    ? 'bg-green-500/20 text-green-400'
-                                    : playerData.status === 'war'
-                                    ? 'bg-red-500/20 text-red-400'
-                                    : playerData.status === 'waiting_choice'
-                                    ? 'bg-yellow-500/20 text-yellow-400'
-                                    : playerData.status === 'surrender'
-                                    ? 'bg-gray-500/20 text-gray-400'
-                                    : 'bg-gray-500/20 text-gray-400'
+                                  playerData.status === "active"
+                                    ? "bg-green-500/20 text-green-400"
+                                    : playerData.status === "war"
+                                    ? "bg-red-500/20 text-red-400"
+                                    : playerData.status === "waiting_choice"
+                                    ? "bg-yellow-500/20 text-yellow-400"
+                                    : playerData.status === "surrender"
+                                    ? "bg-gray-500/20 text-gray-400"
+                                    : "bg-gray-500/20 text-gray-400"
                                 }`}
                               >
-                                {playerData.status === 'surrender'
-                                  ? 'SURRENDER'
+                                {playerData.status === "surrender"
+                                  ? "SURRENDER"
                                   : playerData.status
-                                      .replace('_', ' ')
+                                      .replace("_", " ")
                                       .toUpperCase()}
                               </div>
                             )}
                             {!isActive && (
-                              <div className='px-3 py-1 rounded-full text-sm font-semibold bg-gray-500/20 text-gray-400'>
+                              <div className="px-3 py-1 rounded-full text-sm font-semibold bg-gray-500/20 text-gray-400">
                                 INACTIVE
                               </div>
                             )}
                           </div>
-                          <div className='flex flex-col items-center mb-3 gap-2'>
+                          <div className="flex flex-col items-center mb-3 gap-2">
                             {/* Player cards - Use small/medium size with scale-125 */}
                             {isActive && (
                               <>
@@ -1685,34 +1721,34 @@ export default function DealerPage () {
                                 gameState.war_round?.original_cards?.players?.[
                                   playerId
                                 ] ? (
-                                  <div className='flex justify-center items-center gap-3'>
-                                    <div className='text-center mb-3'>
-                                      <div className='flex justify-center transform scale-125'>
+                                  <div className="flex justify-center items-center gap-3">
+                                    <div className="text-center mb-3">
+                                      <div className="flex justify-center transform scale-125">
                                         {renderCard(
                                           gameState.war_round?.original_cards
                                             ?.players?.[playerId],
-                                          'small'
+                                          "small"
                                         )}
                                       </div>
                                     </div>
                                     {playerData.war_card && (
-                                      <div className='text-center mb-3'>
-                                        <div className='flex justify-center transform scale-125'>
+                                      <div className="text-center mb-3">
+                                        <div className="flex justify-center transform scale-125">
                                           {renderCard(
                                             playerData.war_card,
-                                            'small'
+                                            "small"
                                           )}
                                         </div>
                                       </div>
                                     )}
                                   </div>
                                 ) : playerData.card ? (
-                                  <div className='transform scale-125'>
-                                    {renderCard(playerData.card, 'small')}
+                                  <div className="transform scale-125">
+                                    {renderCard(playerData.card, "small")}
                                   </div>
                                 ) : (
-                                  <div className='w-12 h-16 bg-black/15 rounded-lg flex items-center justify-center transform scale-125'>
-                                    <span className='text-white text-lg'>
+                                  <div className="w-12 h-16 bg-black/15 rounded-lg flex items-center justify-center transform scale-125">
+                                    <span className="text-white text-lg">
                                       ?
                                     </span>
                                   </div>
@@ -1720,19 +1756,19 @@ export default function DealerPage () {
                               </>
                             )}
                             {!isActive && (
-                              <div className='w-12 h-16 bg-black/15 rounded-lg flex items-center justify-center transform scale-125'>
-                                <span className='text-white text-lg'>?</span>
+                              <div className="w-12 h-16 bg-black/15 rounded-lg flex items-center justify-center transform scale-125">
+                                <span className="text-white text-lg">?</span>
                               </div>
                             )}
                           </div>
 
                           {isActive &&
-                            gameState.game_mode === 'live' &&
+                            gameState.game_mode === "live" &&
                             (gameState.round_active || !playerData.card) &&
                             (!gameState.war_round ||
                               gameState.war_round_active ||
                               !gameState.war_round.original_cards) && (
-                              <div className='mt-4 space-y-3'>
+                              <div className="mt-4 space-y-3">
                                 {/* <input 
                           type="text" 
                           placeholder="Card (e.g., AS, KH)"
@@ -1767,49 +1803,49 @@ export default function DealerPage () {
                             <div
                               className={`text-center mt-3 px-4 py-2 rounded-lg text-sm font-bold
                             transform transition-all duration-200 shadow ${
-                              playerData.result === 'win'
-                                ? 'bg-gradient-to-r from-green-700/80 to-green-500/80 text-white border-green-400 shadow-green-900/50'
-                                : playerData.result === 'lose'
-                                ? 'bg-gradient-to-r from-red-700/80 to-red-500/80 text-white border-red-400 shadow-red-900/50'
-                                : playerData.result === 'surrender'
-                                ? 'bg-gradient-to-r from-gray-700/80 to-gray-500/80 text-gray-200 border-gray-400 shadow-gray-900/50'
-                                : 'bg-gradient-to-r from-yellow-600/80 to-amber-500/80 text-white border-yellow-400 shadow-amber-900/50'
+                              playerData.result === "win"
+                                ? "bg-gradient-to-r from-green-700/80 to-green-500/80 text-white border-green-400 shadow-green-900/50"
+                                : playerData.result === "lose"
+                                ? "bg-gradient-to-r from-red-700/80 to-red-500/80 text-white border-red-400 shadow-red-900/50"
+                                : playerData.result === "surrender"
+                                ? "bg-gradient-to-r from-gray-700/80 to-gray-500/80 text-gray-200 border-gray-400 shadow-gray-900/50"
+                                : "bg-gradient-to-r from-yellow-600/80 to-amber-500/80 text-white border-yellow-400 shadow-amber-900/50"
                             }`}
                             >
-                              <div className='flex items-center justify-center gap-2'>
-                                {playerData.result === 'win' && (
-                                  <span className='text-yellow-300'>🏆</span>
+                              <div className="flex items-center justify-center gap-2">
+                                {playerData.result === "win" && (
+                                  <span className="text-yellow-300">🏆</span>
                                 )}
-                                {playerData.result === 'lose' && (
+                                {playerData.result === "lose" && (
                                   <span>❌</span>
                                 )}
-                                {playerData.result === 'surrender' && (
+                                {playerData.result === "surrender" && (
                                   <span>🏳️</span>
                                 )}
-                                {playerData.result !== 'win' &&
-                                  playerData.result !== 'lose' &&
-                                  playerData.result !== 'surrender' && (
+                                {playerData.result !== "win" &&
+                                  playerData.result !== "lose" &&
+                                  playerData.result !== "surrender" && (
                                     <span>⚠️</span>
                                   )}
-                                <span className='tracking-wider'>
-                                  {playerData.result === 'surrender'
-                                    ? 'SURRENDER'
+                                <span className="tracking-wider">
+                                  {playerData.result === "surrender"
+                                    ? "SURRENDER"
                                     : playerData.result.toUpperCase()}
                                 </span>
                               </div>
                             </div>
                           )}
                         </motion.div>
-                      )
+                      );
                     }
                   )}
 
                   {/* Keep the original fallback message if no players exist, but this won't show now since we always show 6 placeholders */}
                   {Object.keys(gameState.players).length === 0 && false && (
-                    <div className='col-span-full text-center py-8 text-gray-400'>
-                      <div className='text-4xl mb-3'>🎲</div>
-                      <p className='text-lg'>No players at the table</p>
-                      <p className='text-xs'>Add players to start the game</p>
+                    <div className="col-span-full text-center py-8 text-gray-400">
+                      <div className="text-4xl mb-3">🎲</div>
+                      <p className="text-lg">No players at the table</p>
+                      <p className="text-xs">Add players to start the game</p>
                     </div>
                   )}
                 </div>
@@ -1879,8 +1915,8 @@ export default function DealerPage () {
       `}</style>
 
       {/* Bottom disclaimer - Marquee */}
-      <div className='absolute bottom-0 w-full bg-[#450a03] text-white text-xl sm:text-xs py-1 overflow-hidden'>
-        <div className='whitespace-nowrap animate-marquee'>
+      <div className="absolute bottom-0 w-full bg-[#450a03] text-white text-xl sm:text-xs py-1 overflow-hidden">
+        <div className="whitespace-nowrap animate-marquee">
           THIS IS AN ELECTRONIC GAME INCASE OF ANY GRIEVANCES THE MANAGEMENT
           DECISION WILL BE FINAL &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; •
           &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; THIS IS AN ELECTRONIC GAME INCASE OF
@@ -1893,5 +1929,5 @@ export default function DealerPage () {
         </div>
       </div>
     </div>
-  )
+  );
 }
